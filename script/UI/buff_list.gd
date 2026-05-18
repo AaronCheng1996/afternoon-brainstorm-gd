@@ -28,7 +28,7 @@ func show_buffs(buff_list: Array) -> void:
 		if buff.show_value:
 			var lbl_value = Label.new()
 			lbl_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl_value.vertical_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lbl_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			lbl_value.size = icon.size
 			lbl_value.position.y = -icon.size.y
 			lbl_value.text = str(buff.value)

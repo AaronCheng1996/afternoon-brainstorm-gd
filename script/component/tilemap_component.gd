@@ -12,11 +12,11 @@ func _ready() -> void:
 	#生成棋盤
 	for x in gird_size:
 		for y in gird_size:
-			dic[str(Vector2(x + 2, y + 2))] = "board"
+			dic[str(Vector2i(x + 2, y + 2))] = "board"
 	#生成手上空間
 	for x in hand_size:
-		dic[str(Vector2(x, 0))] = "hand"
-		dic[str(Vector2(x, 7))] = "hand"
+		dic[str(Vector2i(x, 0))] = "hand"
+		dic[str(Vector2i(x, 7))] = "hand"
 
 
 func _process(delta: float) -> void:
@@ -51,17 +51,17 @@ func highlight_valid_tiles(targets: Array) -> void:
 func reset(layer: int) -> void:
 	for x in gird_size:
 		for y in gird_size:
-			erase_cell(layer, Vector2(x + 2, y + 2))
+			erase_cell(layer, Vector2i(x + 2, y + 2))
 	for x in hand_size:
-		erase_cell(layer, Vector2(x, 0))
-		erase_cell(layer, Vector2(x, 7))
+		erase_cell(layer, Vector2i(x, 0))
+		erase_cell(layer, Vector2i(x, 7))
 
 #點擊時
 func _on_board_gui_input(event: InputEvent) -> void:
 	if event.is_action_pressed("mouse_left"):
 		var tile = local_to_map(get_local_mouse_position())
 		if dic.has(str(tile)):
-			emit_signal("tile_selected", tile)
+			tile_selected.emit(tile)
 
 #判斷是否在棋盤上
 func is_on_board(location: Vector2i) -> bool:

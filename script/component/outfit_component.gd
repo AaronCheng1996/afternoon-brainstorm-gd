@@ -110,5 +110,5 @@ func refresh_value(atk: int, default: int) -> void:
 	if txt_value == null:
 		return
 	var text = str(atk)
-	Global.set_font_color(text, Global.get_font_color(atk, default))
-	txt_value.text = Global.set_font_center(Global.set_font_size(text, txt_size))
+	var colored = Global.set_font_color(text, Global.get_font_color(atk, default))
+	txt_value.text = Global.set_font_center(Global.set_font_size(colored, txt_size))

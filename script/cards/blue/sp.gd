@@ -29,7 +29,7 @@ func _process(delta: float) -> void:
 func on_piece_set() -> void:
 	super.on_piece_set()
 	#攻擊隨機敵人
-	for i in range(count + 2): #預設 1 次 + 自己在場上 1 次
+	for i in range(count):
 		var enemy = get_random_enemy()
 		attack_component.hit(enemy, hit_value - attack_component.atk)
 		if not enemy == null:

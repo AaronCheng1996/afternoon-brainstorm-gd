@@ -1,7 +1,7 @@
 extends Spell
 class_name Heal
 
-var value : int = 8
+var value : int = 6
 
 func _init() -> void:
 	show_name = Global.data.card.spell_and_token.heal.show_name

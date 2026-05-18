@@ -115,7 +115,7 @@ func discard(card: Card) -> void:
 func reshuffle() -> void:
 	deck.append_array(grave)
 	grave.clear()
-	Global.shuffle_deck(deck)
+	deck = Global.shuffle_deck(deck)
 
 #特殊勝利
 func win() -> void:

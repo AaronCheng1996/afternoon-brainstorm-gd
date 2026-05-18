@@ -7,7 +7,7 @@ class_name BeamAttack
 
 var start_position = Vector2(0, 0)
 var end_position = Vector2(0, 0)
-const offset = Vector2(9, 0)
+var offset = Vector2(9, 0)
 
 func _ready() -> void:
 	beam.clear_points()
@@ -19,7 +19,7 @@ func _ready() -> void:
 	
 	var direction = end_position - start_position
 	var angle = direction.angle()
-	offset.rotated(angle)
+	offset = offset.rotated(angle)
 	beam.position -= offset
 	start_point.rotate(angle)
 	end_point.rotate(angle)

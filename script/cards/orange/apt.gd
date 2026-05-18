@@ -24,7 +24,7 @@ func after_move() -> void:
 	var attack_buff = AttackBuff.new()
 	attack_buff.show_name = Global.data.buff.attack_buff.name
 	attack_buff.description = Global.data.buff.attack_buff.description.format([str(health_component.shield * trans_rate / 100)])
-	attack_buff.tag.append_array([Global.BuffTag.BUFF, Global.BuffTag])
+	attack_buff.tag.append_array([Global.BuffTag.BUFF, Global.BuffTag.ORANGE])
 	attack_buff.value = health_component.shield * trans_rate / 100
 	health_component.shield -= attack_buff.value
 	add_buff(attack_buff)

@@ -97,7 +97,7 @@ const card_groups = {
 #攻擊
 enum PatternNames {CROSS, CROSS_LARGE, X, X_LARGE, NEARBY, NEAREST, FAREST, ALL, NONE}
 #buff
-enum BuffTag {DEBUFF, BUFF, STUN, MOVE, RED, GREEN}
+enum BuffTag {DEBUFF, BUFF, STUN, MOVE, RED, GREEN, ORANGE}
 const buff_icon = {
 	"stun": {
 		"default": "res://img/UI/buff/stun.png",
