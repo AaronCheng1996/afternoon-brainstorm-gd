@@ -161,6 +161,8 @@ var ready_color := Color.ORANGE
 #endregion
 
 #region 通用變數
+#除錯模式：Debug Build 下自動開啟，也可手動設為 true
+var DEBUG : bool = OS.is_debug_build()
 #種子碼、隨機數產生器
 var seed : int
 var rng = RandomNumberGenerator.new()
@@ -170,9 +172,8 @@ var data := {}
 var player_list := []
 var winner : int = -1
 #棋盤資訊
-var gird_size : int = 4
+var grid_size : int = 4
 var board_dic := {}
-var board_pieces := []
 #endregion
 
 #region 通用函式
@@ -200,11 +201,18 @@ func get_match_scene() -> Node:
 func get_opponent(player: Player) -> Player:
 	var player_list = get_tree().get_nodes_in_group("board")[0].player_list
 	return player_list[(player.id + 1) % 2]
+#取得場上所有棋子
+func get_board_pieces() -> Array:
+	var pieces = []
+	for v in board_dic.values():
+		if not v is int:
+			pieces.append(v)
+	return pieces
 #取得顯示的牌
 func get_show_pieces(player: Player) -> Array:
 	var result = []
 	result.append_array(player.hand)
-	result.append_array(board_pieces.filter(func(element):
+	result.append_array(get_board_pieces().filter(func(element):
 		if element.card_owner == null:
 			return false
 		return element.card_owner.id == player.id
@@ -212,7 +220,7 @@ func get_show_pieces(player: Player) -> Array:
 	return result
 #是否有特定牌
 func has_piece_on_board(piece_name: String, player: Player = null) -> bool:
-	for piece: Card in board_pieces:
+	for piece: Card in get_board_pieces():
 		if not piece.show_name == piece_name:
 			continue
 		if player == null:
@@ -223,7 +231,7 @@ func has_piece_on_board(piece_name: String, player: Player = null) -> bool:
 #取得特定牌
 func get_piece_on_board(piece_name: String, player: Player = null) -> Array:
 	var result = []
-	for piece: Card in board_pieces:
+	for piece: Card in get_board_pieces():
 		if not piece.show_name == piece_name:
 			continue
 		if player == null:
@@ -237,28 +245,18 @@ func get_all_pieces(player: Player) -> Array:
 	result.append_array(player.deck)
 	result.append_array(player.grave)
 	result.append_array(player.hand)
-	result.append_array(board_pieces.filter(func(element):
+	result.append_array(get_board_pieces().filter(func(element):
 		if element.card_owner == null:
 			return false
 		return element.card_owner.id == player.id
 	))
 	return result
-#座標轉換
-func string_to_vector2i(string_value: String) -> Vector2i:
-	var regex = RegEx.new()
-	regex.compile(r"\((\d+), (\d+)\)")
-	var match_string = regex.search(string_value)
-	if match_string:
-		var x = int(match_string.get_string(1))
-		var y = int(match_string.get_string(2))
-		return Vector2i(x, y)
-	return Vector2i.ZERO
 #取得空格
 func get_empty_slots() -> Array:
 	var result = []
-	for location in board_dic.keys():
+	for location: Vector2i in board_dic.keys():
 		if board_dic[location] is int:
-			result.append(string_to_vector2i(location))
+			result.append(location)
 	return result
 #取得隨機空格
 func get_random_empty_slot() -> Vector2i:
@@ -313,14 +311,14 @@ func piece_moved(piece_moved: Piece) -> void:
 		Global.data.card.orange.sp.show_name,
 		Global.data.card.orange.hero.show_name
 	]
-	for piece: Card in Global.get_all_pieces(piece_moved.card_owner):
+	for piece: Card in get_all_pieces(piece_moved.card_owner):
 		if trigger_list.has(piece.show_name):
 			piece.trigger_effect(piece_moved)
 	#觸發敵方效果
 	var trigger_list_2 = [
 		Global.data.card.purple.tank.show_name
 	]
-	for piece: Card in Global.get_show_pieces(get_opponent(piece_moved.card_owner)):
+	for piece: Card in get_show_pieces(get_opponent(piece_moved.card_owner)):
 		if trigger_list_2.has(piece.show_name):
 			piece.trigger_effect(piece_moved)
 #endregion

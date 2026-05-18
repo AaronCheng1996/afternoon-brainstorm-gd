@@ -8,7 +8,7 @@ func _init() -> void:
 	piece_type = Global.PieceType.AP
 
 func _on_attack_component_on_hit(target: Piece) -> void:
-	if not target.has_node("BuffComponent"):
+	if not target.buff_component:
 		return
 	#給予暈眩
 	if not target.buff_component.has_buff(Global.data.buff.stun.name): #不疊加

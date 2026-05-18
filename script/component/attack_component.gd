@@ -9,7 +9,7 @@ signal on_kill(target: Piece)
 var atk : int
 @export var ATK_PATTERN : Global.PatternNames
 
-var gird_size = 4
+var grid_size = 4
 
 func _ready() -> void:
 	atk = DEFAULT_ATK
@@ -66,10 +66,10 @@ func get_target_location(pieces: Array) -> Array:
 			target_location.append(piece.location)
 		return target_location
 	#AOE
-	for x in gird_size:
-		for y in gird_size:
-			if in_attack_range(attacker.location, Vector2(x + 2, y + 2)):
-				target_location.append(Vector2(x + 2, y + 2))
+	for x in grid_size:
+		for y in grid_size:
+			if in_attack_range(attacker.location, Vector2i(x + 2, y + 2)):
+				target_location.append(Vector2i(x + 2, y + 2))
 	
 	return target_location
 

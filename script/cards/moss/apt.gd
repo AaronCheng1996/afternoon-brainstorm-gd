@@ -32,7 +32,7 @@ func refresh() -> void:
 func attack() -> void:
 	buff_value_sum = 0
 	#額外傷害
-	attack_component.attack(Global.board_pieces.filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
+	attack_component.attack(Global.get_board_pieces().filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
 	#獲得符文
 	moss.add_rune(card_owner, health_component.shield * rate / 100)
 	#獲得護甲

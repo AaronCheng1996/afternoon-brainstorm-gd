@@ -21,6 +21,6 @@ func refresh() -> void:
 	super.refresh()
 	
 func attack() -> void:
-	if has_node("AttackComponent"):
-		attack_component.attack(Global.board_pieces.filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
+	if attack_component:
+		attack_component.attack(Global.get_board_pieces().filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
 	refresh()

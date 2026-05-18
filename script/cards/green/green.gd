@@ -104,7 +104,7 @@ func add_luck_buff(player: Player, value: int) -> void:
 func check_luck(target: Player) -> int:
 	if target == null:
 		return 0
-	if not target.has_node("BuffComponent"):
+	if not target.buff_component:
 		return 0
 	if not target.buff_component.has_buff(Global.data.buff.luck.name):
 		target.buff_component.add_buff(get_luck_buff())
@@ -125,21 +125,21 @@ func is_valid_event(target: Piece, event: EVENTS) -> bool:
 	match event:
 		#護盾
 		EVENTS.SHIELD:
-			if target.has_node("HealthComponent"):
+			if target.get("health_component"):
 				return true
 		#攻擊力雙倍
 		EVENTS.DOUBLE_ATK:
-			if not target.has_node("AttackComponent") or not target.has_node("BuffComponent"):
+			if not target.attack_component or not target.buff_component:
 				return false
 			return target.attack_component.atk > 0
 		#自動攻擊
 		EVENTS.TRIGGER_ATTACK: 
-			if not target.has_node("AttackComponent"):
+			if not target.attack_component:
 				return false
 			return target.attack_component.atk > 0
 		#移動
 		EVENTS.MOVE:
-			if not target.has_node("BuffComponent"):
+			if not target.buff_component:
 				return false
 			return not target.buff_component.has_buff(Global.data.buff.move.name)
 		#幸運箱
@@ -150,22 +150,24 @@ func is_valid_event(target: Piece, event: EVENTS) -> bool:
 			return true
 		#破甲
 		EVENTS.SHIELD_BREAK:
-			if not target.has_node("HealthComponent"):
+			var hp_break = target.get("health_component")
+			if not hp_break:
 				return false
-			return target.health_component.shield > 0
+			return hp_break.shield > 0
 		#血量減半
 		EVENTS.HALF_HEALTH:
-			if not target.has_node("HealthComponent"):
+			var hp_half = target.get("health_component")
+			if not hp_half:
 				return false
-			return target.health_component.health > 1
+			return hp_half.health > 1
 		#攻擊減半
 		EVENTS.HALF_ATK:
-			if not target.has_node("AttackComponent") or not target.has_node("BuffComponent"):
+			if not target.attack_component or not target.buff_component:
 				return false
 			return target.attack_component.atk > 0
 		#暈眩
 		EVENTS.STUNED:
-			if not target.has_node("BuffComponent"):
+			if not target.buff_component:
 				return false
 			return not target.buff_component.has_buff(Global.data.buff.stun.name)
 		#災厄
@@ -221,11 +223,15 @@ func event_effect(target: Piece, event: EVENTS) -> void:
 		#破甲
 		EVENTS.SHIELD_BREAK:
 			print("-破甲")
-			target.health_component.shield = 0
+			var hp_break = target.get("health_component")
+			if hp_break:
+				hp_break.shield = 0
 		#血量減半
 		EVENTS.HALF_HEALTH:
 			print("-血量減半")
-			target.health_component.health -= target.health_component.health / 2
+			var hp_half = target.get("health_component")
+			if hp_half:
+				hp_half.health -= hp_half.health / 2
 		#攻擊減半
 		EVENTS.HALF_ATK:
 			print("-攻擊減半")
@@ -248,8 +254,10 @@ func event_effect(target: Piece, event: EVENTS) -> void:
 			attack_debuff.tag.append_array([Global.BuffTag.DEBUFF, Global.BuffTag.GREEN])
 			attack_debuff.value = -target.attack_component.atk / 2
 			target.add_buff(attack_debuff)
-			target.health_component.shield = 0
-			target.health_component.health -= target.health_component.health / 2
+			var hp_doom = target.get("health_component")
+			if hp_doom:
+				hp_doom.shield = 0
+				hp_doom.health -= hp_doom.health / 2
 			target.add_buff(Global.get_stun_debuff())
 
 #生成幸運箱

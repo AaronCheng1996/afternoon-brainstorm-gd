@@ -11,10 +11,10 @@ func _init() -> void:
 #取得可放置範圍
 func get_valid_location() -> Array:
 	var result := []
-	for piece: Piece in Global.board_pieces:
+	for piece: Piece in Global.get_board_pieces():
 		result.append(piece.location)
 	return result
 
 #效果
 func effect(target: Vector2i) -> void:
-	Global.board_dic[str(target)].heal(value, self)
+	Global.board_dic[target].heal(value, self)

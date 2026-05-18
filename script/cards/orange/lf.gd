@@ -8,7 +8,7 @@ func _init() -> void:
 	piece_type = Global.PieceType.LF
 
 func refresh() -> void:
-	if has_node("AttackComponent"):
+	if attack_component:
 		var text = str(attack_component.atk)
 		text = Global.set_font_color(text, Global.get_font_color(attack_component.atk, attack_component.DEFAULT_ATK))
 		description = Global.data.card.orange.lf.description.format([text])

@@ -40,31 +40,33 @@ func show_card_detail(card: Card) -> void:
 	card_data = card
 	show()
 	#圖示
-	if card.has_node("OutfitComponent"):
-		card_icon.texture = card.outfit_component.icon.texture
-		card_icon.frame = card.outfit_component.icon.frame
+	var outfit = card.get("outfit_component")
+	if outfit:
+		card_icon.texture = outfit.icon.texture
+		card_icon.frame = outfit.icon.frame
 	#名稱、敘述
 	lbl_card_name.text = Global.set_font_size(Global.set_font_center(card.show_name), lbl_name_size)
 	lbl_card_description.text = Global.set_font_size(Global.set_font_center(card.description), lbl_description_size)
 	lbl_hint.text = "[i]" + Global.set_font_size(Global.set_font_center(Global.set_font_color(card.hint, lbl_hint_color)), lbl_hint_size) + "[/i]"
 	lbl_hint.show()
 	#最大生命、生命
-	if card.has_node("HealthComponent"):
+	var hp = card.get("health_component")
+	if hp:
 		health_states.show()
 		max_health_state.show()
-		max_health_state.default_value = card.health_component.DEAFULT_MAX_HEALTH
-		max_health_state.value = card.health_component.max_health
+		max_health_state.default_value = hp.DEFAULT_MAX_HEALTH
+		max_health_state.value = hp.max_health
 		max_health_state.refresh_value_text()
 		#血條
-		health_bar.max_value = card.health_component.max_health
-		health_bar.value = card.health_component.health
-		health.text = "{0} / {1}".format([str(card.health_component.health), str(card.health_component.max_health)])
+		health_bar.max_value = hp.max_health
+		health_bar.value = hp.health
+		health.text = "{0} / {1}".format([str(hp.health), str(hp.max_health)])
 		#護盾
-		if card.health_component.shield > 0:
+		if hp.shield > 0:
 			shield_icon.show()
 			shield.show()
 			shield_effect.show()
-			shield.text = str(card.health_component.shield)
+			shield.text = str(hp.shield)
 		else:
 			shield_icon.hide()
 			shield.hide()
@@ -73,14 +75,15 @@ func show_card_detail(card: Card) -> void:
 		health_states.hide()
 		max_health_state.hide()
 	#攻擊力、攻擊模式
-	if card.has_node("AttackComponent"):
+	var atk = card.get("attack_component")
+	if atk:
 		attack_state.show()
 		pattern_state.show()
-		attack_state.default_value = card.attack_component.DEFAULT_ATK
-		attack_state.value = card.attack_component.atk
+		attack_state.default_value = atk.DEFAULT_ATK
+		attack_state.value = atk.atk
 		attack_state.refresh_value_text()
 		#補上pattern_state圖示
-		match card.attack_component.ATK_PATTERN:
+		match atk.ATK_PATTERN:
 			Global.PatternNames.CROSS:
 				pattern_state.txt_icon_texture = load("res://img/UI/attack_pattern/cross.png")
 			Global.PatternNames.CROSS_LARGE:
@@ -104,9 +107,10 @@ func show_card_detail(card: Card) -> void:
 		attack_state.hide()
 		pattern_state.hide()
 	#Buff
-	if card.has_node("BuffComponent"):
-		buff_icon_list.show_buffs(card.buff_component.active_buffs)
-		if card.buff_component.active_buffs.size() > 0:
+	var buff = card.get("buff_component")
+	if buff:
+		buff_icon_list.show_buffs(buff.active_buffs)
+		if buff.active_buffs.size() > 0:
 			lbl_hint.hide()
 	else:
 		buff_icon_list.show_buffs([])

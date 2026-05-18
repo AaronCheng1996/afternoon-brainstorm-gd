@@ -5,7 +5,7 @@ class_name Moss
 func add_rune(player: Player, value: int = 1) -> void:
 	if player == null:
 		return
-	if not player.has_node("BuffComponent"):
+	if not player.buff_component:
 		return
 	if value == 0:
 		return
@@ -21,7 +21,7 @@ func add_rune(player: Player, value: int = 1) -> void:
 func get_rune_count(player: Player) -> int:
 	if player == null:
 		return 0
-	if not player.has_node("BuffComponent"):
+	if not player.buff_component:
 		return 0
 	if not player.buff_component.has_buff(Global.data.buff.rune.name):
 		player.buff_component.add_buff(get_rune_buff())

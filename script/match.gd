@@ -106,9 +106,9 @@ func draw_starter_hand() -> void:
 	
 #生成棋盤陣列
 func create_board_dic() -> void:
-	for x in Global.gird_size:
-		for y in Global.gird_size:
-			Global.board_dic[str(Vector2i(x + 2, y + 2))] = 0
+	for x in Global.grid_size:
+		for y in Global.grid_size:
+			Global.board_dic[Vector2i(x + 2, y + 2)] = 0
 	tilemap.tile_selected.connect(_on_tile_clicked)
 
 #顯示被選取的詳細資料
@@ -134,7 +134,7 @@ func tilemap_display() -> void:
 func score_display() -> void:
 	for player in range(player_list.size()):
 		var score : int = 0
-		for piece: Piece in Global.board_pieces:
+		for piece: Piece in Global.get_board_pieces():
 			score += piece.get_score(player)
 		var color : Color
 		if player == current_player:
@@ -147,7 +147,7 @@ func score_display() -> void:
 func on_draw_card(player: Player, card: Card) -> void:
 	pieces_in_hand.add_child(card)
 	#設定外觀與連結
-	if card.has_node("OutfitComponent"):
+	if card.outfit_component:
 		card.outfit_component.set_player_effect(player.id)
 		card.outfit_component.card_selected.connect(_on_card_selected)
 		card.outfit_component.piece_attack.connect(_on_piece_attack)
@@ -339,11 +339,13 @@ func _on_btn_turn_end_pressed() -> void:
 func _on_btn_show_all_toggled(toggled_on: bool) -> void:
 	always_show = toggled_on
 	for piece: Piece in pieces_on_board.get_children():
-		if piece.has_node("HealthComponent"):
-			piece.health_component.always_show = toggled_on
-			piece.health_component.health_display.visible = toggled_on
-		if piece.has_node("OutfitComponent"):
-			piece.outfit_component.txt_value.visible = toggled_on
+		var hp = piece.get("health_component")
+		if hp:
+			hp.always_show = toggled_on
+			hp.health_display.visible = toggled_on
+		var outfit = piece.get("outfit_component")
+		if outfit:
+			outfit.txt_value.visible = toggled_on
 #endregion
 
 #region 選定/移動
@@ -373,11 +375,10 @@ func move_piece_to_board(piece: Piece, location: Vector2i) -> void:
 		return
 	if not piece.card_owner.id == current_player: #不能移動對手的棋子
 		return
-	if Global.board_dic[str(location)] is not int: #該格子已有棋子
+	if Global.board_dic[location] is not int: #該格子已有棋子
 		return
 	#上場
-	Global.board_dic[str(location)] = piece
-	Global.board_pieces.append(piece)
+	Global.board_dic[location] = piece
 	piece.card_owner.hand.pop_at(piece.location.x)
 	#棋子設定
 	pieces_in_hand.remove_child(piece)
@@ -393,18 +394,17 @@ func move_piece_to_board(piece: Piece, location: Vector2i) -> void:
 func add_piece_to_board(piece: Piece, location: Vector2i) -> bool:
 	if not is_on_board(location): #目標位置不在場上
 		return false
-	if Global.board_dic[str(location)] is not int: #該格子已有棋子
+	if Global.board_dic[location] is not int: #該格子已有棋子
 		return false
 	#上場
-	Global.board_dic[str(location)] = piece
-	Global.board_pieces.append(piece)
+	Global.board_dic[location] = piece
 	pieces_on_board.add_child(piece)
 	#棋子設定
 	piece.position = tilemap.map_to_local(location)
 	piece.location = location
 	piece.is_on_board = true
 	#設定外觀與連結
-	if piece.has_node("OutfitComponent"):
+	if piece.outfit_component:
 		piece.outfit_component.card_selected.connect(_on_card_selected)
 		piece.outfit_component.mouse_in_icon.connect(_on_mouse_in_icon)
 		piece.outfit_component.mouse_out_icon.connect(_on_mouse_out_icon)
@@ -424,8 +424,8 @@ func move_piece(piece: Piece, location: Vector2i) -> void:
 	if not piece.get_move_location().has(location): #不在移動範圍內
 		return
 	#移動棋子
-	Global.board_dic[str(piece.location)] = 0
-	Global.board_dic[str(location)] = piece
+	Global.board_dic[piece.location] = 0
+	Global.board_dic[location] = piece
 	piece.position = tilemap.map_to_local(location)
 	piece.location = location
 	#移除移動buff並離開移動模式
@@ -438,14 +438,15 @@ func move_piece(piece: Piece, location: Vector2i) -> void:
 #region 選定/移動工具
 #棋子上場外觀處理
 func piece_on_board_set(piece: Piece) -> void:
-	if piece.has_node("OutfitComponent"):
+	if piece.outfit_component:
 		if not piece.card_owner == null:
 			piece.outfit_component.player_effect.show()
 	if always_show:
-		if piece.has_node("HealthComponent"):
-			piece.health_component.always_show = true
-			piece.health_component.health_display.show()
-		if piece.has_node("OutfitComponent"):
+		var hp = piece.get("health_component")
+		if hp:
+			hp.always_show = true
+			hp.health_display.show()
+		if piece.outfit_component:
 			piece.outfit_component.txt_value.show()
 #endregion
 

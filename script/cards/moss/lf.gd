@@ -23,7 +23,7 @@ func refresh() -> void:
 func on_piece_set() -> void:
 	var temp = attack_component.atk
 	attack_component.atk = 0
-	attack_component.attack(Global.board_pieces.filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
+	attack_component.attack(Global.get_board_pieces().filter(filter_opponent_piece), moss.get_rune_count(card_owner) * rate / 100)
 	attack_component.atk = temp
 	super.on_piece_set()
 

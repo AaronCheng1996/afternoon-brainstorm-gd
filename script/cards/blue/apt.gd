@@ -11,9 +11,9 @@ func _init() -> void:
 	piece_type = Global.PieceType.APT
 
 func refresh() -> void:
-	if has_node("HealthComponent"):
+	if health_component:
 		var text = str(health_component.shield / 4)
-		text = Global.set_font_color(text, Global.get_font_color(health_component.shield / 4, health_component.DEAFULT_SHIELD / 4))
+		text = Global.set_font_color(text, Global.get_font_color(health_component.shield / 4, health_component.DEFAULT_SHIELD / 4))
 		description = Global.data.card.blue.apt.description.format([str(buff_value), text])
 	super.refresh()
 

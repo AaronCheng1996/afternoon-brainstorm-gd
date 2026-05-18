@@ -14,10 +14,8 @@ func _init() -> void:
 func effect(target: Vector2i) -> void:
 	var cube = CUBE_TOKEN.instantiate()
 	cube.card_owner = null
-	emit_signal("add_piece_to_board", cube, target)
+	add_piece_to_board.emit(cube, target)
 
-#施放完
+#施放完（不進墓地）
 func used() -> void:
-	get_parent().remove_child(self)
-	card_owner.hand.pop_at(card_owner.hand.find(self))
-	emit_signal("leave_hand", card_owner)
+	_leave_hand()

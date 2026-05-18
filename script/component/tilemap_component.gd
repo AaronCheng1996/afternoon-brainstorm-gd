@@ -1,7 +1,7 @@
 extends TileMap
 
 signal tile_selected(tile)
-var gird_size = 4
+var grid_size = 4
 var hand_size = 8
 var dic = {}
 var card_select : Card = null
@@ -10,8 +10,8 @@ var current_player : int = -1
 
 func _ready() -> void:
 	#生成棋盤
-	for x in gird_size:
-		for y in gird_size:
+	for x in grid_size:
+		for y in grid_size:
 			dic[str(Vector2i(x + 2, y + 2))] = "board"
 	#生成手上空間
 	for x in hand_size:
@@ -30,7 +30,7 @@ func _process(delta: float) -> void:
 			return
 		if card_select.card_owner.id != current_player: #排除對方棋子
 			return
-		if card_select.has_node("OutfitComponent"): #排除在場上且不能移動時
+		if card_select.outfit_component: #排除在場上且不能移動時
 			if card_select.outfit_component.move_button.disabled and is_on_board(card_select.location):
 				return
 		#顯示可動目標
@@ -49,8 +49,8 @@ func highlight_valid_tiles(targets: Array) -> void:
 
 #清除特定圖層
 func reset(layer: int) -> void:
-	for x in gird_size:
-		for y in gird_size:
+	for x in grid_size:
+		for y in grid_size:
 			erase_cell(layer, Vector2i(x + 2, y + 2))
 	for x in hand_size:
 		erase_cell(layer, Vector2i(x, 0))

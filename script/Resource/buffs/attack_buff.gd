@@ -6,14 +6,17 @@ func apply_buff(target):
 		icon_path = Global.buff_icon.attack_buff
 	else:
 		icon_path = Global.buff_icon.attack_debuff
-	if target.has_node("AttackComponent"):
-		target.attack_component.atk += value
+	var atk = target.get("attack_component")
+	if atk:
+		atk.atk += value
 
 func remove_buff(target):
-	if target.has_node("AttackComponent"):
-		target.attack_component.atk -= value
+	var atk = target.get("attack_component")
+	if atk:
+		atk.atk -= value
 
 func add_value(target, add):
 	super.add_value(target, add)
-	if target.has_node("AttackComponent"):
-		target.attack_component.atk += add
+	var atk = target.get("attack_component")
+	if atk:
+		atk.atk += add

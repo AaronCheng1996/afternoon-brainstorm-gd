@@ -12,7 +12,7 @@ func _init() -> void:
 
 #攻擊時為最近友方附加+1/+1
 func attack() -> void:
-	if has_node("AttackComponent"):
+	if attack_component:
 		super.attack()
 		#buff
 		red.attack_buff(buff_value, self)

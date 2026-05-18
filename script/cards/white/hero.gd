@@ -51,10 +51,10 @@ func transform(piece: Piece) -> Piece:
 	#保留攻擊
 	new_piece.attack_component.DEFAULT_ATK = piece.attack_component.DEFAULT_ATK
 	#保留體質
-	new_piece.health_component.DEAFULT_MAX_HEALTH = piece.health_component.DEAFULT_MAX_HEALTH
-	new_piece.health_component.DEAFULT_SHIELD = piece.health_component.DEAFULT_SHIELD
+	new_piece.health_component.DEFAULT_MAX_HEALTH = piece.health_component.DEFAULT_MAX_HEALTH
+	new_piece.health_component.DEFAULT_SHIELD = piece.health_component.DEFAULT_SHIELD
 	#保留得分
-	new_piece.score_component.DEAFULT_SCORE = piece.score_component.DEAFULT_SCORE
+	new_piece.score_component.DEFAULT_SCORE = piece.score_component.DEFAULT_SCORE
 	new_piece.renew()
 	self.remove_child(new_piece)
 

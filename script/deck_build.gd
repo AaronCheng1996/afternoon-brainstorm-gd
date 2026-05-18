@@ -41,7 +41,6 @@ func _ready() -> void:
 		highlight[i].color = Global.player_color[i]
 	#初始化牌組
 	Global.board_dic = {}
-	Global.board_pieces = []
 	#建立選牌派別群組
 	set_groups()
 	refresh()
@@ -183,7 +182,7 @@ func show_deck() -> void:
 		card.queue_free()
 	for deck in decks:
 		for object in deck.get_children():
-			if object.get_class() == "Control":
+			if object is CardIcon:
 				object.queue_free()
 	#建立新牌圖示
 	for player in range(player_list.size()): #每個玩家

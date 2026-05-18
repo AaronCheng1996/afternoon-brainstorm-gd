@@ -18,7 +18,7 @@ func _init() -> void:
 func _process(delta: float) -> void:
 	if card_owner != null:
 		count = 0
-		count += Global.board_pieces.filter(filter_ally_piece).size()
+		count += Global.get_board_pieces().filter(filter_ally_piece).size()
 		count += card_owner.grave.size()
 		if (count != count_show):
 			count_show = count

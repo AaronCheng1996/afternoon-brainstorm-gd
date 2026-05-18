@@ -35,7 +35,7 @@ func create_buff(buff_name: String, value: int) -> Buff:
 
 #給予增益
 func add_buff(buff_name: String, value: int, piece: Piece) -> void:
-	if not piece.has_node("BuffComponent"):
+	if not piece.buff_component:
 		return
 	var buff = piece.buff_component.get_buff(buff_name, [Global.BuffTag.RED])
 	if buff == null:

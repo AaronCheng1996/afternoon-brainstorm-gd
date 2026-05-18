@@ -16,7 +16,7 @@ outfit_component = NodePath("OutfitComponent")
 DEFAULT_ATK = 0
 
 [node name="HealthComponent" parent="." instance=ExtResource("3_vcdsx")]
-DEAFULT_MAX_HEALTH = 4
+DEFAULT_MAX_HEALTH = 4
 
 [node name="OutfitComponent" parent="." instance=ExtResource("4_ao5b1")]
 icon_texture = ExtResource("5_tg0eh")

@@ -64,8 +64,9 @@ func has_card(name: String) -> bool:
 	for i in range(hand.size()):
 		if hand[i].show_name == name:
 			return true
-	for i in range(Global.board_pieces.size()):
-		if Global.board_pieces[i].show_name == name and Global.board_pieces[i].card_owner.id == id:
+	var board = Global.get_board_pieces()
+	for i in range(board.size()):
+		if board[i].show_name == name and board[i].card_owner.id == id:
 			return true
 	return false
 

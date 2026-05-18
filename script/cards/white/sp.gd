@@ -9,6 +9,6 @@ func _init() -> void:
 
 func refresh() -> void:
 	var text = str(score_component.score - 1)
-	text = Global.set_font_color(text, Global.get_font_color(score_component.score, score_component.DEAFULT_SCORE))
+	text = Global.set_font_color(text, Global.get_font_color(score_component.score, score_component.DEFAULT_SCORE))
 	description = Global.data.card.white.sp.description.format([text])
 	super.refresh()

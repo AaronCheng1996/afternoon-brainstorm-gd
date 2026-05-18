@@ -6,19 +6,22 @@ func apply_buff(target):
 		icon_path = Global.buff_icon.health_buff
 	else:
 		icon_path = Global.buff_icon.health_debuff
-	if target.has_node("HealthComponent"):
-		target.health_component.max_health += value
-		target.health_component.health += value
+	var hp = target.get("health_component")
+	if hp:
+		hp.max_health += value
+		hp.health += value
 
 func remove_buff(target):
-	if target.has_node("HealthComponent"):
-		target.health_component.max_health -= value
-		if target.health_component.health <= target.health_component.max_health:
+	var hp = target.get("health_component")
+	if hp:
+		hp.max_health -= value
+		if hp.health <= hp.max_health:
 			return
-		target.health_component.health = target.health_component.max_health
+		hp.health = hp.max_health
 
 func add_value(target, add):
 	super.add_value(target, add)
-	if target.has_node("HealthComponent"):
-		target.health_component.max_health += add
-		target.health_component.health += add
+	var hp = target.get("health_component")
+	if hp:
+		hp.max_health += add
+		hp.health += add

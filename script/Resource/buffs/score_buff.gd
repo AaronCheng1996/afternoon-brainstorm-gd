@@ -2,14 +2,17 @@ extends Buff
 class_name ScoreBuff
 
 func apply_buff(target):
-	if target.has_node("ScoreComponent"):
-		target.score_component.score += value
+	var score = target.get("score_component")
+	if score:
+		score.score += value
 
 func remove_buff(target):
-	if target.has_node("ScoreComponent"):
-		target.score_component.score -= value
+	var score = target.get("score_component")
+	if score:
+		score.score -= value
 
 func add_value(target, add):
 	super.add_value(target, add)
-	if target.has_node("ScoreComponent"):
-		target.score_component.score += value
+	var score = target.get("score_component")
+	if score:
+		score.score += add

@@ -18,7 +18,7 @@ buff_component = NodePath("BuffComponent")
 
 [node name="HealthComponent" parent="." instance=ExtResource("2_kjv1b")]
 unique_name_in_owner = true
-DEAFULT_MAX_HEALTH = 4
+DEFAULT_MAX_HEALTH = 4
 
 [node name="AttackComponent" parent="." instance=ExtResource("3_vwxt7")]
 unique_name_in_owner = true

@@ -8,12 +8,13 @@ func _init() -> void:
 	piece_type = Global.PieceType.AP
 
 func _on_attack_component_on_hit(target: Piece) -> void:
-	if not target.has_node("BuffComponent"):
+	if not target.buff_component:
 		return
 	#清除buff並暈眩
 	target.clear_buffs()
 	target.add_buff(Global.get_stun_debuff())
 	#破甲
-	if not target.has_node("HealthComponent"):
+	var hp = target.get("health_component")
+	if not hp:
 		return
-	target.health_component.shield = 0
+	hp.shield = 0

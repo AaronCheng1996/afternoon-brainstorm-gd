@@ -9,6 +9,5 @@ func _init() -> void:
 
 func die(true_death: bool = false) -> void:
 	#預留：動畫位置
-	Global.board_dic[str(location)] = 0
-	Global.board_pieces.erase(self)
+	Global.board_dic[location] = 0
 	emit_signal("piece_die", self)

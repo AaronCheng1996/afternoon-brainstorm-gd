@@ -2,5 +2,6 @@ extends Buff
 class_name Shielded
 
 func apply_buff(target):
-	if target.has_node("HealthComponent"):
-		target.health_component.shield += value
+	var hp = target.get("health_component")
+	if hp:
+		hp.shield += value

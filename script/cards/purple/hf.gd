@@ -13,7 +13,7 @@ func _init() -> void:
 func on_turn_start(current_turn: int) -> void:
 	if current_turn == card_owner.id:
 		var count = 0
-		for piece: Piece in Global.board_pieces.filter(filter_opponent_piece):
+		for piece: Piece in Global.get_board_pieces().filter(filter_opponent_piece):
 			if attack_component.in_attack_range(location, piece.location):
 				count += 1
 		card_owner.add_attack_count(count / 3)

@@ -17,11 +17,11 @@ signal death()
 var always_show : bool = false
 
 #生命
-@export var DEAFULT_MAX_HEALTH : int = 10
+@export var DEFAULT_MAX_HEALTH : int = 10
 var max_health : int
 var health : int
 #護盾
-@export var DEAFULT_SHIELD : int = 0
+@export var DEFAULT_SHIELD : int = 0
 var shield : int
 #血條動畫時間
 var hurtbar_animation_time : float = 0.3
@@ -30,9 +30,9 @@ var healthbar_wait_time : float = 0.5
 func _ready() -> void:
 	if not always_show:
 		health_display.hide()
-	max_health = DEAFULT_MAX_HEALTH
+	max_health = DEFAULT_MAX_HEALTH
 	health = max_health
-	shield = DEAFULT_SHIELD
+	shield = DEFAULT_SHIELD
 	hurtbar.max_value = max_health
 	hurtbar.value = health
 	healthbar.max_value = max_health

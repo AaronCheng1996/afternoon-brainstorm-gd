@@ -23,7 +23,7 @@ ATK_PATTERN = 8
 [node name="BuffComponent" parent="." instance=ExtResource("3_yv2g6")]
 
 [node name="HealthComponent" parent="." instance=ExtResource("4_vj4ev")]
-DEAFULT_MAX_HEALTH = 1
+DEFAULT_MAX_HEALTH = 1
 
 [node name="OutfitComponent" parent="." instance=ExtResource("5_r0rxy")]
 icon_texture = ExtResource("6_5u8f5")

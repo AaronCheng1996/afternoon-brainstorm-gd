@@ -18,7 +18,7 @@ func on_piece_set() -> void:
 		if card_owner.hand[n - 1 - i].card_type != Global.CardType.SPELL:
 			card_owner.discard(card_owner.hand[n - 1 - i])
 	#清除場上
-	var allys = Global.board_pieces.filter(filter_ally_piece)
+	var allys = Global.get_board_pieces().filter(filter_ally_piece)
 	for ally: Piece in allys:
 		ally.die(true)
 	#獲得增益

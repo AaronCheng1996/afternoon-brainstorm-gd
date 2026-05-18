@@ -14,7 +14,7 @@ func _init() -> void:
 
 func _process(delta: float) -> void:
 	if card_owner != null:
-		count = Global.board_pieces.filter(filter_opponent_piece_only).size() - Global.board_pieces.filter(filter_ally_piece).size()
+		count = Global.get_board_pieces().filter(filter_opponent_piece_only).size() - Global.get_board_pieces().filter(filter_ally_piece).size()
 		if (count != count_show):
 			count_show = count
 			var text = str(count - minus)
@@ -29,6 +29,6 @@ func on_piece_set() -> void:
 	pass
 
 func _on_attack_component_on_kill(target: Piece) -> void:
-	count = Global.board_pieces.filter(filter_opponent_piece_only).size() - Global.board_pieces.filter(filter_ally_piece).size()
+	count = Global.get_board_pieces().filter(filter_opponent_piece_only).size() - Global.get_board_pieces().filter(filter_ally_piece).size()
 	for i in range(count - minus):
 		card_owner.draw_card()

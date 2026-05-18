@@ -17,11 +17,11 @@ func get_valid_location() -> Array:
 #選取特效
 func show_select_effect() -> void:
 	#預留：選取動畫
-	if has_node("OutfitComponent") and not is_on_board:
+	if outfit_component and not is_on_board:
 		outfit_component.show_control_panel()
 func hide_select_effect() -> void:
 	#預留：選取動畫
-	if has_node("OutfitComponent"):
+	if outfit_component:
 		outfit_component.hide_control_panel()
 #施放
 func cast(target: Vector2i) -> bool:
@@ -37,16 +37,17 @@ func effect(target: Vector2i) -> void:
 
 #施放完
 func used() -> void:
-	get_parent().remove_child(self)
-	card_owner.hand.pop_at(card_owner.hand.find(self))
 	card_owner.grave.append(self)
-	emit_signal("leave_hand", card_owner)
+	_leave_hand()
 
 #消逝
 func expire() -> void:
+	_leave_hand()
+
+func _leave_hand() -> void:
 	get_parent().remove_child(self)
 	card_owner.hand.pop_at(card_owner.hand.find(self))
-	emit_signal("leave_hand", card_owner)
+	leave_hand.emit(card_owner)
 #endregion
 
 #region 過濾
@@ -56,9 +57,9 @@ func is_valid(target: Vector2i) -> bool:
 		Global.TargetType.NONE:
 			return target == Vector2i(-100, -100)
 		Global.TargetType.BOARD:
-			return Global.board_dic[str(target)] is int
+			return Global.board_dic[target] is int
 		Global.TargetType.PIECE:
-			return Global.board_dic[str(target)] is not int
+			return Global.board_dic[target] is not int
 	return false
 #過濾出場上棋子
 func filter_piece_on_board(piece: Piece):

@@ -12,7 +12,7 @@ func _init() -> void:
 func take_damaged(damage: int, applyer) -> bool:
 	var damage_reduced: int = 0
 	if applyer != null:
-		if applyer.has_node("AttackComponent"):
+		if applyer.attack_component:
 			damage_reduced = (damage - applyer.attack_component.atk) / 2
 			if damage_reduced < 0:
 				damage_reduced = 0

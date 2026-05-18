@@ -16,7 +16,7 @@ func refresh() -> void:
 	super.refresh()
 
 func attack() -> void:
-	attack_component.attack(Global.board_pieces.filter(filter_opponent_piece), blue.get_blue_charge_count(card_owner))
+	attack_component.attack(Global.get_board_pieces().filter(filter_opponent_piece), blue.get_blue_charge_count(card_owner))
 	refresh()
 
 func trigger_effect(value: int) -> void:
