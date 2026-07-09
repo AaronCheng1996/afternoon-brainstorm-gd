@@ -4,6 +4,7 @@
 extends Node
 
 const BALANCE_DIR := "res://data/balance/"
+const CARD_TEXT_PATH := "res://data/card_text.json"
 
 # 原始 JSON。
 var _card_setting: Dictionary = {}
@@ -11,6 +12,7 @@ var _job_dict: Dictionary = {}
 var _campaign: Dictionary = {}
 var _setting: Dictionary = {}
 var _meta: Dictionary = {}
+var _card_text: Dictionary = {}   # card_id -> {name, description, hint}
 
 # 衍生表。
 var _cards: Dictionary = {}          # card_id -> 數值字典
@@ -32,9 +34,19 @@ func _load_all() -> void:
 	_campaign = _load_json("campaign_setting.json")
 	_setting = _load_json("setting.json")
 	_meta = _load_json("_meta.json")
+	_card_text = _load_card_text()
 	_validate()
 	_build_cards()
 	_loaded = true
+
+
+# 載入顯示文字（Godot 自管，不在 balance/ 目錄）。
+func _load_card_text() -> Dictionary:
+	if not FileAccess.file_exists(CARD_TEXT_PATH):
+		push_error("BalanceDB：缺少 " + CARD_TEXT_PATH + "（請跑 tools/gen_card_text.gd）")
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CARD_TEXT_PATH))
+	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
 
 
 func _load_json(file_name: String) -> Dictionary:
@@ -142,6 +154,11 @@ func ai(path: String) -> Variant:
 # 取 setting.json 的鍵（部分共用值，如 board_size）。
 func setting(key: String, default: Variant = null) -> Variant:
 	return _setting.get(key, default)
+
+
+# 取卡牌顯示文字 {name, description, hint}；未知 id 回傳空字典。
+func text(card_id: String) -> Dictionary:
+	return _card_text.get(card_id, {})
 
 
 # 顯示用資料版本字串，如 "bal 4.3.0.0 @6263139bb55e"。
