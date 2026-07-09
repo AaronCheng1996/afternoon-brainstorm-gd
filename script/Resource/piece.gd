@@ -9,6 +9,7 @@ var card_type : Global.CardType = Global.CardType.PIECE
 @export var outfit_component : OutfitComponent
 @export var score_component : ScoreComponent
 @export var buff_component : BuffComponent
+@export var ability_component : AbilityComponent
 var is_dead: bool = false
 var auto_attack_loop_count: int = 0
 var auto_attack_loop_count_limit: int = 15
@@ -52,6 +53,12 @@ func on_piece_set() -> void:
 
 #回合開始時
 func on_turn_start(current_turn: int) -> void:
+	if ability_component:
+		ability_component.dispatch(
+			GameTrigger.Type.ON_TURN_START,
+			null,
+			{"current_turn": current_turn}
+		)
 	refresh()
 
 #回合結束時

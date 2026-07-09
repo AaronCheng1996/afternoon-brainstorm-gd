@@ -305,7 +305,8 @@ func get_move_spell(player: Player) -> void:
 
 #有人移動
 func piece_moved(piece_moved: Piece) -> void:
-	#觸發友方橘色效果
+	EventBus.piece_moved.emit(piece_moved)
+	#觸發友方橘色效果（舊版；待遷移至 Ability 後移除）
 	var trigger_list = [
 		Global.data.card.orange.apt.show_name, 
 		Global.data.card.orange.sp.show_name,

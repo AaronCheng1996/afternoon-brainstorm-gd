@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://8cih7ykqv1ji"]
+[gd_scene load_steps=9 format=3 uid="uid://8cih7ykqv1ji"]
 
 [ext_resource type="Script" path="res://script/cards/red/ap.gd" id="1_qj8b7"]
+[ext_resource type="Script" path="res://script/component/ability_component.gd" id="2_ability"]
 [ext_resource type="PackedScene" uid="uid://tahtsvfotixd" path="res://scenes/component/health_component.tscn" id="2_07pix"]
 [ext_resource type="PackedScene" uid="uid://4gn77audskrs" path="res://scenes/component/attack_component.tscn" id="3_04avi"]
 [ext_resource type="PackedScene" uid="uid://bx028wy2lu25i" path="res://scenes/component/outfit_component.tscn" id="4_j0lcb"]
@@ -8,13 +9,14 @@
 [ext_resource type="Texture2D" uid="uid://d0adsv78bhe3u" path="res://img/piece/standerd/red.png" id="5_n1n7n"]
 [ext_resource type="PackedScene" uid="uid://d2lqpgvgq4oh3" path="res://scenes/component/buff_component.tscn" id="6_53ikp"]
 
-[node name="RedAP" type="Node2D" node_paths=PackedStringArray("health_component", "attack_component", "outfit_component", "score_component", "buff_component")]
+[node name="RedAP" type="Node2D" node_paths=PackedStringArray("health_component", "attack_component", "outfit_component", "score_component", "buff_component", "ability_component")]
 script = ExtResource("1_qj8b7")
 health_component = NodePath("HealthComponent")
 attack_component = NodePath("AttackComponent")
 outfit_component = NodePath("OutfitComponent")
 score_component = NodePath("ScoreComponent")
 buff_component = NodePath("BuffComponent")
+ability_component = NodePath("AbilityComponent")
 
 [node name="HealthComponent" parent="." instance=ExtResource("2_07pix")]
 unique_name_in_owner = true
@@ -36,4 +38,5 @@ unique_name_in_owner = true
 [node name="BuffComponent" parent="." instance=ExtResource("6_53ikp")]
 unique_name_in_owner = true
 
-[connection signal="on_hit" from="AttackComponent" to="." method="_on_attack_component_on_hit"]
+[node name="AbilityComponent" type="Node" parent="."]
+script = ExtResource("2_ability")

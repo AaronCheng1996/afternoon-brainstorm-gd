@@ -1,0 +1,11 @@
+class_name GameTrigger
+
+enum Type {
+	ON_PIECE_SET,
+	ON_TURN_START,
+	ON_TURN_END,
+	ON_AFTER_MOVE,
+	ON_PIECE_MOVED,
+	ON_ATTACK_HIT,
+	ON_ATTACK_KILL,
+}

@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Global="*res://script/global.gd"
+EventBus="*res://script/events/event_bus.gd"
 
 [display]
 
