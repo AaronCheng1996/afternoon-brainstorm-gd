@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 Global="*res://script/global.gd"
 EventBus="*res://script/events/event_bus.gd"
+Balance="*res://script_v2/data/balance_db.gd"
 
 [display]
 
