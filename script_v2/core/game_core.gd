@@ -78,6 +78,191 @@ func get_all_pieces() -> Array:
 	return out
 
 
+# --- 行動分派（P1-2，見 01 §4 + battling_dispatcher._execute）---
+# 表現層/AI 的唯一輸入口。回合限定行動只有當前回合玩家可執行。
+func dispatch(action: GameAction) -> ActionResult:
+	const OWNED := ["attack", "play_card", "move_to", "heal", "spawn_cube", "toggle_upgrade", "end_turn"]
+	if OWNED.has(action.action_type) and action.player != current_player():
+		return ActionResult.new(false, "Not your turn")
+
+	match action.action_type:
+		"attack":
+			if number_of_attacks[action.player] <= 0:
+				return ActionResult.new(false, "攻擊次數不足")
+			_attack(action.player, action.board_x, action.board_y)
+			return ActionResult.new(true)
+		"play_card":
+			_play_card(action.player, action.board_x, action.board_y, action.hand_index)
+			return ActionResult.new(true)
+		"move_to":
+			_move_card(action.player, action.board_x, action.board_y)
+			return ActionResult.new(true)
+		"heal":
+			_heal_card(action.player, action.board_x, action.board_y)
+			return ActionResult.new(true)
+		"spawn_cube":
+			_spawn_cube(action.player, action.board_x, action.board_y)
+			return ActionResult.new(true)
+		"toggle_upgrade":
+			_toggle_upgrade(action.player, action.hand_index)
+			return ActionResult.new(true)
+		"end_turn":
+			return end_turn(action.player)
+		"quit":
+			return ActionResult.new(true, "", true)
+	return ActionResult.new(false, "unknown action: " + action.action_type)
+
+
+# 攻擊執行（前置守衛在 dispatch）。實際傷害管線與扣攻擊次數留待 P1-3。
+# P1-3：找 (x,y) 我方棋子 → combat → 成功才扣 attack_uses、記 HIT。
+func _attack(_owner: String, _x: int, _y: int) -> void:
+	pass
+
+
+# 出牌（見 player.py play_card）：魔法計數 or 生成棋子。
+func _play_card(owner: String, x: int, y: int, index: int) -> void:
+	var p: PlayerState = get_player(owner)
+	if index < -p.hand.size() or index >= p.hand.size():
+		return
+	var card_name: String = p.hand[index]
+	stats.increment(Statistics.StatType.CARD_USE, owner, 1)
+	match card_name:
+		"HEAL":
+			number_of_heals[owner] += 1
+			p.discard_pile.append(p.hand.pop_at(index))
+		"MOVE":
+			number_of_movings[owner] += 1
+			p.discard_pile.append(p.hand.pop_at(index))
+		"MOVEO":
+			# MOVEO 為臨時卡：出牌即消失（不進棄牌堆）；未出的在回合結束被清（見 turn_engine._turn_end）。
+			number_of_movings[owner] += 1
+			p.hand.pop_at(index)
+		"CUBES":
+			number_of_cubes[owner] += GameConfig.CUBES_PER_CARD
+			p.discard_pile.append(p.hand.pop_at(index))
+		_:
+			var real_name: String = card_name
+			var upgrade: bool = false
+			if card_name.ends_with(" (+)"):
+				real_name = card_name.substr(0, card_name.length() - 4)
+				upgrade = true
+			if _spawn_card(x, y, real_name, owner, p.on_board, upgrade):
+				p.hand.pop_at(index)
+
+
+# 生成棋子（見 factory.spawn_card）：格子有效且空 → 生成 → deploy 鉤子 → 佔格。
+# 回傳是否生成成功（生成失敗牌留手上）。Cyan 價格檢查（price_check）留待 P1-10。
+func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board: Array, upgrade: bool = false) -> bool:
+	var target_pos: Vector2i = Vector2i(x, y)
+	if not board.is_free(target_pos):
+		return false
+	var piece: PieceState = PieceState.make(card_name, owner, x, y, balance)
+	piece.upgrade = upgrade
+	# P1-3：ON_DEPLOY trigger（card.deploy）在此發動；P1-10：Cyan price_check 攔截。
+	board.set_occupied(target_pos, true)
+	target_board.append(piece)
+	event_sink.append(GameEventV2.spawn(target_pos, piece.card_id, owner))
+	return true
+
+
+# 治療（見 player.py heal_card + base.heal）：回 6 HP、溢出 //2 轉盾。
+func _heal_card(owner: String, x: int, y: int) -> void:
+	if number_of_heals[owner] <= 0:
+		return
+	stats.increment(Statistics.StatType.HEAL_USE, owner, 1)
+	for piece: PieceState in get_player(owner).on_board:
+		if piece.board_x == x and piece.board_y == y:
+			_heal_piece(piece, GameConfig.HEAL_AMOUNT)
+			number_of_heals[owner] -= 1
+			break
+
+
+# 對單一棋子治療（見 base.heal）：不超過 max 直接加；超過則補滿、溢出 //2 轉 armor。
+# Shadow 不可治療的覆寫留待 P1-11。
+func _heal_piece(piece: PieceState, value: int) -> bool:
+	if piece.health + value <= piece.max_health:
+		piece.health += value
+	else:
+		piece.health += value
+		piece.armor += (piece.health - piece.max_health) / 2
+		piece.health = piece.max_health
+	return true
+
+
+# 移動（兩段式，見 player.py move_card + 01 §4）。
+func _move_card(owner: String, x: int, y: int) -> void:
+	var p: PlayerState = get_player(owner)
+	var moving_cards: Array = p.on_board.filter(func(c: PieceState) -> bool: return c.is_moving())
+	if moving_cards.is_empty():
+		# 階段 1：無移動中棋子 → 點我方非暈眩棋子且有移動點 → 啟用移動（此時就扣點）。
+		for piece: PieceState in p.on_board:
+			if piece.board_x == x and piece.board_y == y and not piece.is_numb():
+				if number_of_movings[owner] > 0:
+					piece.set_moving(true)
+					number_of_movings[owner] -= 1
+				break
+	else:
+		# 階段 2：有移動中棋子。先選取（selected），再點目的地執行 move。
+		var selected: Array = p.on_board.filter(func(c: PieceState) -> bool: return c.has_status("selected"))
+		if selected.size() == 1:
+			var sc: PieceState = selected[0]
+			sc.set_status("selected", false)
+			sc.set_moving(true)
+			_move_piece(sc, x, y)
+		elif selected.size() == 0:
+			for piece: PieceState in p.on_board:
+				if piece.board_x == x and piece.board_y == y:
+					piece.set_status("selected", true)
+					break
+
+
+# 執行單子移動（見 base.move）：目的地須空且為 8 鄰（切比雪夫距離 1）；失敗不退點（B5）。
+func _move_piece(piece: PieceState, x: int, y: int) -> bool:
+	# P1-3：custom_move 攔截鉤子（目前無卡使用）。
+	if not piece.movable:
+		return false
+	var target_pos: Vector2i = Vector2i(x, y)
+	if board.is_free(target_pos):
+		var dx: int = abs(piece.board_x - x)
+		var dy: int = abs(piece.board_y - y)
+		var adjacent: bool = maxi(dx, dy) == 1   # 切比雪夫 1，自動排除原格 (0,0)
+		if not (adjacent and piece.is_moving()):
+			piece.set_moving(false)
+			return false
+		var from_pos: Vector2i = piece.pos()
+		stats.increment(Statistics.StatType.MOVE, piece.uid(), 1)
+		board.set_occupied(from_pos, false)
+		piece.board_x = x
+		piece.board_y = y
+		board.set_occupied(target_pos, true)
+		piece.set_moving(false)
+		event_sink.append(GameEventV2.move(target_pos, from_pos))
+		# P1-3：after_movement（自己）與 move_broadcast（全場）鉤子。
+		return true
+	piece.set_moving(false)
+	return false
+
+
+# 放方塊（見 player.py spawn_cube）：格子空 → 生成 neutral CUBE(4HP/0atk)。
+func _spawn_cube(owner: String, x: int, y: int) -> void:
+	if number_of_cubes[owner] <= 0:
+		return
+	if _spawn_card(x, y, "CUBE", "neutral", neutral_pieces):
+		number_of_cubes[owner] -= 1
+		stats.increment(Statistics.StatType.CUBE_USE, owner, 1)
+
+
+# 切換 Cyan 升級（見 dispatcher toggle_upgrade）：只改手牌名字（加/去 " (+)" 後綴）。
+func _toggle_upgrade(owner: String, index: int) -> void:
+	var p: PlayerState = get_player(owner)
+	if index >= 0 and index < p.hand.size():
+		var card_name: String = p.hand[index]
+		if card_name.ends_with(" (+)"):
+			p.hand[index] = card_name.substr(0, card_name.length() - 4)
+		elif card_name.ends_with("C"):
+			p.hand[index] = card_name + " (+)"
+
+
 # --- 回合流程（委派 TurnEngine）---
 
 func end_turn(owner: String) -> ActionResult:

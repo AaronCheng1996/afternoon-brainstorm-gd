@@ -21,6 +21,7 @@ var armor: int = 0
 var extra_damage: int = 0
 var attack_uses: int = 1
 var attack_types: String = ""
+var movable: bool = true         # 是否可被移動（base.py movable，SHADOW 等覆寫）
 
 # 狀態字典：id -> {value:bool, duration:int}（duration=-1 表示無期限）。
 var statuses: Dictionary = {}

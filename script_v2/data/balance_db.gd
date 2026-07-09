@@ -100,6 +100,10 @@ func _build_cards() -> void:
 			_cards[card_id] = jobs[job]
 			_card_job[card_id] = job
 			_card_color[card_id] = code
+	# 特殊中立卡（CUBE 等）沿用 White 的數值，但以無色 card_id 對外查詢（見 01 §4）。
+	# job_of/color_code_of 對它們回傳空字串，PieceState.make 會以 card_id 當 job。
+	if _card_setting.has("White") and _card_setting["White"].has("CUBE"):
+		_cards["CUBE"] = _card_setting["White"]["CUBE"]
 
 
 # --- 查詢 API ---
