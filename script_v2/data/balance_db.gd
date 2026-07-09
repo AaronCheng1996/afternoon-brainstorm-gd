@@ -17,6 +17,8 @@ var _card_text: Dictionary = {}   # card_id -> {name, description, hint}
 # 衍生表。
 var _cards: Dictionary = {}          # card_id -> 數值字典
 var _name_to_code: Dictionary = {}   # "White" -> "W"
+var _card_job: Dictionary = {}       # card_id -> 職業碼（如 "ADCW" -> "ADC"）
+var _card_color: Dictionary = {}     # card_id -> 色碼（如 "ADCW" -> "W"）
 
 var _loaded: bool = false
 
@@ -96,6 +98,8 @@ func _build_cards() -> void:
 		for job in jobs.keys():
 			var card_id: String = job + code
 			_cards[card_id] = jobs[job]
+			_card_job[card_id] = job
+			_card_color[card_id] = code
 
 
 # --- 查詢 API ---
@@ -111,6 +115,16 @@ func stats(card_id: String) -> Dictionary:
 # 取單一參數，缺鍵回傳 default。
 func param(card_id: String, key: String, default: Variant = null) -> Variant:
 	return stats(card_id).get(key, default)
+
+
+# 取 card_id 的職業碼（如 "SPDKG" -> "SP"）；未知或特殊卡回傳空字串。
+func job_of(card_id: String) -> String:
+	return _card_job.get(card_id, "")
+
+
+# 取 card_id 的色碼（如 "SPDKG" -> "DKG"）；未知或特殊卡回傳空字串。
+func color_code_of(card_id: String) -> String:
+	return _card_color.get(card_id, "")
 
 
 # 取職業攻擊模式標籤字串（來自 job_dictionary.attack_type_tags）。
