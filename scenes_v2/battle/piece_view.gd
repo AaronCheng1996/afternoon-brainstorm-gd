@@ -31,6 +31,11 @@ var card_id: String = ""
 var owner_id: int = 0        # 1=先手, 2=後手, 0=中立
 var is_shadow: bool = false
 
+# 動畫（P2-2）：animation_set 為 null 時用 fallback；instant=true 時所有動畫瞬時完成。
+var animation_set: PieceAnimationSet = null
+var instant: bool = false
+var _base_visual_pos := Vector2.ZERO
+
 # 節點參考（configure/_ensure_built 後有效）。
 var visual_root: Node2D
 var outline_shape: Polygon2D
@@ -125,6 +130,117 @@ func set_status(status_id: String, on: bool) -> void:
 
 func is_status_visible(status_id: String) -> bool:
 	return status_icons.has(status_id) and status_icons[status_id].visible
+
+
+# 僅更新 HP 標籤（被攻擊後結算用）。
+func set_health_display(health: int) -> void:
+	_ensure_built()
+	health_label.text = str(health)
+
+
+# --- 動畫（P2-2，見 04 §7.2/7.3）。以 fallback 程序動畫驅動 VisualRoot；換美術改 SpriteSlot 不動介面 ---
+
+func set_animation_set(a_set: PieceAnimationSet) -> void:
+	animation_set = a_set
+
+
+# 攻擊演出：遠程（有投射物）發射箭矢並於命中點播特效；近戰則向目標撲擊。fx_layer 收納投射物/特效。
+func play_attack(target_global: Vector2, fx_layer: Node) -> void:
+	_ensure_built()
+	var aset := _aset()
+	if aset.has_projectile() and fx_layer != null:
+		_fire_projectile(target_global, fx_layer, aset)
+	else:
+		_melee_lunge(target_global, aset)
+
+
+func play_hurt() -> void:
+	_ensure_built()
+	if instant:
+		return
+	var tw := create_tween()
+	tw.tween_property(visual_root, "modulate", Color(1.8, 1.8, 1.8, 1.0), 0.05)
+	tw.tween_property(visual_root, "modulate", Color(1, 1, 1, 1), 0.13)
+	var shake := create_tween()
+	shake.tween_property(visual_root, "position", _base_visual_pos + Vector2(4, 0), 0.04)
+	shake.tween_property(visual_root, "position", _base_visual_pos, 0.09)
+
+
+func play_death(on_done: Callable) -> void:
+	_ensure_built()
+	if instant:
+		if on_done.is_valid():
+			on_done.call()
+		return
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(visual_root, "modulate:a", 0.0, 0.28)
+	tw.tween_property(visual_root, "scale", Vector2(0.4, 0.4), 0.28)
+	tw.chain().tween_callback(func() -> void:
+		if on_done.is_valid():
+			on_done.call())
+
+
+func play_move(to_global: Vector2) -> void:
+	_ensure_built()
+	if instant:
+		global_position = to_global
+		return
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", to_global, 0.2)
+
+
+func play_cast() -> void:
+	_ensure_built()
+	if instant:
+		return
+	var tw := create_tween()
+	tw.tween_property(visual_root, "scale", Vector2(1.15, 1.15), 0.09)
+	tw.tween_property(visual_root, "scale", Vector2(1, 1), 0.12)
+
+
+# 中心（本地 / 全域）。
+func center_offset() -> Vector2:
+	return Vector2(CELL_SIZE, CELL_SIZE) * 0.5
+
+
+func center_global() -> Vector2:
+	return to_global(center_offset())
+
+
+func _aset() -> PieceAnimationSet:
+	if animation_set == null:
+		animation_set = PieceAnimationSet.fallback()
+	return animation_set
+
+
+func _fire_projectile(target_global: Vector2, fx_layer: Node, aset: PieceAnimationSet) -> void:
+	var flight: float = 0.0 if instant else aset.lunge_step * aset.hit_ratio
+	var proj: Node2D = aset.projectile.instantiate()
+	fx_layer.add_child(proj)
+	var impact_scene: PackedScene = aset.impact
+	var is_instant := instant
+	proj.launch(center_global(), target_global, flight, func() -> void:
+		if impact_scene != null:
+			var fl: Node2D = impact_scene.instantiate()
+			fx_layer.add_child(fl)
+			fl.global_position = target_global
+			fl.play(is_instant), is_instant)
+	if not instant:
+		# 拉弓小後拉。
+		var dir := (target_global - center_global()).normalized()
+		var tw := create_tween()
+		tw.tween_property(visual_root, "position", _base_visual_pos - dir * 5.0, aset.lunge_step * 0.3)
+		tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.4)
+
+
+func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
+	if instant:
+		return
+	var dir := (to_local(target_global) - center_offset()).normalized()
+	var tw := create_tween()
+	tw.tween_property(visual_root, "position", _base_visual_pos + dir * 18.0, aset.lunge_step * 0.5)
+	tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.5)
 
 
 # --- 內部 ---
