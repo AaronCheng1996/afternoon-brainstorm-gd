@@ -124,6 +124,11 @@ func param(card_id: String, key: String, default: Variant = null) -> Variant:
 	return stats(card_id).get(key, default)
 
 
+# 取所有已註冊 card_id（含 CUBE/LUCKYBLOCK 中立別名），供表現層列舉／展示館使用。
+func all_card_ids() -> Array:
+	return _cards.keys()
+
+
 # 取 card_id 的職業碼（如 "SPDKG" -> "SP"）；未知或特殊卡回傳空字串。
 func job_of(card_id: String) -> String:
 	return _card_job.get(card_id, "")
