@@ -127,6 +127,7 @@ static func make(card_id: String, owner: String, x: int, y: int, balance: Object
 	p.original_damage = p.damage
 	p.armor = int(s.get("armor", 0))
 	p.extra_damage = int(s.get("extra_damage", 0))
+	p.attack_uses = int(s.get("attack_uses", 1))   # Brown HF：一次攻擊耗 2 次數（其餘卡預設 1）
 
 	p.job = balance.job_of(card_id)
 	if p.job == "":
