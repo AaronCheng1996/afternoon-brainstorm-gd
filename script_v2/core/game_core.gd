@@ -180,12 +180,14 @@ func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board:
 	var piece: PieceState = PieceState.make(card_name, owner, x, y, balance)
 	piece.upgrade = upgrade
 	# P1-10：Cyan price_check 攔截將加在此處。
-	board.set_occupied(target_pos, true)
-	target_board.append(piece)
 	event_sink.append(GameEventV2.spawn(target_pos, piece.card_id, owner))
-	# ON_DEPLOY 鉤子（card.deploy）：入場效果（SPB 清佇列等於 P1-6 再處理）。
+	# ON_DEPLOY 鉤子（card.deploy）在「佔格與加入 on_board 之前」執行，對齊 Python
+	# factory.spawn_card（deploy → occupy → append）：deploy 時本子尚未在場、目標格未佔用。
+	# 影響 SPB 佈署自我計數等（P1-6）。
 	if piece.abilities != null:
 		piece.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(self, piece, null, 0, {}))
+	board.set_occupied(target_pos, true)
+	target_board.append(piece)
 	return true
 
 
