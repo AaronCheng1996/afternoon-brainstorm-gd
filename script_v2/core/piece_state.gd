@@ -22,6 +22,7 @@ var extra_damage: int = 0
 var attack_uses: int = 1
 var attack_types: String = ""
 var movable: bool = true         # 是否可被移動（base.py movable，SHADOW 等覆寫）
+var shadow_attack_types: String = ""   # Fuchsia：鏡像用攻擊模式（空＝沿用 attack_types；LFF="nearest"，P1-11）
 
 # 狀態字典：id -> {value:bool, duration:int}（duration=-1 表示無期限）。
 var statuses: Dictionary = {}
@@ -29,8 +30,12 @@ var statuses: Dictionary = {}
 var instance_id: String = ""
 var hit_cards: Array = []       # 本次攻擊已命中的棋子（管線用，P1-3）
 var pending_death: bool = false
-var shadows: Array = []         # Fuchsia 鏡像（P1-11）
+var shadows: Array = []         # Fuchsia 鏡像（P1-11）：本體強參考持有其 shadow（SHADOW 棋子）
 var upgrade: bool = false       # Cyan 升級旗標（P1-10）
+
+# Fuchsia SHADOW 對本體（linker）的反向參考。用 WeakRef 打斷
+# linker.shadows（強）→ shadow → linker 的循環，避免 RefCounted 洩漏（P1-11）。
+var _linker_ref: WeakRef = null
 var counters: Dictionary = {}   # 卡牌專用暫存計數（如 HFC 的 count；對齊 Python 各卡自有欄位）
 
 # 能力元件（P1-3，見 04 §5.2）：native 由 registry 依 card_id 組裝；granted=附魔；silence=沉默。
@@ -79,6 +84,21 @@ func set_anger(on: bool) -> void:
 	set_status("anger", on)
 
 
+# --- Fuchsia 鏡像關聯（P1-11）---
+
+# 鏡像用攻擊模式：未設定則沿用本體 attack_types（對齊 Python FuchsiaCard.shadow_attack_types 預設）。
+func get_shadow_attack_types() -> String:
+	return shadow_attack_types if shadow_attack_types != "" else attack_types
+
+# 設定 SHADOW 的本體反向參考（WeakRef）。
+func set_linker(l: PieceState) -> void:
+	_linker_ref = weakref(l) if l != null else null
+
+# 取本體（可能已被回收 → null）。
+func get_linker() -> PieceState:
+	return _linker_ref.get_ref() if _linker_ref != null else null
+
+
 # --- 工廠 ---
 
 # 依 card_id 從 BalanceDB 組出一個棋子。
@@ -121,6 +141,32 @@ static func make(card_id: String, owner: String, x: int, y: int, balance: Object
 	# 掛上能力元件（native 依 card_id）。
 	p.abilities = AbilityRegistryV2.build(p.card_id, p)
 	return p
+
+
+# Fuchsia 鏡像工廠（P1-11，見 cards/card_fuchsia.py Shadow）：
+# HP1/ATK0、不暈眩、攻擊模式沿用 linker 的 shadow_attack_types；linker 為 WeakRef 反向參考。
+# 掛 SHADOW 能力（BLOCK_DAMAGE：linker=APTF 時 linker 獲 value//2 護盾）。
+# 呼叫端（fuchsia.gd）負責 append 到 linker.shadows。
+static func make_shadow(linker: PieceState, owner: String, x: int, y: int, movable_flag: bool) -> PieceState:
+	var s := PieceState.new()
+	s.instance_id = str(PieceState._next_instance)
+	PieceState._next_instance += 1
+	s.card_id = "SHADOW"
+	s.job = "SHADOW"
+	s.color_code = "F"
+	s.owner = owner
+	s.board_x = x
+	s.board_y = y
+	s.health = 1
+	s.max_health = 1
+	s.damage = 0
+	s.original_damage = 0
+	s.attack_types = linker.get_shadow_attack_types()
+	s.movable = movable_flag
+	s.set_numb(false)
+	s.set_linker(linker)
+	s.abilities = AbilityRegistryV2.build("SHADOW", s)
+	return s
 
 
 # 為裸棋子（PieceState.new()）補上空能力元件，避免鉤子分派時 null。
