@@ -31,6 +31,7 @@ var hit_cards: Array = []       # 本次攻擊已命中的棋子（管線用，P
 var pending_death: bool = false
 var shadows: Array = []         # Fuchsia 鏡像（P1-11）
 var upgrade: bool = false       # Cyan 升級旗標（P1-10）
+var counters: Dictionary = {}   # 卡牌專用暫存計數（如 HFC 的 count；對齊 Python 各卡自有欄位）
 
 # 能力元件（P1-3，見 04 §5.2）：native 由 registry 依 card_id 組裝；granted=附魔；silence=沉默。
 # 由 make() 建立；直接 new() 的裸棋子需自行呼叫 ensure_abilities()。
@@ -84,7 +85,7 @@ func set_anger(on: bool) -> void:
 # balance：BalanceDB 實例（stats/attack_types/job_of）。
 # 入場暈眩預設 True，ASS（刺客先攻）例外（見 01 §3）。特殊卡（CUBE/SHADOW…）
 # 的 numbness 由呼叫端另行處理（P1-2/P1-4）。
-static func make(card_id: String, owner: String, x: int, y: int, balance: Object) -> PieceState:
+static func make(card_id: String, owner: String, x: int, y: int, balance: Object, upgrade: bool = false) -> PieceState:
 	var p := PieceState.new()
 	p.instance_id = str(PieceState._next_instance)
 	PieceState._next_instance += 1
@@ -92,11 +93,17 @@ static func make(card_id: String, owner: String, x: int, y: int, balance: Object
 	p.owner = owner
 	p.board_x = x
 	p.board_y = y
+	p.upgrade = upgrade
 
 	var s: Dictionary = balance.stats(card_id)
-	p.health = int(s.get("health", 0))
+	# Cyan 升級版改用 upgrade_health/upgrade_damage（見 02 §Cyan、card_setting）。
+	if upgrade and s.has("upgrade_health"):
+		p.health = int(s.get("upgrade_health", 0))
+		p.damage = int(s.get("upgrade_damage", 0))
+	else:
+		p.health = int(s.get("health", 0))
+		p.damage = int(s.get("damage", 0))
 	p.max_health = p.health
-	p.damage = int(s.get("damage", 0))
 	p.original_damage = p.damage
 	p.armor = int(s.get("armor", 0))
 	p.extra_damage = int(s.get("extra_damage", 0))

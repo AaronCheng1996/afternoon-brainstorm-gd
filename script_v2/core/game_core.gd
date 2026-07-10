@@ -177,9 +177,11 @@ func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board:
 	var target_pos: Vector2i = Vector2i(x, y)
 	if not board.is_free(target_pos):
 		return false
-	var piece: PieceState = PieceState.make(card_name, owner, x, y, balance)
-	piece.upgrade = upgrade
-	# P1-10：Cyan price_check 攔截將加在此處。
+	var piece: PieceState = PieceState.make(card_name, owner, x, y, balance, upgrade)
+	# Cyan 升級版 price_check（見 factory.spawn_card：create → price_check → deploy → occupy → append）。
+	# 付不起 → 生成失敗、牌留手上，且不扣金幣、不觸發 deploy/佔格。
+	if not _cyan_price_check(piece):
+		return false
 	event_sink.append(GameEventV2.spawn(target_pos, piece.card_id, owner))
 	# ON_DEPLOY 鉤子（card.deploy）在「佔格與加入 on_board 之前」執行，對齊 Python
 	# factory.spawn_card（deploy → occupy → append）：deploy 時本子尚未在場、目標格未佔用。
@@ -189,6 +191,25 @@ func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board:
 	board.set_occupied(target_pos, true)
 	target_board.append(piece)
 	return true
+
+
+# Cyan 升級版付費檢查（見 card_cyan.py CyanCard.price_check）：
+# 非升級 / 非 Cyan → 免費放行；升級 Cyan → 價 = cost − cost_reduction × 我方升級版 SPC 張數，
+# 金幣足夠才扣款並放行，否則失敗（不扣款）。
+func _cyan_price_check(piece: PieceState) -> bool:
+	if not piece.upgrade or piece.color_code != "C":
+		return true
+	var cost: int = int(balance.param(piece.card_id, "cost", 0))
+	var reduction: int = int(balance.param("SPC", "cost_reduction", 0))
+	var discounts: int = 0
+	for c: PieceState in get_player(piece.owner).on_board:
+		if c.card_id == "SPC" and c.upgrade:
+			discounts += 1
+	var price: int = cost - reduction * discounts
+	if players_coin[piece.owner] >= price:
+		players_coin[piece.owner] -= price
+		return true
+	return false
 
 
 # 治療（見 player.py heal_card + base.heal）：回 6 HP、溢出 //2 轉盾。

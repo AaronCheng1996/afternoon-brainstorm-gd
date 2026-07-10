@@ -19,7 +19,8 @@ static func _build_table() -> void:
 	_merge(GreenCardsV2.registrations())
 	_merge(OrangeCardsV2.registrations())
 	_merge(DarkGreenCardsV2.registrations())
-	# P1-10+：_merge(CyanCardsV2.registrations()) 等逐色加入。
+	_merge(CyanCardsV2.registrations())
+	# P1-11+：_merge(FuchsiaCardsV2.registrations()) 等逐色加入。
 
 
 static func _merge(regs: Dictionary) -> void:
