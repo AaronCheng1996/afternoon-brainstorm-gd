@@ -78,6 +78,22 @@ func get_all_pieces() -> Array:
 	return out
 
 
+# 雙方棋子（不含 neutral），廣播用。
+func get_both_player_pieces() -> Array:
+	var out: Array = []
+	out.append_array(player1.on_board)
+	out.append_array(player2.on_board)
+	return out
+
+
+# owner 的攻擊目標池 = 對手場上棋子 + neutral（見 01 §5）；呼叫端另做 health>0 過濾。
+func get_enemies_of(owner: String) -> Array:
+	var out: Array = []
+	out.append_array(get_player(opponent_name(owner)).on_board)
+	out.append_array(neutral_pieces)
+	return out
+
+
 # --- 行動分派（P1-2，見 01 §4 + battling_dispatcher._execute）---
 # 表現層/AI 的唯一輸入口。回合限定行動只有當前回合玩家可執行。
 func dispatch(action: GameAction) -> ActionResult:
@@ -113,10 +129,15 @@ func dispatch(action: GameAction) -> ActionResult:
 	return ActionResult.new(false, "unknown action: " + action.action_type)
 
 
-# 攻擊執行（前置守衛在 dispatch）。實際傷害管線與扣攻擊次數留待 P1-3。
-# P1-3：找 (x,y) 我方棋子 → combat → 成功才扣 attack_uses、記 HIT。
-func _attack(_owner: String, _x: int, _y: int) -> void:
-	pass
+# 攻擊執行（前置守衛在 dispatch，見 player.py attack）：
+# 找 (x,y) 我方棋子 → combat.attack → 成功才扣 attack_uses（max(0, n-uses)）、記 HIT。
+func _attack(owner: String, x: int, y: int) -> void:
+	for piece: PieceState in get_player(owner).on_board:
+		if piece.board_x == x and piece.board_y == y:
+			if CombatV2.attack(self, piece):
+				number_of_attacks[owner] = maxi(0, number_of_attacks[owner] - piece.attack_uses)
+				stats.increment(Statistics.StatType.HIT, piece.uid(), 1)
+			break
 
 
 # 出牌（見 player.py play_card）：魔法計數 or 生成棋子。
@@ -158,10 +179,13 @@ func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board:
 		return false
 	var piece: PieceState = PieceState.make(card_name, owner, x, y, balance)
 	piece.upgrade = upgrade
-	# P1-3：ON_DEPLOY trigger（card.deploy）在此發動；P1-10：Cyan price_check 攔截。
+	# P1-10：Cyan price_check 攔截將加在此處。
 	board.set_occupied(target_pos, true)
 	target_board.append(piece)
 	event_sink.append(GameEventV2.spawn(target_pos, piece.card_id, owner))
+	# ON_DEPLOY 鉤子（card.deploy）：入場效果（SPB 清佇列等於 P1-6 再處理）。
+	if piece.abilities != null:
+		piece.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(self, piece, null, 0, {}))
 	return true
 
 
@@ -218,7 +242,11 @@ func _move_card(owner: String, x: int, y: int) -> void:
 
 # 執行單子移動（見 base.move）：目的地須空且為 8 鄰（切比雪夫距離 1）；失敗不退點（B5）。
 func _move_piece(piece: PieceState, x: int, y: int) -> bool:
-	# P1-3：custom_move 攔截鉤子（目前無卡使用）。
+	# custom_move 攔截鉤子（目前無卡使用，保留；見 01 §4）。
+	if piece.abilities != null:
+		var cctx := AbilityContextV2.new(self, piece, null, 0, {"to": Vector2i(x, y)})
+		if piece.abilities.any_true(TriggerV2.Type.CUSTOM_MOVE, cctx):
+			return true
 	if not piece.movable:
 		return false
 	var target_pos: Vector2i = Vector2i(x, y)
@@ -237,7 +265,12 @@ func _move_piece(piece: PieceState, x: int, y: int) -> bool:
 		board.set_occupied(target_pos, true)
 		piece.set_moving(false)
 		event_sink.append(GameEventV2.move(target_pos, from_pos))
-		# P1-3：after_movement（自己）與 move_broadcast（全場）鉤子。
+		# after_movement（自己）與 move_broadcast（全場廣播）鉤子。
+		if piece.abilities != null:
+			piece.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(self, piece, null, 0, {"from": from_pos}))
+		for other: PieceState in get_all_pieces():
+			if other.abilities != null:
+				other.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(self, other, piece, 0, {"mover": piece}))
 		return true
 	piece.set_moving(false)
 	return false
@@ -276,6 +309,10 @@ func mark_over(winner: String) -> void:
 
 # 每邏輯步（見 01 §3 logic_update）：回收死亡棋子 + 消化 card_to_draw。
 func logic_step() -> void:
+	# ON_UPDATE（動態 extra_damage 類）：對全場棋子每步觸發。
+	for piece: PieceState in get_all_pieces():
+		if piece.abilities != null:
+			piece.abilities.run(TriggerV2.Type.ON_UPDATE, AbilityContextV2.new(self, piece, null, 0, {}))
 	for owner in ["player1", "player2"]:
 		_recycle_player(owner)
 		if card_to_draw[owner] > 0:
@@ -287,22 +324,27 @@ func logic_step() -> void:
 # 棋子回合開始刷新（見 base.py refresh）：moving 清除 → on_refresh 能力鉤子（P1-3）。
 func refresh_piece(piece: PieceState) -> void:
 	piece.set_moving(false)
-	# P1-3：ON_REFRESH trigger。
+	if piece.abilities != null:
+		piece.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(self, piece, null, 0, {}))
 
 
-# 棋子結算計分（P1-1 基本版：非 numbness = 1 分；能力掛勾在 P1-3 以 ON_SETTLE 取代）。
-# 見 base.py settle/on_settle：SCORED 先查詢不清狀態，計分時才清 numbness。
+# 棋子結算計分（見 base.py settle/on_settle + 04 §5.4）：
+# base = 非 numbness ? 1 : 0 → ON_SETTLE 讓能力修改（SPW +1、CUBE 恆 0…）→ 最後清 numbness。
 func settle_piece(piece: PieceState) -> void:
 	piece.set_moving(false)
-	var was_numb: bool = piece.is_numb()
-	var pts: int = 0 if was_numb else 1
+	var base_pts: int = 0 if piece.is_numb() else 1
+	var pts: int = base_pts
+	if piece.abilities != null:
+		var ctx := AbilityContextV2.new(self, piece, null, base_pts, {})
+		pts = piece.abilities.dispatch_mod(TriggerV2.Type.ON_SETTLE, ctx)
 	stats.increment(Statistics.StatType.SCORED, piece.uid(), pts)
 	# player1 得分 → score 減；player2 得分 → score 加（見 01 §1）。
 	if piece.owner == "player1":
 		score -= pts
 	else:
 		score += pts
-	if was_numb:
+	# 結算後清 numbness（moving 於開頭已清；anger 由卡牌能力自理，見 04 §5.4）。
+	if piece.is_numb():
 		piece.set_numb(false)
 
 
@@ -311,7 +353,9 @@ func _recycle_player(owner: String) -> void:
 	var p: PlayerState = get_player(owner)
 	var survivors: Array = []
 	for piece: PieceState in p.on_board:
-		if piece.health <= 0 and _can_be_killed(piece):
+		if piece.health <= 0 and can_be_killed(piece):
+			if piece.abilities != null:
+				piece.abilities.run(TriggerV2.Type.ON_DIE, AbilityContextV2.new(self, piece, null, 0, {}))
 			p.discard_pile.append(piece.card_id)
 			board.set_occupied(piece.pos(), false)
 		else:
@@ -323,16 +367,22 @@ func _recycle_player(owner: String) -> void:
 func _recycle_neutral() -> void:
 	var survivors: Array = []
 	for piece: PieceState in neutral_pieces:
-		if piece.health <= 0 and _can_be_killed(piece):
+		if piece.health <= 0 and can_be_killed(piece):
+			if piece.abilities != null:
+				piece.abilities.run(TriggerV2.Type.ON_DIE, AbilityContextV2.new(self, piece, null, 0, {}))
 			board.set_occupied(piece.pos(), false)
 		else:
 			survivors.append(piece)
 	neutral_pieces = survivors
 
 
-# 死亡判定（P1-3：怒氣不死身覆寫 CAN_BE_KILLED）。
-func _can_be_killed(_piece: PieceState) -> bool:
-	return true
+# 死亡判定（見 01 §6）：CAN_BE_KILLED 觸發回傳 true 表「保護不死」（怒氣不死身）。
+# 無任何保護能力時可被擊殺。combat 管線亦呼叫此函式。
+func can_be_killed(piece: PieceState) -> bool:
+	if piece.abilities == null:
+		return true
+	var ctx := AbilityContextV2.new(self, piece, null, 0, {})
+	return not piece.abilities.any_true(TriggerV2.Type.CAN_BE_KILLED, ctx)
 
 
 # --- 對外狀態 ---
@@ -354,8 +404,10 @@ func winner_name() -> String:
 	return _winner
 
 
-# 表現層每幀取走事件（取走後清空）。
+# 表現層每幀取走事件（取走後清空）。取走即代表本批動畫排定，攻擊延遲游標歸零
+# （對齊 Python renderer 消化 pending_combat_events 後重置 _attack_anim_cursor）。
 func drain_events() -> Array:
 	var out: Array = event_sink.duplicate()
 	event_sink.clear()
+	_attack_anim_cursor = 0.0
 	return out

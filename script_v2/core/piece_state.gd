@@ -32,6 +32,10 @@ var pending_death: bool = false
 var shadows: Array = []         # Fuchsia 鏡像（P1-11）
 var upgrade: bool = false       # Cyan 升級旗標（P1-10）
 
+# 能力元件（P1-3，見 04 §5.2）：native 由 registry 依 card_id 組裝；granted=附魔；silence=沉默。
+# 由 make() 建立；直接 new() 的裸棋子需自行呼叫 ensure_abilities()。
+var abilities: AbilityComponentV2 = null
+
 
 func pos() -> Vector2i:
 	return Vector2i(board_x, board_y)
@@ -106,4 +110,13 @@ static func make(card_id: String, owner: String, x: int, y: int, balance: Object
 	p.set_numb(true)
 	if p.job == "ASS":
 		p.set_numb(false)
+
+	# 掛上能力元件（native 依 card_id）。
+	p.abilities = AbilityRegistryV2.build(p.card_id, p)
 	return p
+
+
+# 為裸棋子（PieceState.new()）補上空能力元件，避免鉤子分派時 null。
+func ensure_abilities() -> void:
+	if abilities == null:
+		abilities = AbilityComponentV2.new(self)
