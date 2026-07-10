@@ -104,6 +104,9 @@ func _build_cards() -> void:
 	# job_of/color_code_of 對它們回傳空字串，PieceState.make 會以 card_id 當 job。
 	if _card_setting.has("White") and _card_setting["White"].has("CUBE"):
 		_cards["CUBE"] = _card_setting["White"]["CUBE"]
+	# LUCKYBLOCK（Green 系衍生的中立方塊）同樣以無色 card_id 對外查詢（見 02 §Green、01 §4）。
+	if _card_setting.has("Green") and _card_setting["Green"].has("LUCKYBLOCK"):
+		_cards["LUCKYBLOCK"] = _card_setting["Green"]["LUCKYBLOCK"]
 
 
 # --- 查詢 API ---

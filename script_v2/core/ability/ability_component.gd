@@ -113,6 +113,18 @@ func any_true(trigger: int, ctx: AbilityContextV2) -> bool:
 	return false
 
 
+# 攻擊覆寫（ATTACK_OVERRIDE）：卡牌可完全接管攻擊流程（見 04 §5.1）。
+# 回傳 Variant：null＝無覆寫（照常攻擊）；bool＝覆寫結果（攻擊是否算成功、是否消耗次數）。
+# 用途：APTG 禁攻回傳 false；ADCO（P1-8）覆寫成攻擊後自動移動等。
+func dispatch_attack_override(ctx: AbilityContextV2) -> Variant:
+	for a: AbilityV2 in _active_for(TriggerV2.Type.ATTACK_OVERRIDE, ctx):
+		for e: AbilityEffectV2 in a.effects:
+			var r: Variant = e.execute(ctx)
+			if typeof(r) == TYPE_BOOL:
+				return r
+	return null
+
+
 # 場地攔截（MOD_FIELD_INTERCEPT）：收集本棋子回傳的 {priority, value, feedback} 修改子。
 func collect_field(ctx: AbilityContextV2) -> Array:
 	var out: Array = []

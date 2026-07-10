@@ -70,6 +70,14 @@ static func _pick_by_distance(core: GameCore, attacker: PieceState, alive: Array
 
 # --- 攻擊入口（見 cards/base.py attack）---
 static func attack(core: GameCore, attacker: PieceState) -> bool:
+	# ATTACK_OVERRIDE：卡牌完全接管攻擊（APTG 禁攻回傳 false；ADCO 覆寫）。
+	# 回傳非 null 即代表覆寫，直接採用其結果（見 base.py APTG.attack 回傳 False）。
+	if attacker.abilities != null:
+		var octx := AbilityContextV2.new(core, attacker, null, 0, {})
+		var ov: Variant = attacker.abilities.dispatch_attack_override(octx)
+		if ov != null:
+			attacker.hit_cards.clear()
+			return bool(ov)
 	var ok: bool = launch_attack(core, attacker, attacker.attack_types)
 	attacker.hit_cards.clear()
 	return ok
