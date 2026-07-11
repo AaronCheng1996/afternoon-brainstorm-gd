@@ -93,7 +93,18 @@ func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null) ->
 	_seed = seed_value
 	_db = db if db != null else Balance
 	_build_ui()
+	_apply_settings()
 	_new_game()
+
+
+# 套用 user://settings.json（提示/動畫開關）。戰鬥中自身的切換為 session 內；
+# 跨場次持久由主選單設定頁負責。
+func _apply_settings() -> void:
+	var s := SettingsStore.load_settings()
+	_hints_on = bool(s.get("hints_on", true))
+	if _toggle_hint_btn != null:
+		_toggle_hint_btn.text = "提示：開" if _hints_on else "提示：關"
+	set_animation_enabled(bool(s.get("animations_on", true)))
 
 
 func set_animation_enabled(on: bool) -> void:
@@ -309,10 +320,41 @@ func _on_win_restart() -> void:
 	_new_game()
 
 
-func _on_win_quit() -> void:
+func _on_win_menu() -> void:
 	var tree := get_tree()
 	if tree != null:
-		tree.quit()
+		tree.change_scene_to_file("res://scenes_v2/menu/main_menu.tscn")
+
+
+# 轉到終局統計畫面（帶勝者/分數/每回合分數/主要統計前幾名）。
+func _open_end_game() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	var end_scene: Node = load("res://scenes_v2/end_game/end_game.tscn").instantiate()
+	end_scene.configure(_core.winner(), _core.score, _core.config.win_threshold,
+		_core.stats.score_history.duplicate(), _build_stat_bars())
+	tree.root.add_child(end_scene)
+	tree.current_scene = end_scene
+	queue_free()
+
+
+# 主要統計前幾名（KILLED/DAMAGE_DEALT/SCORED）：{name: [[key, val], ...]}（降冪，取前 5）。
+func _build_stat_bars() -> Dictionary:
+	var out: Dictionary = {}
+	var types := {
+		"KILLED": Statistics.StatType.KILLED,
+		"DAMAGE_DEALT": Statistics.StatType.DAMAGE_DEALT,
+		"SCORED": Statistics.StatType.SCORED,
+	}
+	for name: String in types:
+		var all: Dictionary = _core.stats.get_all(types[name])
+		var rows: Array = []
+		for key: String in all:
+			rows.append([key, int(all[key])])
+		rows.sort_custom(func(a: Array, b: Array) -> bool: return a[1] > b[1])
+		out[name] = rows.slice(0, 5)
+	return out
 
 
 # ---------------- 座標換算 ----------------
@@ -662,22 +704,26 @@ func _rebuild_hand(cur: String) -> void:
 
 func _build_win_panel() -> void:
 	_win_panel = Panel.new()
-	_win_panel.position = Vector2(262, 250)
-	_win_panel.size = Vector2(500, 260)
+	_win_panel.position = Vector2(232, 250)
+	_win_panel.size = Vector2(560, 270)
 	_win_panel.visible = false
 	_hud.add_child(_win_panel)
 
-	_win_label = _mk_label(Vector2(30, 40), 26, 440)
+	_win_label = _mk_label(Vector2(30, 40), 26, 500)
 	_win_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_win_panel.add_child(_win_label)
 
-	var again := _mk_button("再來一局 (R)", Vector2(60, 160), Vector2(170, 50))
+	var again := _mk_button("再來一局 (R)", Vector2(30, 170), Vector2(160, 52))
 	again.pressed.connect(_on_win_restart)
 	_win_panel.add_child(again)
 
-	var quit := _mk_button("離開", Vector2(270, 160), Vector2(170, 50))
-	quit.pressed.connect(_on_win_quit)
-	_win_panel.add_child(quit)
+	var stats := _mk_button("終局統計", Vector2(200, 170), Vector2(160, 52))
+	stats.pressed.connect(_open_end_game)
+	_win_panel.add_child(stats)
+
+	var menu := _mk_button("回主選單", Vector2(370, 170), Vector2(160, 52))
+	menu.pressed.connect(_on_win_menu)
+	_win_panel.add_child(menu)
 
 
 func _show_win() -> void:
