@@ -11,7 +11,7 @@ Godot 4.7 重構版，規則以 Python 原版為唯一基準。
 
 **本機雙人（hot-seat）**：主選單 → 選秀 BP → 對戰 → 終局統計 → 回選單。
 
-- 10 色 × 8 職業全卡牌 + 特殊卡/衍生物（能力系統 v2，含沉默/附魔）。
+- 10 色 × 8 職業全卡牌 + 特殊卡/衍生物（能力系統，含沉默/附魔）。
 - 佔位美術（幾何圖形＋文字）＋動畫插槽（待機/攻擊/投射物/受擊/死亡/施法）。
 - 平衡數值以 JSON 為單一來源，由 Python 原版同步。
 
@@ -60,7 +60,7 @@ tools/sync_balance.ps1 -Check     # 只檢查是否一致（未變 exit 0）
 ```
 script/core/     純規則核心（RefCounted，零 Node 依賴）
                     game_core / combat / turn_engine / piece_state / ...
-                    ability/  能力系統 v2（trigger 全表、沉默/附魔）
+                    ability/  能力系統（trigger 全表、沉默/附魔）
                     faction 引擎：token / luck / totem / coin / shadow
                     draft_*   選秀 BP 邏輯
 script/data/     balance_db.gd（autoload Balance）、settings_store.gd
@@ -74,11 +74,11 @@ docs/rebuild/       重構規劃與規格（00 總覽起）
 ```
 
 **鐵律**：`script/core` 不得 `extends Node` / `get_tree()` / `load("res://scenes...")`。
-核心只吃 `GameAction`、吐 `GameEventV2` 陣列 + 可查詢狀態；場景層訂閱事件播動畫，靠事件是否清空判斷是否可再操作。
+核心只吃 `GameAction`、吐 `GameEvent` 陣列 + 可查詢狀態；場景層訂閱事件播動畫，靠事件是否清空判斷是否可再操作。
 
 ## 換美術（不改程式）
 
-佔位視覺集中在 `scenes/battle/piece_view.gd`（`PieceViewV2`）：
+佔位視覺集中在 `scenes/battle/piece_view.gd`（`PieceView`）：
 
 - 每棋子有 `VisualRoot/SpriteSlot`（`Sprite2D`）動畫插槽，目前隱藏、以 `PlaceholderShape`（Polygon2D）＋文字佔位。
 - 到位美術：填 `SpriteSlot` 並隱藏 `PlaceholderShape` 即可；每張卡可在 `PieceAnimationSet` 指定待機/攻擊/投射物/命中/受擊/死亡/施法，沒指定的自動用 fallback。

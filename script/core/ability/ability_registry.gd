@@ -1,10 +1,10 @@
-# P1-3 能力工廠：card_id → AbilityComponentV2（見 docs/rebuild/04 §5.2）。
+# P1-3 能力工廠：card_id → AbilityComponent（見 docs/rebuild/04 §5.2）。
 # 各色的能力組裝分散在 ability/cards/<color>.gd，registry 彙整其 registrations()。
 # P1-3 先接 White（骨架）；後續任務逐色補上 red/blue/green…。
-class_name AbilityRegistryV2
+class_name AbilityRegistry
 extends RefCounted
 
-# card_id -> Callable（回傳 Array[AbilityV2]）。惰性建立一次。
+# card_id -> Callable（回傳 Array[Ability]）。惰性建立一次。
 static var _table: Dictionary = {}
 static var _built: bool = false
 
@@ -13,16 +13,16 @@ static func _build_table() -> void:
 	if _built:
 		return
 	_built = true
-	_merge(WhiteCardsV2.registrations())
-	_merge(RedCardsV2.registrations())
-	_merge(BlueCardsV2.registrations())
-	_merge(GreenCardsV2.registrations())
-	_merge(OrangeCardsV2.registrations())
-	_merge(DarkGreenCardsV2.registrations())
-	_merge(CyanCardsV2.registrations())
-	_merge(FuchsiaCardsV2.registrations())
-	_merge(BrownCardsV2.registrations())
-	_merge(PurpleCardsV2.registrations())
+	_merge(WhiteCards.registrations())
+	_merge(RedCards.registrations())
+	_merge(BlueCards.registrations())
+	_merge(GreenCards.registrations())
+	_merge(OrangeCards.registrations())
+	_merge(DarkGreenCards.registrations())
+	_merge(CyanCards.registrations())
+	_merge(FuchsiaCards.registrations())
+	_merge(BrownCards.registrations())
+	_merge(PurpleCards.registrations())
 
 
 static func _merge(regs: Dictionary) -> void:
@@ -32,9 +32,9 @@ static func _merge(regs: Dictionary) -> void:
 
 # 依 card_id 建立掛在 piece 上的能力元件（native 由工廠 Callable 產生）。
 # 未註冊的 card_id 回傳空元件（合法：多數卡 P1-3 尚未實作）。
-static func build(card_id: String, piece: PieceState) -> AbilityComponentV2:
+static func build(card_id: String, piece: PieceState) -> AbilityComponent:
 	_build_table()
-	var comp := AbilityComponentV2.new(piece)
+	var comp := AbilityComponent.new(piece)
 	if _table.has(card_id):
 		var factory: Callable = _table[card_id]
 		var abilities: Variant = factory.call()
@@ -45,5 +45,5 @@ static func build(card_id: String, piece: PieceState) -> AbilityComponentV2:
 
 # 依 id 建立單一附魔能力（附魔 API 用；P1-3 先保留介面）。
 # 目前無註冊的附魔範本，回傳 null；未來以名稱查表。
-static func make(_enchant_id: String) -> AbilityV2:
+static func make(_enchant_id: String) -> Ability:
 	return null

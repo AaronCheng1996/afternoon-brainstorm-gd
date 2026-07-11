@@ -1,15 +1,15 @@
-# P2-2 演出排程器：吃 core 的 GameEventV2 陣列，依各事件 delay 排到時間軸播放。見 04 §7.3。
+# P2-2 演出排程器：吃 core 的 GameEvent 陣列，依各事件 delay 排到時間軸播放。見 04 §7.3。
 # core 不等待動畫；AI 靠 is_busy()（＝事件是否播完）決定何時出手（對齊 Python renderer_busy）。
 # instant=true 時全部瞬時完成（動畫開關關閉），最終狀態與逐格播放一致。
 # 位置→視圖以 resolver 解析；格→像素中心以 cell_to_global 解析（供攻擊瞄準/飄字定位）。
-class_name CombatSchedulerV2
+class_name CombatScheduler
 extends Node
 
 signal finished
 
 var instant: bool = false
 
-var _resolver: Callable = Callable()       # func(Vector2i) -> PieceViewV2 或 null
+var _resolver: Callable = Callable()       # func(Vector2i) -> PieceView 或 null
 var _cell_to_global: Callable = Callable()  # func(Vector2i) -> Vector2
 var _fx_layer: Node = null
 
@@ -72,9 +72,9 @@ func _finish() -> void:
 	finished.emit()
 
 
-func _schedule(e: GameEventV2) -> void:
+func _schedule(e: GameEvent) -> void:
 	match e.kind:
-		GameEventV2.Kind.ATTACK:
+		GameEvent.Kind.ATTACK:
 			var from: Vector2i = e.data["from"]
 			var to: Vector2i = e.data["to"]
 			_push(e.data.get("delay", 0.0), func() -> void:
@@ -83,7 +83,7 @@ func _schedule(e: GameEventV2) -> void:
 					return
 				av.instant = instant
 				av.play_attack(_center_of(to), _fx_layer))
-		GameEventV2.Kind.HURT:
+		GameEvent.Kind.HURT:
 			var at: Vector2i = e.data["at"]
 			var post_health: int = e.data.get("post_health", 0)
 			_push(e.data.get("delay", 0.0), func() -> void:
@@ -93,12 +93,12 @@ func _schedule(e: GameEventV2) -> void:
 				v.instant = instant
 				v.play_hurt()
 				v.set_health_display(post_health))
-		GameEventV2.Kind.FLOAT:
+		GameEvent.Kind.FLOAT:
 			var at: Vector2i = e.data["at"]
 			var amount: int = e.data.get("amount", 0)
 			_push(e.data.get("delay", 0.0), func() -> void:
 				_spawn_float(at, amount))
-		GameEventV2.Kind.DEATH:
+		GameEvent.Kind.DEATH:
 			var at: Vector2i = e.data["at"]
 			_push(e.data.get("delay", 0.0), func() -> void:
 				var v := _view(at)
@@ -110,7 +110,7 @@ func _schedule(e: GameEventV2) -> void:
 					_pending_anims -= 1
 					if is_instance_valid(v):
 						v.queue_free()))
-		GameEventV2.Kind.MOVE:
+		GameEvent.Kind.MOVE:
 			var from: Vector2i = e.data["from"]
 			var to: Vector2i = e.data["to"]
 			_push(0.0, func() -> void:
@@ -119,14 +119,14 @@ func _schedule(e: GameEventV2) -> void:
 					return
 				v.instant = instant
 				v.play_move(_center_of(to)))
-		GameEventV2.Kind.CAST:
+		GameEvent.Kind.CAST:
 			var at: Vector2i = e.data["at"]
 			_push(0.0, func() -> void:
 				var v := _view(at)
 				if v != null:
 					v.instant = instant
 					v.play_cast())
-		GameEventV2.Kind.STATUS:
+		GameEvent.Kind.STATUS:
 			var at: Vector2i = e.data["at"]
 			var sid: String = e.data.get("status_id", "")
 			var on: bool = e.data.get("on", false)

@@ -46,7 +46,7 @@ func run(t: Object) -> void:
 	var adc1 := _place(c1, "ADCR", "player1", 0, 0)
 	_place(c1, "TANKR", "player2", 2, 0)
 	var adc1_before: int = adc1.damage
-	CombatV2.attack(c1, adc1)
+	Combat.attack(c1, adc1)
 	t.eq(adc1.damage, adc1_before + ADC_INC, "ADCR 造成傷害後自身 ATK+1")
 
 	# 我方 SPR 同步 +1。
@@ -55,7 +55,7 @@ func run(t: Object) -> void:
 	var sp2 := _place(c2, "SPR", "player1", 0, 1)
 	_place(c2, "TANKR", "player2", 2, 0)
 	var sp2_before: int = sp2.damage
-	CombatV2.attack(c2, adc2)
+	Combat.attack(c2, adc2)
 	t.eq(sp2.damage, sp2_before + ADC_INC, "ADCR 攻擊後我方 SPR ATK+1")
 
 	# 敵方 SPR 不受益。
@@ -64,14 +64,14 @@ func run(t: Object) -> void:
 	var esp3 := _place(c3, "SPR", "player2", 3, 0)
 	_place(c3, "TANKR", "player2", 2, 0)
 	var esp3_before: int = esp3.damage
-	CombatV2.attack(c3, adc3)
+	Combat.attack(c3, adc3)
 	t.eq(esp3.damage, esp3_before, "ADCR 不增益敵方 SPR")
 
 	# 無目標時不攻擊、ATK 不變。
 	var c4 := _make_core(4); cores.append(c4)
 	var adc4 := _place(c4, "ADCR", "player1", 0, 0)
 	var adc4_before: int = adc4.damage
-	var r4: bool = CombatV2.attack(c4, adc4)
+	var r4: bool = Combat.attack(c4, adc4)
 	t.ok(not r4, "ADCR 無目標攻擊回傳 false")
 	t.eq(adc4.damage, adc4_before, "ADCR 無目標時 ATK 不變")
 
@@ -83,7 +83,7 @@ func run(t: Object) -> void:
 	tgt5.set_numb(false)
 	var ap5_before: int = ap5.damage
 	var tgt5_before: int = tgt5.damage
-	CombatV2.attack(c5, ap5)
+	Combat.attack(c5, ap5)
 	t.ok(tgt5.is_numb(), "APR 攻擊後目標麻痺")
 	t.eq(ap5.damage, ap5_before + AP_STEAL, "APR 偷取後自身 +偷取值")
 	t.eq(tgt5.damage, tgt5_before - AP_STEAL, "APR 偷取後目標 -偷取值")
@@ -94,7 +94,7 @@ func run(t: Object) -> void:
 	var sp6 := _place(c6, "SPR", "player1", 0, 1)
 	_place(c6, "ADCR", "player2", 1, 0)
 	var sp6_before: int = sp6.damage
-	CombatV2.attack(c6, ap6)
+	Combat.attack(c6, ap6)
 	t.eq(sp6.damage, sp6_before + AP_STEAL, "APR 我方 SPR 承接偷取值")
 
 	# ---------------- TANKR ----------------
@@ -104,7 +104,7 @@ func run(t: Object) -> void:
 	var ally7 := _place(c7, "ADCR", "player1", 1, 2)
 	var enemy7 := _place(c7, "ADCR", "player2", 2, 1)
 	var ally7_before: int = ally7.armor
-	CombatV2.damage_calculate(c7, tank7, 1, enemy7, false, 0.0)
+	Combat.damage_calculate(c7, tank7, 1, enemy7, false, 0.0)
 	t.eq(ally7.armor, ally7_before + TANK_ARM, "TANKR 被攻擊後最近友方 +2 護盾")
 
 	# 被攻擊後我方 SPR +2 護盾。
@@ -114,7 +114,7 @@ func run(t: Object) -> void:
 	var sp8 := _place(c8, "SPR", "player1", 3, 3)
 	var enemy8 := _place(c8, "ADCR", "player2", 2, 1)
 	var sp8_before: int = sp8.armor
-	CombatV2.damage_calculate(c8, tank8, 1, enemy8, false, 0.0)
+	Combat.damage_calculate(c8, tank8, 1, enemy8, false, 0.0)
 	t.eq(sp8.armor, sp8_before + TANK_ARM, "TANKR 被攻擊後我方 SPR +2 護盾")
 
 	# 無友方時 TANKR 自身不獲護盾。
@@ -122,7 +122,7 @@ func run(t: Object) -> void:
 	var tank9 := _place(c9, "TANKR", "player1", 0, 0)
 	var enemy9 := _place(c9, "ADCR", "player2", 1, 0)
 	var tank9_before: int = tank9.armor
-	CombatV2.damage_calculate(c9, tank9, 1, enemy9, false, 0.0)
+	Combat.damage_calculate(c9, tank9, 1, enemy9, false, 0.0)
 	t.eq(tank9.armor, tank9_before, "TANKR 無友方時自身不獲護盾")
 
 	# ---------------- HFR ----------------
@@ -132,7 +132,7 @@ func run(t: Object) -> void:
 	_place(c10, "ADCR", "player2", 2, 1)
 	var hf10_hp: int = hf10.health
 	var hf10_dmg: int = hf10.damage
-	CombatV2.attack(c10, hf10)
+	Combat.attack(c10, hf10)
 	t.eq(hf10.health, hf10_hp - HF_DEC, "HFR 攻擊後自損 1HP")
 	t.eq(hf10.damage, hf10_dmg + HF_INC, "HFR 攻擊後 ATK+1")
 
@@ -141,7 +141,7 @@ func run(t: Object) -> void:
 	var hf11 := _place(c11, "HFR", "player1", 1, 1)
 	_place(c11, "ADCR", "player2", 2, 1)
 	hf11.health = 1
-	CombatV2.attack(c11, hf11)
+	Combat.attack(c11, hf11)
 	t.ok(hf11.is_angry(), "HFR HP 歸 0 進怒氣")
 
 	# 怒氣不死身（can_be_killed false）。
@@ -155,7 +155,7 @@ func run(t: Object) -> void:
 	var hf13 := _place(c13, "HFR", "player1", 1, 1)
 	_place(c13, "ADCR", "player2", 2, 1)
 	hf13.health = 5
-	CombatV2.attack(c13, hf13)
+	Combat.attack(c13, hf13)
 	t.ok(not hf13.is_angry(), "HFR HP 未歸 0 不進怒氣")
 
 	# 怒氣 settle 得 0 分且清怒氣。
@@ -184,7 +184,7 @@ func run(t: Object) -> void:
 	_place(c16, "ADCR", "player2", 2, 1)
 	var lf16_arm: int = lf16.armor
 	var lf16_dmg: int = lf16.damage
-	CombatV2.attack(c16, lf16)
+	Combat.attack(c16, lf16)
 	t.eq(lf16.armor, lf16_arm + LF_ARM, "LFR 攻擊後自身 +1 護盾")
 	t.eq(lf16.damage, lf16_dmg + LF_DMG, "LFR 攻擊後自身 +1 ATK")
 
@@ -195,7 +195,7 @@ func run(t: Object) -> void:
 	_place(c17, "ADCR", "player2", 2, 1)
 	var sp17_arm: int = sp17.armor
 	var sp17_dmg: int = sp17.damage
-	CombatV2.attack(c17, lf17)
+	Combat.attack(c17, lf17)
 	t.eq(sp17.armor, sp17_arm + LF_ARM, "LFR 攻擊後我方 SPR +1 護盾")
 	t.eq(sp17.damage, sp17_dmg + LF_DMG, "LFR 攻擊後我方 SPR +1 ATK")
 
@@ -207,7 +207,7 @@ func run(t: Object) -> void:
 	var enemy18 := _place(c18, "ADCR", "player2", 2, 0)
 	enemy18.health = 1
 	var ally18_before: int = ally18.damage
-	CombatV2.attack(c18, ass18)
+	Combat.attack(c18, ass18)
 	t.eq(ally18.damage, ally18_before + ASS_INC, "ASSR 斬殺後最近友方 ATK+2")
 
 	# 斬殺後我方 SPR +2。
@@ -218,7 +218,7 @@ func run(t: Object) -> void:
 	var enemy19 := _place(c19, "ADCR", "player2", 2, 0)
 	enemy19.health = 1
 	var sp19_before: int = sp19.damage
-	CombatV2.attack(c19, ass19)
+	Combat.attack(c19, ass19)
 	t.eq(sp19.damage, sp19_before + ASS_INC, "ASSR 斬殺後我方 SPR ATK+2")
 
 	# 未斬殺不增益。
@@ -227,7 +227,7 @@ func run(t: Object) -> void:
 	var ally20 := _place(c20, "ADCR", "player1", 1, 2)
 	_place(c20, "TANKR", "player2", 2, 0)   # 9HP 不會被斬
 	var ally20_before: int = ally20.damage
-	CombatV2.attack(c20, ass20)
+	Combat.attack(c20, ass20)
 	t.eq(ally20.damage, ally20_before, "ASSR 未斬殺不增益友方")
 
 	# ---------------- APTR ----------------
@@ -237,7 +237,7 @@ func run(t: Object) -> void:
 	_place(c21, "TANKR", "player2", 1, 0)
 	var apt21_arm: int = apt21.armor
 	var apt21_dmg: int = apt21.damage
-	CombatV2.attack(c21, apt21)
+	Combat.attack(c21, apt21)
 	t.eq(apt21.armor, apt21_arm + APT_ARM, "APTR 攻擊後自身 +1 護盾")
 	t.eq(apt21.damage, apt21_dmg + APT_DMG, "APTR 攻擊後自身 +1 ATK")
 
@@ -248,7 +248,7 @@ func run(t: Object) -> void:
 	_place(c22, "TANKR", "player2", 1, 0)
 	var ally22_arm: int = ally22.armor
 	var ally22_dmg: int = ally22.damage
-	CombatV2.attack(c22, apt22)
+	Combat.attack(c22, apt22)
 	t.eq(ally22.armor, ally22_arm + APT_ARM, "APTR 攻擊後最近友方 +1 護盾")
 	t.eq(ally22.damage, ally22_dmg + APT_DMG, "APTR 攻擊後最近友方 +1 ATK")
 
@@ -260,7 +260,7 @@ func run(t: Object) -> void:
 	_place(c23, "TANKR", "player2", 1, 0)
 	var sp23_arm: int = sp23.armor
 	var sp23_dmg: int = sp23.damage
-	CombatV2.attack(c23, apt23)
+	Combat.attack(c23, apt23)
 	t.eq(sp23.armor, sp23_arm + APT_ARM, "APTR 攻擊後我方 SPR +1 護盾")
 	t.eq(sp23.damage, sp23_dmg + APT_DMG, "APTR 攻擊後我方 SPR +1 ATK")
 

@@ -2,7 +2,7 @@
 # 翻譯自 cards/card_dark_green.py DarkGreenCard.engraved_totem：
 #   對 owner 的 players_totem 增加 times × (engraved_totem_coefficient ^ 場上 SPDKG 數)。
 #   即每有一張 SPDKG 在場，本次刻印量翻倍（2^n；係數讀 DarkGreen/SP/engraved_totem_coefficient=2）。
-class_name TotemEngineV2
+class_name TotemEngine
 extends RefCounted
 
 

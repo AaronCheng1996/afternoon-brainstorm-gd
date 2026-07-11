@@ -1,8 +1,8 @@
 # P1-3 傷害管線 + 攻擊佇列（見 docs/rebuild/01 §5–§7、§10）。
 # 純靜態函式，操作傳入的 GameCore（保持 core 無 Node 依賴）。
 # 翻譯自 cards/base.py：detection / damage_calculate / launch_attack / _launch_attack_impl。
-# 能力鉤子透過 PieceState.abilities（AbilityComponentV2）依觸發點分派。
-class_name CombatV2
+# 能力鉤子透過 PieceState.abilities（AbilityComponent）依觸發點分派。
+class_name Combat
 extends RefCounted
 
 
@@ -73,7 +73,7 @@ static func attack(core: GameCore, attacker: PieceState) -> bool:
 	# ATTACK_OVERRIDE：卡牌完全接管攻擊（APTG 禁攻回傳 false；ADCO 覆寫）。
 	# 回傳非 null 即代表覆寫，直接採用其結果（見 base.py APTG.attack 回傳 False）。
 	if attacker.abilities != null:
-		var octx := AbilityContextV2.new(core, attacker, null, 0, {})
+		var octx := AbilityContext.new(core, attacker, null, 0, {})
 		var ov: Variant = attacker.abilities.dispatch_attack_override(octx)
 		if ov != null:
 			attacker.hit_cards.clear()
@@ -139,13 +139,13 @@ static func _launch_attack_impl(core: GameCore, attacker: PieceState, attack_typ
 		var target: PieceState = targets[i]
 		var atk_delay: float = base_delay + i * GameConfig.ANIM_LUNGE_STEP
 		var hurt_delay: float = atk_delay + GameConfig.ANIM_LUNGE_STEP * GameConfig.HIT_DELAY_RATIO
-		core.event_sink.append(GameEventV2.attack(attacker.pos(), target.pos(), atk_delay))
+		core.event_sink.append(GameEvent.attack(attacker.pos(), target.pos(), atk_delay))
 		if damage_calculate(core, target, attacker.damage, attacker, use_ability, hurt_delay):
 			# 成功結算後全場廣播（目前無卡用，保留鉤子）。
 			for c: PieceState in core.get_both_player_pieces():
 				if c.abilities != null:
-					var bctx := AbilityContextV2.new(core, c, target, 0, {"attacker": attacker})
-					c.abilities.run(TriggerV2.Type.ON_AFTER_ATTACK_BROADCAST, bctx)
+					var bctx := AbilityContext.new(core, c, target, 0, {"attacker": attacker})
+					c.abilities.run(Trigger.Type.ON_AFTER_ATTACK_BROADCAST, bctx)
 		core._attack_anim_cursor = base_delay + targets.size() * GameConfig.ANIM_LUNGE_STEP
 	return true
 
@@ -160,24 +160,24 @@ static func damage_calculate(core: GameCore, victim: PieceState, value: int, att
 	attacker.hit_cards.append(victim)
 	# 2. damage_block：True → 整次攻擊無效。
 	if victim.abilities != null:
-		var block_ctx := AbilityContextV2.new(core, victim, attacker, value, {"attacker": attacker})
-		if victim.abilities.any_true(TriggerV2.Type.BLOCK_DAMAGE, block_ctx):
+		var block_ctx := AbilityContext.new(core, victim, attacker, value, {"attacker": attacker})
+		if victim.abilities.any_true(Trigger.Type.BLOCK_DAMAGE, block_ctx):
 			return false
 	# 3. 攻擊附帶能力（attacker.ability）。
 	if use_ability and attacker.abilities != null:
-		var ab_ctx := AbilityContextV2.new(core, attacker, victim, value, {})
-		if attacker.abilities.any_true(TriggerV2.Type.ON_ABILITY_HIT, ab_ctx):
+		var ab_ctx := AbilityContext.new(core, attacker, victim, value, {})
+		if attacker.abilities.any_true(Trigger.Type.ON_ABILITY_HIT, ab_ctx):
 			core.stats.increment(Statistics.StatType.ABILITY, attacker.uid(), 1)
-			core.event_sink.append(GameEventV2.new(GameEventV2.Kind.CAST, {"at": attacker.pos(), "kind": "ability"}))
+			core.event_sink.append(GameEvent.new(GameEvent.Kind.CAST, {"at": attacker.pos(), "kind": "ability"}))
 	# 4. damage_bonus：預設 value + attacker.extra_damage，再由能力修改。
 	value = value + attacker.extra_damage
 	if attacker.abilities != null:
-		var bonus_ctx := AbilityContextV2.new(core, attacker, victim, value, {})
-		value = attacker.abilities.dispatch_mod(TriggerV2.Type.MOD_DAMAGE_BONUS, bonus_ctx)
+		var bonus_ctx := AbilityContext.new(core, attacker, victim, value, {})
+		value = attacker.abilities.dispatch_mod(Trigger.Type.MOD_DAMAGE_BONUS, bonus_ctx)
 	# 5. damage_reduce。
 	if victim.abilities != null:
-		var red_ctx := AbilityContextV2.new(core, victim, attacker, value, {"attacker": attacker})
-		value = victim.abilities.dispatch_mod(TriggerV2.Type.MOD_DAMAGE_REDUCE, red_ctx)
+		var red_ctx := AbilityContext.new(core, victim, attacker, value, {"attacker": attacker})
+		value = victim.abilities.dispatch_mod(Trigger.Type.MOD_DAMAGE_REDUCE, red_ctx)
 	# 6. 場地攔截（全場，含 priority + feedback）。
 	value = _special_damage_interceptor(core, victim, value, attacker)
 
@@ -227,7 +227,7 @@ static func _special_damage_interceptor(core: GameCore, victim: PieceState, valu
 	for src: PieceState in core.get_all_pieces():
 		if src.abilities == null:
 			continue
-		var ctx := AbilityContextV2.new(core, src, victim, value, {"attacker": attacker})
+		var ctx := AbilityContext.new(core, src, victim, value, {"attacker": attacker})
 		modifiers.append_array(src.abilities.collect_field(ctx))
 	if modifiers.is_empty():
 		return value
@@ -250,22 +250,22 @@ static func _record_damage(core: GameCore, attacker: PieceState, victim: PieceSt
 
 
 static func _emit_hurt_float(core: GameCore, victim: PieceState, value: int, anim_delay: float) -> void:
-	core.event_sink.append(GameEventV2.hurt(victim.pos(), anim_delay, victim.health))
-	core.event_sink.append(GameEventV2.float_text(victim.pos(), value, anim_delay))
+	core.event_sink.append(GameEvent.hurt(victim.pos(), anim_delay, victim.health))
+	core.event_sink.append(GameEvent.float_text(victim.pos(), value, anim_delay))
 
 
 # 步驟 8：been_attacked 鉤子。
 static func _after_hit(core: GameCore, victim: PieceState, attacker: PieceState, value: int) -> void:
 	if victim.abilities != null:
-		var ctx := AbilityContextV2.new(core, victim, attacker, value, {"attacker": attacker})
-		victim.abilities.run(TriggerV2.Type.ON_BEEN_ATTACKED, ctx)
+		var ctx := AbilityContext.new(core, victim, attacker, value, {"attacker": attacker})
+		victim.abilities.run(Trigger.Type.ON_BEEN_ATTACKED, ctx)
 
 
 # 步驟 9：after_damage_calculated 鉤子。
 static func _run_after_damage(core: GameCore, attacker: PieceState, victim: PieceState, value: int) -> void:
 	if attacker.abilities != null:
-		var ctx := AbilityContextV2.new(core, attacker, victim, value, {})
-		attacker.abilities.run(TriggerV2.Type.ON_AFTER_DAMAGE, ctx)
+		var ctx := AbilityContext.new(core, attacker, victim, value, {})
+		attacker.abilities.run(Trigger.Type.ON_AFTER_DAMAGE, ctx)
 
 
 # 步驟 10：擊殺結算（killed → been_killed → can_be_killed → pending_death + death 事件）。
@@ -273,9 +273,9 @@ static func _handle_kill(core: GameCore, attacker: PieceState, victim: PieceStat
 	core.stats.increment(Statistics.StatType.KILLED, attacker.uid(), 1)
 	core.stats.increment(Statistics.StatType.DEATH, victim.uid(), 1)
 	if attacker.abilities != null:
-		attacker.abilities.run(TriggerV2.Type.ON_KILLED, AbilityContextV2.new(core, attacker, victim, 0, {}))
+		attacker.abilities.run(Trigger.Type.ON_KILLED, AbilityContext.new(core, attacker, victim, 0, {}))
 	if victim.abilities != null:
-		victim.abilities.run(TriggerV2.Type.ON_BEEN_KILLED, AbilityContextV2.new(core, victim, attacker, 0, {"attacker": attacker}))
+		victim.abilities.run(Trigger.Type.ON_BEEN_KILLED, AbilityContext.new(core, victim, attacker, 0, {"attacker": attacker}))
 	if core.can_be_killed(victim):
 		victim.pending_death = true
-		core.event_sink.append(GameEventV2.death(victim.pos(), anim_delay))
+		core.event_sink.append(GameEvent.death(victim.pos(), anim_delay))

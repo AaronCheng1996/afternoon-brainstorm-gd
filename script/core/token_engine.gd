@@ -1,7 +1,7 @@
 # P1-6 Token 引擎（藍色系；見 docs/rebuild/02 §Blue，Python 出處 cards/card_blue.py BlueCard）。
 # 主題：每「獲得一次 token」呼叫一次 got_token；累積達門檻（預設 3）換 1 抽。
 # 純靜態函式，操作傳入的 GameCore（保持 core 無 Node 依賴）。
-class_name TokenEngineV2
+class_name TokenEngine
 extends RefCounted
 
 
@@ -29,7 +29,7 @@ static func add(core: GameCore, owner: String, amount: int) -> void:
 static func got_token(core: GameCore, owner: String) -> void:
 	for c: PieceState in _blue_on_board(core, owner):
 		if c.abilities != null:
-			c.abilities.run(TriggerV2.Type.ON_TOKEN_GAINED, AbilityContextV2.new(core, c, null, 0, {}))
+			c.abilities.run(Trigger.Type.ON_TOKEN_GAINED, AbilityContext.new(core, c, null, 0, {}))
 	var th: int = threshold(core)
 	if int(core.players_token[owner]) >= th:
 		core.players_token[owner] -= th
@@ -37,7 +37,7 @@ static func got_token(core: GameCore, owner: String) -> void:
 		core.stats.increment(Statistics.StatType.TOKEN_USE, owner, 1)
 		for c: PieceState in _blue_on_board(core, owner):
 			if c.abilities != null:
-				c.abilities.run(TriggerV2.Type.ON_TOKEN_DRAW, AbilityContextV2.new(core, c, null, 0, {}))
+				c.abilities.run(Trigger.Type.ON_TOKEN_DRAW, AbilityContext.new(core, c, null, 0, {}))
 
 
 # 便捷：加 amount 個 token，並觸發 times 次 got_token。

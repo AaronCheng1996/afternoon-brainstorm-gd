@@ -14,23 +14,23 @@ func run(t: Object) -> void:
 	_test_scene(t)
 
 
-func _add(disp: DraftDispatcherV2, st: DraftStateV2, who: String, card: String) -> DraftResultV2:
-	return disp.dispatch(DraftActionV2.new(who, "add_card", card), st)
+func _add(disp: DraftDispatcher, st: DraftState, who: String, card: String) -> DraftResult:
+	return disp.dispatch(DraftAction.new(who, "add_card", card), st)
 
 
-func _adv(disp: DraftDispatcherV2, st: DraftStateV2, who: String) -> DraftResultV2:
-	return disp.dispatch(DraftActionV2.new(who, "advance_phase"), st)
+func _adv(disp: DraftDispatcher, st: DraftState, who: String) -> DraftResult:
+	return disp.dispatch(DraftAction.new(who, "advance_phase"), st)
 
 
-func _fill(disp: DraftDispatcherV2, st: DraftStateV2, who: String, units: Array) -> void:
+func _fill(disp: DraftDispatcher, st: DraftState, who: String, units: Array) -> void:
 	for u: String in units:
 		_add(disp, st, who, u)
 
 
 # ---------------- 1. 三階段流程 ----------------
 func _test_phase_flow(t: Object) -> void:
-	var st := DraftStateV2.new()
-	var disp := DraftDispatcherV2.new()
+	var st := DraftState.new()
+	var disp := DraftDispatcher.new()
 	t.eq(st.phase, "p1_first6", "flow：初始階段 p1_first6")
 	t.eq(st.current_editor(), "player1", "flow：p1_first6 由 player1 編輯")
 
@@ -70,8 +70,8 @@ func _test_phase_flow(t: Object) -> void:
 
 # ---------------- 2. 限制（同名上限 / 牌組上限）----------------
 func _test_limits(t: Object) -> void:
-	var st := DraftStateV2.new()
-	var disp := DraftDispatcherV2.new()
+	var st := DraftState.new()
+	var disp := DraftDispatcher.new()
 
 	# 單位同名 ≤2。
 	t.ok(_add(disp, st, "player1", "ADCW").success, "limit：ADCW 第 1 張")
@@ -99,29 +99,29 @@ func _test_limits(t: Object) -> void:
 
 # ---------------- 3. 移除（同名最後一張 / 最後一張）----------------
 func _test_remove(t: Object) -> void:
-	var st := DraftStateV2.new()
-	var disp := DraftDispatcherV2.new()
+	var st := DraftState.new()
+	var disp := DraftDispatcher.new()
 	_fill(disp, st, "player1", ["ADCW", "TANKW", "ADCW"])
 	# remove_card 移除「最後一張同名」。
-	disp.dispatch(DraftActionV2.new("player1", "remove_card", "ADCW"), st)
+	disp.dispatch(DraftAction.new("player1", "remove_card", "ADCW"), st)
 	t.eq(st.player1_deck.count("ADCW"), 1, "remove：移除一張 ADCW 後剩 1")
 	t.eq(st.player1_deck, ["ADCW", "TANKW"] as Array[String], "remove：移除的是最後一張同名")
 	# remove_last_card 移除末端。
-	disp.dispatch(DraftActionV2.new("player1", "remove_last_card"), st)
+	disp.dispatch(DraftAction.new("player1", "remove_last_card"), st)
 	t.eq(st.player1_deck, ["ADCW"] as Array[String], "remove：remove_last_card 移除末端")
 
 
 # ---------------- 4. 切換（計時 / 存檔）----------------
 func _test_toggles(t: Object) -> void:
-	var st := DraftStateV2.new()
-	var disp := DraftDispatcherV2.new()
+	var st := DraftState.new()
+	var disp := DraftDispatcher.new()
 	t.eq(st.timer_mode, "timer", "toggle：預設正計時")
-	disp.dispatch(DraftActionV2.new("player1", "toggle_timer"), st)
+	disp.dispatch(DraftAction.new("player1", "toggle_timer"), st)
 	t.eq(st.timer_mode, "countdown", "toggle：切為倒數")
-	disp.dispatch(DraftActionV2.new("player1", "toggle_timer"), st)
+	disp.dispatch(DraftAction.new("player1", "toggle_timer"), st)
 	t.eq(st.timer_mode, "timer", "toggle：再切回正計時")
 	t.eq(st.file_auto_delete, false, "toggle：存檔預設保留")
-	disp.dispatch(DraftActionV2.new("player1", "toggle_file_save"), st)
+	disp.dispatch(DraftAction.new("player1", "toggle_file_save"), st)
 	t.eq(st.file_auto_delete, true, "toggle：切為自動刪除")
 
 

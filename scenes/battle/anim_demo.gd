@@ -22,7 +22,7 @@ const TARGETS := [
 var _scheduler: Node
 var _board_layer: Node2D
 var _fx_layer: Node2D
-var _views: Dictionary = {}       # Vector2i -> PieceViewV2
+var _views: Dictionary = {}       # Vector2i -> PieceView
 var _instant: bool = false
 var _status_label: Label
 
@@ -92,7 +92,7 @@ func _run() -> void:
 		_make_view(pos, cid, 2, null)
 
 	_scheduler.instant = _instant
-	CombatV2.attack(core, attacker)
+	Combat.attack(core, attacker)
 	var events: Array = core.drain_events()
 	_scheduler.play_events(events)
 	db.free()

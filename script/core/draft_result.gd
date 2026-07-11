@@ -1,5 +1,5 @@
 # P2-4 選秀 BP 行動結果（翻譯自 core/draft_dispatcher.py DraftResult）。
-class_name DraftResultV2
+class_name DraftResult
 extends RefCounted
 
 var success: bool

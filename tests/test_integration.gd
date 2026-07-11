@@ -135,13 +135,13 @@ func _test_blue_vs_green(t: Object, cores: Array) -> void:
 
 	# 藍 APB 攻擊綠 APG：造成傷害 → 獲得 token。
 	var token_before: int = core.players_token["player1"]
-	CombatV2.attack(core, apb)
+	Combat.attack(core, apb)
 	t.ok(core.players_token["player1"] > token_before, "藍綠：APB 攻擊後 player1 獲得 token")
 	t.ok(apg.is_numb(), "藍綠：APB 攻擊附帶麻痺")
 
 	# 綠 APG 反擊藍 APB：目標壞運 + 自身好運 → players_luck 變動。
 	apg.set_numb(false)
-	CombatV2.attack(core, apg)
+	Combat.attack(core, apg)
 	t.ok(core.players_luck["player1"] != 50 or core.players_luck["player2"] != 50,
 		"藍綠：APG 觸發好/壞運 → players_luck 由初始 50 變動")
 

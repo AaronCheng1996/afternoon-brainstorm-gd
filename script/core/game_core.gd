@@ -1,6 +1,6 @@
 # P1-1 遊戲核心：狀態 + 回合引擎（行動分派在 P1-2、傷害管線在 P1-3 補上）。
 # 純 GDScript（RefCounted，零 Node 依賴）——不得 extends Node / get_tree / load 場景（見 04 §1）。
-# 對外介面：吃 GameAction（P1-2）、吐 GameEventV2 陣列（drain_events）+ 可查詢狀態。
+# 對外介面：吃 GameAction（P1-2）、吐 GameEvent 陣列（drain_events）+ 可查詢狀態。
 class_name GameCore
 extends RefCounted
 
@@ -13,7 +13,7 @@ var stats: Statistics
 var player1: PlayerState
 var player2: PlayerState
 var neutral_pieces: Array = []     # Array[PieceState]：CUBE / LUCKYBLOCK 等
-var event_sink: Array = []         # Array[GameEventV2]：本步驟產生的表現層事件
+var event_sink: Array = []         # Array[GameEvent]：本步驟產生的表現層事件
 
 var score: int = 0
 var turn_number: int = 0
@@ -134,7 +134,7 @@ func dispatch(action: GameAction) -> ActionResult:
 func _attack(owner: String, x: int, y: int) -> void:
 	for piece: PieceState in get_player(owner).on_board:
 		if piece.board_x == x and piece.board_y == y:
-			if CombatV2.attack(self, piece):
+			if Combat.attack(self, piece):
 				number_of_attacks[owner] = maxi(0, number_of_attacks[owner] - piece.attack_uses)
 				stats.increment(Statistics.StatType.HIT, piece.uid(), 1)
 			break
@@ -182,12 +182,12 @@ func _spawn_card(x: int, y: int, card_name: String, owner: String, target_board:
 	# 付不起 → 生成失敗、牌留手上，且不扣金幣、不觸發 deploy/佔格。
 	if not _cyan_price_check(piece):
 		return false
-	event_sink.append(GameEventV2.spawn(target_pos, piece.card_id, owner))
+	event_sink.append(GameEvent.spawn(target_pos, piece.card_id, owner))
 	# ON_DEPLOY 鉤子（card.deploy）在「佔格與加入 on_board 之前」執行，對齊 Python
 	# factory.spawn_card（deploy → occupy → append）：deploy 時本子尚未在場、目標格未佔用。
 	# 影響 SPB 佈署自我計數等（P1-6）。
 	if piece.abilities != null:
-		piece.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(self, piece, null, 0, {}))
+		piece.abilities.run(Trigger.Type.ON_DEPLOY, AbilityContext.new(self, piece, null, 0, {}))
 	board.set_occupied(target_pos, true)
 	target_board.append(piece)
 	return true
@@ -267,8 +267,8 @@ func _move_card(owner: String, x: int, y: int) -> void:
 func _move_piece(piece: PieceState, x: int, y: int) -> bool:
 	# custom_move 攔截鉤子（目前無卡使用，保留；見 01 §4）。
 	if piece.abilities != null:
-		var cctx := AbilityContextV2.new(self, piece, null, 0, {"to": Vector2i(x, y)})
-		if piece.abilities.any_true(TriggerV2.Type.CUSTOM_MOVE, cctx):
+		var cctx := AbilityContext.new(self, piece, null, 0, {"to": Vector2i(x, y)})
+		if piece.abilities.any_true(Trigger.Type.CUSTOM_MOVE, cctx):
 			return true
 	if not piece.movable:
 		return false
@@ -287,13 +287,13 @@ func _move_piece(piece: PieceState, x: int, y: int) -> bool:
 		piece.board_y = y
 		board.set_occupied(target_pos, true)
 		piece.set_moving(false)
-		event_sink.append(GameEventV2.move(target_pos, from_pos))
+		event_sink.append(GameEvent.move(target_pos, from_pos))
 		# after_movement（自己）與 move_broadcast（全場廣播）鉤子。
 		if piece.abilities != null:
-			piece.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(self, piece, null, 0, {"from": from_pos}))
+			piece.abilities.run(Trigger.Type.ON_AFTER_MOVEMENT, AbilityContext.new(self, piece, null, 0, {"from": from_pos}))
 		for other: PieceState in get_all_pieces():
 			if other.abilities != null:
-				other.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(self, other, piece, 0, {"mover": piece}))
+				other.abilities.run(Trigger.Type.ON_MOVE_BROADCAST, AbilityContext.new(self, other, piece, 0, {"mover": piece}))
 		return true
 	piece.set_moving(false)
 	return false
@@ -335,7 +335,7 @@ func logic_step() -> void:
 	# ON_UPDATE（動態 extra_damage 類）：對全場棋子每步觸發。
 	for piece: PieceState in get_all_pieces():
 		if piece.abilities != null:
-			piece.abilities.run(TriggerV2.Type.ON_UPDATE, AbilityContextV2.new(self, piece, null, 0, {}))
+			piece.abilities.run(Trigger.Type.ON_UPDATE, AbilityContext.new(self, piece, null, 0, {}))
 	for owner in ["player1", "player2"]:
 		_recycle_player(owner)
 		if card_to_draw[owner] > 0:
@@ -348,7 +348,7 @@ func logic_step() -> void:
 func refresh_piece(piece: PieceState) -> void:
 	piece.set_moving(false)
 	if piece.abilities != null:
-		piece.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(self, piece, null, 0, {}))
+		piece.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(self, piece, null, 0, {}))
 
 
 # 棋子結算計分（見 base.py settle/on_settle + 04 §5.4）：
@@ -358,8 +358,8 @@ func settle_piece(piece: PieceState) -> void:
 	var base_pts: int = 0 if piece.is_numb() else 1
 	var pts: int = base_pts
 	if piece.abilities != null:
-		var ctx := AbilityContextV2.new(self, piece, null, base_pts, {})
-		pts = piece.abilities.dispatch_mod(TriggerV2.Type.ON_SETTLE, ctx)
+		var ctx := AbilityContext.new(self, piece, null, base_pts, {})
+		pts = piece.abilities.dispatch_mod(Trigger.Type.ON_SETTLE, ctx)
 	stats.increment(Statistics.StatType.SCORED, piece.uid(), pts)
 	# player1 得分 → score 減；player2 得分 → score 加（見 01 §1）。
 	if piece.owner == "player1":
@@ -378,7 +378,7 @@ func _recycle_player(owner: String) -> void:
 	for piece: PieceState in p.on_board:
 		if piece.health <= 0 and can_be_killed(piece):
 			if piece.abilities != null:
-				piece.abilities.run(TriggerV2.Type.ON_DIE, AbilityContextV2.new(self, piece, null, 0, {}))
+				piece.abilities.run(Trigger.Type.ON_DIE, AbilityContext.new(self, piece, null, 0, {}))
 			p.discard_pile.append(piece.card_id)
 			board.set_occupied(piece.pos(), false)
 		else:
@@ -392,7 +392,7 @@ func _recycle_neutral() -> void:
 	for piece: PieceState in neutral_pieces:
 		if piece.health <= 0 and can_be_killed(piece):
 			if piece.abilities != null:
-				piece.abilities.run(TriggerV2.Type.ON_DIE, AbilityContextV2.new(self, piece, null, 0, {}))
+				piece.abilities.run(Trigger.Type.ON_DIE, AbilityContext.new(self, piece, null, 0, {}))
 			board.set_occupied(piece.pos(), false)
 		else:
 			survivors.append(piece)
@@ -404,8 +404,8 @@ func _recycle_neutral() -> void:
 func can_be_killed(piece: PieceState) -> bool:
 	if piece.abilities == null:
 		return true
-	var ctx := AbilityContextV2.new(self, piece, null, 0, {})
-	return not piece.abilities.any_true(TriggerV2.Type.CAN_BE_KILLED, ctx)
+	var ctx := AbilityContext.new(self, piece, null, 0, {})
+	return not piece.abilities.any_true(Trigger.Type.CAN_BE_KILLED, ctx)
 
 
 # --- 對外狀態 ---

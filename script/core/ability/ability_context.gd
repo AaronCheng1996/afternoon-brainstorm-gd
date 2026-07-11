@@ -1,6 +1,6 @@
 # P1-3 能力執行情境（見 docs/rebuild/04 §5.2）。
-# 傳給每個 AbilityEffectV2.execute()。value 於 MOD 類觸發鏈式傳遞。
-class_name AbilityContextV2
+# 傳給每個 AbilityEffect.execute()。value 於 MOD 類觸發鏈式傳遞。
+class_name AbilityContext
 extends RefCounted
 
 var core: Object            # GameCore（避免與 core 類循環相依，宣告為 Object）

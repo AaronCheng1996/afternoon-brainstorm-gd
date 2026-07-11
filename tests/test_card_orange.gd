@@ -37,7 +37,7 @@ func run(t: Object) -> void:
 	var c1 := _make_core(1); cores.append(c1)
 	var adc1 := _place(c1, "ADCO", "player1", 0, 0)
 	_place(c1, "TANKR", "player2", 2, 0)          # large_cross 同列命中
-	CombatV2.attack(c1, adc1)
+	Combat.attack(c1, adc1)
 	t.ok(adc1.is_moving(), "ADCO 攻擊成功後獲得移動")
 
 	# 移動後再攻擊：ADCO moving → 移到 (0,1) → after_movement 再打 (0,2)。
@@ -54,14 +54,14 @@ func run(t: Object) -> void:
 	var c3 := _make_core(3); cores.append(c3)
 	var ap3 := _place(c3, "APO", "player1", 0, 0)
 	var tgt3 := _place(c3, "ADCR", "player2", 1, 0); tgt3.set_numb(false)
-	CombatV2.attack(c3, ap3)
+	Combat.attack(c3, ap3)
 	t.ok(tgt3.is_numb(), "APO 攻擊後目標麻痺")
 
 	# 回合開始獲得一張 MOVEO。
 	var c4 := _make_core(4); cores.append(c4)
 	var ap4 := _place(c4, "APO", "player1", 0, 0)
 	var hand4_before: int = c4.get_player("player1").hand.size()
-	ap4.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c4, ap4, null, 0, {}))
+	ap4.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c4, ap4, null, 0, {}))
 	t.eq(c4.get_player("player1").hand.size(), hand4_before + 1, "APO 回合開始手牌 +1")
 	t.eq(String(c4.get_player("player1").hand[-1]), "MOVEO", "APO 加入的是 MOVEO")
 
@@ -71,7 +71,7 @@ func run(t: Object) -> void:
 	var tank5 := _place(c5, "TANKO", "player1", 1, 1)
 	var atk5 := _place(c5, "ADCR", "player2", 2, 1)
 	var hand5_before: int = c5.get_player("player1").hand.size()
-	tank5.abilities.run(TriggerV2.Type.ON_BEEN_ATTACKED, AbilityContextV2.new(c5, tank5, atk5, 1, {}))
+	tank5.abilities.run(Trigger.Type.ON_BEEN_ATTACKED, AbilityContext.new(c5, tank5, atk5, 1, {}))
 	t.eq(c5.get_player("player1").hand.size(), hand5_before + 1, "TANKO 被攻擊後手牌 +1")
 	t.eq(String(c5.get_player("player1").hand[-1]), "MOVEO", "TANKO 加入的是 MOVEO")
 
@@ -80,7 +80,7 @@ func run(t: Object) -> void:
 	var c6 := _make_core(6); cores.append(c6)
 	var hf6 := _place(c6, "HFO", "player1", 0, 0)
 	var ed6_before: int = hf6.extra_damage
-	hf6.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(c6, hf6, null, 0, {}))
+	hf6.abilities.run(Trigger.Type.ON_AFTER_MOVEMENT, AbilityContext.new(c6, hf6, null, 0, {}))
 	t.eq(hf6.extra_damage, ed6_before + HF_MOVE_GAIN, "HFO 移動後 extra_damage +1")
 	t.ok(hf6.is_angry(), "HFO 移動後進怒氣")
 
@@ -90,7 +90,7 @@ func run(t: Object) -> void:
 	var vic7 := _place(c7, "TANKW", "player2", 1, 0)   # small_cross 命中，白 TANK 無被擊能力
 	hf7.extra_damage = 3
 	var v7_before: int = vic7.health
-	CombatV2.attack(c7, hf7)
+	Combat.attack(c7, hf7)
 	t.eq(vic7.health, v7_before - (hf7.damage + 3), "HFO extra_damage 加成命中傷害 = ATK + extra")
 
 	# 結算清除 extra_damage 與怒氣。
@@ -107,7 +107,7 @@ func run(t: Object) -> void:
 	var c9 := _make_core(9); cores.append(c9)
 	var lf9 := _place(c9, "LFO", "player1", 0, 0)
 	_place(c9, "TANKR", "player2", 1, 0)          # small_cross 命中
-	CombatV2.attack(c9, lf9)
+	Combat.attack(c9, lf9)
 	t.ok(lf9.is_moving(), "LFO 攻擊成功後獲得移動")
 
 	# 移動後對最近敵方（不含中立）造成 ATK 傷害。
@@ -115,14 +115,14 @@ func run(t: Object) -> void:
 	var lf10 := _place(c10, "LFO", "player1", 1, 1)
 	var enemy10 := _place(c10, "ADCR", "player2", 2, 1)
 	var e10_before: int = enemy10.health
-	lf10.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(c10, lf10, null, 0, {}))
+	lf10.abilities.run(Trigger.Type.ON_AFTER_MOVEMENT, AbilityContext.new(c10, lf10, null, 0, {}))
 	t.ok(enemy10.health < e10_before, "LFO 移動後打擊最近敵方")
 
 	# ---------------- ASSO ----------------
 	# 移動後進怒氣。
 	var c11 := _make_core(11); cores.append(c11)
 	var ass11 := _place(c11, "ASSO", "player1", 0, 0)
-	ass11.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(c11, ass11, null, 0, {}))
+	ass11.abilities.run(Trigger.Type.ON_AFTER_MOVEMENT, AbilityContext.new(c11, ass11, null, 0, {}))
 	t.ok(ass11.is_angry(), "ASSO 移動後進怒氣")
 
 	# 怒氣斬殺 → 攻擊次數 +attack_gain_per_kill。
@@ -131,7 +131,7 @@ func run(t: Object) -> void:
 	var enemy12 := _place(c12, "ADCR", "player2", 2, 0); enemy12.health = 1   # small_x
 	ass12.set_anger(true)
 	var atk12_before: int = c12.number_of_attacks["player1"]
-	CombatV2.attack(c12, ass12)
+	Combat.attack(c12, ass12)
 	t.ok(enemy12.health <= 0, "ASSO 斬殺敵方")
 	t.eq(c12.number_of_attacks["player1"], atk12_before + ASS_ATK_GAIN, "ASSO 怒氣斬殺攻擊次數 +1")
 
@@ -141,7 +141,7 @@ func run(t: Object) -> void:
 	var enemy13 := _place(c13, "ADCR", "player2", 2, 0); enemy13.health = 1
 	ass13.set_anger(false)
 	var atk13_before: int = c13.number_of_attacks["player1"]
-	CombatV2.attack(c13, ass13)
+	Combat.attack(c13, ass13)
 	t.eq(c13.number_of_attacks["player1"], atk13_before, "ASSO 無怒氣斬殺攻擊次數不變")
 
 	# ---------------- APTO ----------------
@@ -150,7 +150,7 @@ func run(t: Object) -> void:
 	var apt14 := _place(c14, "APTO", "player1", 0, 0)
 	apt14.armor = 1
 	var dmg14_before: int = apt14.damage
-	apt14.abilities.run(TriggerV2.Type.ON_AFTER_MOVEMENT, AbilityContextV2.new(c14, apt14, null, 0, {}))
+	apt14.abilities.run(Trigger.Type.ON_AFTER_MOVEMENT, AbilityContext.new(c14, apt14, null, 0, {}))
 	t.eq(apt14.damage, dmg14_before + 1, "APTO 移動後 armor//2 轉為 damage")
 	t.eq(apt14.armor, 0, "APTO 移動後 armor 取餘為 0")
 
@@ -160,7 +160,7 @@ func run(t: Object) -> void:
 	var ally15 := _place(c15, "ADCR", "player1", 0, 1)
 	var apt15_before: int = apt15.armor
 	var ally15_before: int = ally15.armor
-	apt15.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(c15, apt15, ally15, 0, {"mover": ally15}))
+	apt15.abilities.run(Trigger.Type.ON_MOVE_BROADCAST, AbilityContext.new(c15, apt15, ally15, 0, {"mover": ally15}))
 	t.eq(apt15.armor, apt15_before + APT_ARMOR_GAIN, "APTO 我方移動：自身 +1 護盾")
 	t.eq(ally15.armor, ally15_before + APT_ARMOR_GAIN, "APTO 我方移動：移動者 +1 護盾")
 
@@ -171,7 +171,7 @@ func run(t: Object) -> void:
 	var ally16 := _place(c16, "ADCR", "player1", 0, 1)
 	var enemy16 := _place(c16, "ADCR", "player2", 3, 3)
 	var e16_before: int = enemy16.health
-	sp16.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(c16, sp16, ally16, 0, {"mover": ally16}))
+	sp16.abilities.run(Trigger.Type.ON_MOVE_BROADCAST, AbilityContext.new(c16, sp16, ally16, 0, {"mover": ally16}))
 	t.ok(enemy16.health < e16_before, "SPO 我方移動打擊最遠敵方")
 
 	for c in cores:

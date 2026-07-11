@@ -17,8 +17,8 @@ func run(t: Object) -> void:
 
 	var piece := PieceState.make("TANKW", "player1", 0, 0, core.balance)
 	var box: Dictionary = {"n": 0}
-	var tags: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	var ab := AbilityV2.new("test_refresh", TriggerV2.Type.ON_REFRESH, [CounterEffect.new(box)], tags)
+	var tags: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	var ab := Ability.new("test_refresh", Trigger.Type.ON_REFRESH, [CounterEffect.new(box)], tags)
 
 	# --- grant 後新能力生效 ---
 	piece.abilities.grant(ab)
@@ -37,7 +37,7 @@ func run(t: Object) -> void:
 	t.eq(box["n"], 2, "clear_silence 後恢復觸發（n=2）")
 
 	# --- silence_tag 後不觸發 ---
-	piece.abilities.silence_tag(AbilityComponentV2.Tag.TRIGGERED)
+	piece.abilities.silence_tag(AbilityComponent.Tag.TRIGGERED)
 	core.refresh_piece(piece)
 	t.eq(box["n"], 2, "沉默(by tag) 期間不觸發（n 維持 2）")
 
@@ -57,9 +57,9 @@ func run(t: Object) -> void:
 	vic.health = 20; vic.max_health = 20; vic.armor = 0
 	atk.set_numb(false); vic.set_numb(false)
 	core.player1.on_board.append(atk); core.player2.on_board.append(vic)
-	var mtags: Array[int] = [AbilityComponentV2.Tag.MODIFIER]
-	atk.abilities.grant(AbilityV2.new("bonus2", TriggerV2.Type.MOD_DAMAGE_BONUS, [BonusEffect.new(2)], mtags))
-	CombatV2.damage_calculate(core, vic, 3, atk, false, 0.0)
+	var mtags: Array[int] = [AbilityComponent.Tag.MODIFIER]
+	atk.abilities.grant(Ability.new("bonus2", Trigger.Type.MOD_DAMAGE_BONUS, [BonusEffect.new(2)], mtags))
+	Combat.damage_calculate(core, vic, 3, atk, false, 0.0)
 	t.eq(vic.health, 15, "MOD_DAMAGE_BONUS 串接：3+2=5 傷害，20→15")
 
 	core.balance.free()
@@ -68,19 +68,19 @@ func run(t: Object) -> void:
 # --- 測試用假效果 ---
 
 # 每次觸發把計數 +1。
-class CounterEffect extends AbilityEffectV2:
+class CounterEffect extends AbilityEffect:
 	var box: Dictionary
 	func _init(b: Dictionary) -> void:
 		box = b
-	func execute(_ctx: AbilityContextV2) -> Variant:
+	func execute(_ctx: AbilityContext) -> Variant:
 		box["n"] = int(box.get("n", 0)) + 1
 		return null
 
 
 # MOD 類：把 ctx.value 加上固定量並回傳。
-class BonusEffect extends AbilityEffectV2:
+class BonusEffect extends AbilityEffect:
 	var amount: int
 	func _init(a: int) -> void:
 		amount = a
-	func execute(ctx: AbilityContextV2) -> Variant:
+	func execute(ctx: AbilityContext) -> Variant:
 		return ctx.value + amount

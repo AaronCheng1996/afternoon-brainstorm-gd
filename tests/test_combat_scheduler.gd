@@ -65,9 +65,9 @@ func _test_timeline_order(t: Object) -> void:
 	sched.instant = false
 	sched.setup(Callable(self, "_resolve"), null, Callable(self, "_cell"))
 	sched.play_events([
-		GameEventV2.attack(Vector2i(0, 0), Vector2i(1, 0), 0.0),
-		GameEventV2.attack(Vector2i(0, 0), Vector2i(1, 1), 0.32),
-		GameEventV2.attack(Vector2i(0, 0), Vector2i(1, 2), 0.64),
+		GameEvent.attack(Vector2i(0, 0), Vector2i(1, 0), 0.0),
+		GameEvent.attack(Vector2i(0, 0), Vector2i(1, 1), 0.32),
+		GameEvent.attack(Vector2i(0, 0), Vector2i(1, 2), 0.64),
 	])
 	t.ok(sched.is_busy(), "播放中：忙碌")
 
@@ -91,8 +91,8 @@ func _test_death_keeps_busy(t: Object) -> void:
 	sched.instant = false
 	sched.setup(Callable(self, "_resolve"), null, Callable(self, "_cell"))
 	sched.play_events([
-		GameEventV2.hurt(Vector2i(2, 2), 0.1, 3),
-		GameEventV2.death(Vector2i(2, 2), 0.1),
+		GameEvent.hurt(Vector2i(2, 2), 0.1, 3),
+		GameEvent.death(Vector2i(2, 2), 0.1),
 	])
 	sched._advance(0.2)   # hurt + death 觸發
 	t.ok(a.log.has("hurt"), "受擊動畫已播")
@@ -116,7 +116,7 @@ func _test_instant_terminal_state(t: Object) -> void:
 	var sched: Node = SchedulerScript.new()
 	sched.instant = true
 	sched.setup(Callable(self, "_resolve"), null, Callable(self, "_cell"))
-	sched.play_events([GameEventV2.hurt(Vector2i(0, 0), 0.5, 7)])
+	sched.play_events([GameEvent.hurt(Vector2i(0, 0), 0.5, 7)])
 	t.ok(not sched.is_busy(), "瞬時模式：play_events 後即不忙碌")
 	t.eq(v.health_label.text, "7", "瞬時模式：HP 標籤直接更新為 7")
 	v.free()

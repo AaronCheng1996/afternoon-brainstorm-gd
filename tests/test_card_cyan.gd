@@ -44,7 +44,7 @@ func run(t: Object) -> void:
 	var adc1 := _place(c1, "ADCC", "player1", 0, 0, true)
 	var enemy1 := _place(c1, "TANKR", "player2", 2, 0); enemy1.health = adc1.damage * 3
 	var e1_before: int = enemy1.health
-	CombatV2.attack(c1, adc1)
+	Combat.attack(c1, adc1)
 	t.eq(enemy1.health, e1_before - adc1.damage * 2, "ADCC 升級二連擊命中兩次")
 
 	# ability 給金幣。
@@ -52,7 +52,7 @@ func run(t: Object) -> void:
 	var adc2 := _place(c2, "ADCC", "player1", 0, 0)
 	_place(c2, "TANKR", "player2", 2, 0)
 	var coin2_before: int = c2.players_coin["player1"]
-	CombatV2.attack(c2, adc2)
+	Combat.attack(c2, adc2)
 	t.ok(c2.players_coin["player1"] >= coin2_before + 2, "ADCC 造成傷害後 +2$")
 
 	# ---------------- APC ----------------
@@ -60,7 +60,7 @@ func run(t: Object) -> void:
 	var c3 := _make_core(3); cores.append(c3)
 	var ap3 := _place(c3, "APC", "player1", 0, 0)
 	var tgt3 := _place(c3, "ADCR", "player2", 1, 0); tgt3.set_numb(false)
-	CombatV2.attack(c3, ap3)
+	Combat.attack(c3, ap3)
 	t.ok(tgt3.is_numb(), "APC 攻擊後目標麻痺")
 
 	# ability 給金幣。
@@ -68,7 +68,7 @@ func run(t: Object) -> void:
 	var ap4 := _place(c4, "APC", "player1", 0, 0)
 	_place(c4, "ADCR", "player2", 1, 0)
 	var coin4_before: int = c4.players_coin["player1"]
-	CombatV2.attack(c4, ap4)
+	Combat.attack(c4, ap4)
 	t.ok(c4.players_coin["player1"] >= coin4_before + 3, "APC 攻擊後 +3$")
 
 	# 佈署攻擊（基礎版無視麻痺攻 number_of_attack 次）。
@@ -85,7 +85,7 @@ func run(t: Object) -> void:
 	var tank6 := _place(c6, "TANKC", "player1", 1, 1)
 	var atk6 := _place(c6, "ADCW", "player2", 2, 1)
 	var coin6_before: int = c6.players_coin["player1"]
-	CombatV2.damage_calculate(c6, tank6, 1, atk6, false, 0.0)
+	Combat.damage_calculate(c6, tank6, 1, atk6, false, 0.0)
 	t.eq(c6.players_coin["player1"], coin6_before + 2, "TANKC 被攻擊後 +2$")
 
 	# 升級版怒氣格擋首擊（整段管線取消）。
@@ -94,7 +94,7 @@ func run(t: Object) -> void:
 	var atk7 := _place(c7, "ADCR", "player2", 1, 0)
 	var h7_before: int = tank7.health
 	var coin7_before: int = c7.players_coin["player1"]
-	CombatV2.damage_calculate(c7, tank7, 5, atk7, false, 0.0)
+	Combat.damage_calculate(c7, tank7, 5, atk7, false, 0.0)
 	t.eq(tank7.health, h7_before, "TANKC 格擋：血量不變")
 	t.ok(not tank7.is_angry(), "TANKC 格擋後怒氣清除")
 	t.eq(c7.players_coin["player1"], coin7_before, "TANKC 格擋整段跳過：不觸發 been_attacked 金幣")
@@ -105,7 +105,7 @@ func run(t: Object) -> void:
 	var hf8 := _place(c8, "HFC", "player1", 0, 0)
 	_place(c8, "ADCR", "player2", 1, 0)
 	var coin8_before: int = c8.players_coin["player1"]
-	CombatV2.attack(c8, hf8)
+	Combat.attack(c8, hf8)
 	t.ok(c8.players_coin["player1"] >= coin8_before + 2, "HFC 造成傷害後 +2$")
 
 	# 升級版被殺 → 怒氣 + ATK+damage_bonus。
@@ -113,7 +113,7 @@ func run(t: Object) -> void:
 	var hf9 := _place(c9, "HFC", "player1", 0, 0, true)
 	var enemy9 := _place(c9, "ADCR", "player2", 1, 0)
 	var d9_before: int = hf9.damage
-	hf9.abilities.run(TriggerV2.Type.ON_BEEN_KILLED, AbilityContextV2.new(c9, hf9, enemy9, 0, {"attacker": enemy9}))
+	hf9.abilities.run(Trigger.Type.ON_BEEN_KILLED, AbilityContext.new(c9, hf9, enemy9, 0, {"attacker": enemy9}))
 	t.ok(hf9.is_angry(), "HFC 升級被殺後進怒氣")
 	t.eq(hf9.damage, d9_before + 2, "HFC 升級被殺後 ATK+damage_bonus")
 
@@ -128,12 +128,12 @@ func run(t: Object) -> void:
 	var enemy11 := _place(c11, "ADCR", "player2", 1, 0)
 	hf11.health = enemy11.damage   # 剛好致命
 	c11.event_sink.clear()
-	CombatV2.damage_calculate(c11, hf11, enemy11.damage, enemy11, false, 0.0)
+	Combat.damage_calculate(c11, hf11, enemy11.damage, enemy11, false, 0.0)
 	t.eq(hf11.health, 0, "HFC 升級致命後 HP=0")
 	t.ok(hf11.is_angry(), "HFC 升級致命後進怒氣")
 	t.ok(not hf11.pending_death, "HFC 升級致命後不設 pending_death")
 	var death11: int = c11.event_sink.filter(
-		func(e: GameEventV2) -> bool: return e.kind == GameEventV2.Kind.DEATH).size()
+		func(e: GameEvent) -> bool: return e.kind == GameEvent.Kind.DEATH).size()
 	t.eq(death11, 0, "HFC 升級致命後不發 death 事件")
 
 	# ---------------- LFC ----------------
@@ -142,13 +142,13 @@ func run(t: Object) -> void:
 	var lf12 := _place(c12, "LFC", "player1", 1, 1)
 	_place(c12, "ADCR", "player2", 2, 1)
 	var coin12_before: int = c12.players_coin["player1"]
-	CombatV2.attack(c12, lf12)
+	Combat.attack(c12, lf12)
 	t.ok(c12.players_coin["player1"] >= coin12_before + 2, "LFC 造成傷害後 +2$")
 
 	# 升級版回合開始隨機換攻擊模式（換成五種之一）。
 	var c13 := _make_core(13); cores.append(c13)
 	var lf13 := _place(c13, "LFC", "player1", 0, 0, true)
-	lf13.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c13, lf13, null, 0, {}))
+	lf13.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c13, lf13, null, 0, {}))
 	var valid_modes: Array = ["large_cross", "nearest", "small_cross", "small_cross small_x", "farthest"]
 	t.ok(valid_modes.has(lf13.attack_types), "LFC 升級回合開始換成合法攻擊模式")
 
@@ -158,7 +158,7 @@ func run(t: Object) -> void:
 	var ass14 := _place(c14, "ASSC", "player1", 1, 1)
 	var e14 := _place(c14, "ADCR", "player2", 2, 2); e14.health = 1
 	var coin14_before: int = c14.players_coin["player1"]
-	CombatV2.attack(c14, ass14)
+	Combat.attack(c14, ass14)
 	t.ok(c14.players_coin["player1"] >= coin14_before + 6, "ASSC 斬殺後 +6$")
 
 	# damage_bonus 一次性：extra_damage 加進傷害後歸零。
@@ -166,7 +166,7 @@ func run(t: Object) -> void:
 	var ass15 := _place(c15, "ASSC", "player1", 0, 0)
 	var e15 := _place(c15, "TANKR", "player2", 1, 1)   # small_x，高 HP
 	ass15.extra_damage = 2
-	CombatV2.attack(c15, ass15)
+	Combat.attack(c15, ass15)
 	t.eq(c15.stats.get_stat(DAMAGE_DEALT, ass15.uid()), ass15.damage + 2, "ASSC 首擊含 extra_damage")
 	t.eq(ass15.extra_damage, 0, "ASSC damage_bonus 用後 extra_damage 歸零")
 
@@ -177,7 +177,7 @@ func run(t: Object) -> void:
 	c16.players_coin["player1"] = 10
 	var per16: int = int(c16.balance.param("APTC", "coin_per_damage_resistance", 5))
 	var red16: int = apt16.abilities.dispatch_mod(
-		TriggerV2.Type.MOD_DAMAGE_REDUCE, AbilityContextV2.new(c16, apt16, null, 5, {}))
+		Trigger.Type.MOD_DAMAGE_REDUCE, AbilityContext.new(c16, apt16, null, 5, {}))
 	t.eq(red16, 5 - (10 / per16), "APTC 升級受傷減免 = 金幣//coin_per")
 
 	# 減免上限。
@@ -186,7 +186,7 @@ func run(t: Object) -> void:
 	c17.players_coin["player1"] = 50
 	var maxr17: int = int(c17.balance.param("APTC", "maximum_damage_resistance", 3))
 	var red17: int = apt17.abilities.dispatch_mod(
-		TriggerV2.Type.MOD_DAMAGE_REDUCE, AbilityContextV2.new(c17, apt17, null, 10, {}))
+		Trigger.Type.MOD_DAMAGE_REDUCE, AbilityContext.new(c17, apt17, null, 10, {}))
 	t.eq(red17, 10 - maxr17, "APTC 減免上限 = maximum_damage_resistance")
 
 	# 未升級無減免。
@@ -194,14 +194,14 @@ func run(t: Object) -> void:
 	var apt18 := _place(c18, "APTC", "player1", 0, 0, false)
 	c18.players_coin["player1"] = 50
 	var red18: int = apt18.abilities.dispatch_mod(
-		TriggerV2.Type.MOD_DAMAGE_REDUCE, AbilityContextV2.new(c18, apt18, null, 10, {}))
+		Trigger.Type.MOD_DAMAGE_REDUCE, AbilityContext.new(c18, apt18, null, 10, {}))
 	t.eq(red18, 10, "APTC 未升級無減免")
 
 	# 回合開始給金幣。
 	var c19 := _make_core(19); cores.append(c19)
 	var apt19 := _place(c19, "APTC", "player1", 0, 0)
 	var coin19_before: int = c19.players_coin["player1"]
-	apt19.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c19, apt19, null, 0, {}))
+	apt19.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c19, apt19, null, 0, {}))
 	t.eq(c19.players_coin["player1"], coin19_before + 4, "APTC 回合開始 +4$")
 
 	# ---------------- SPC ----------------
@@ -209,14 +209,14 @@ func run(t: Object) -> void:
 	var c20 := _make_core(20); cores.append(c20)
 	var sp20 := _place(c20, "SPC", "player1", 0, 0)
 	var coin20_before: int = c20.players_coin["player1"]
-	sp20.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(c20, sp20, null, 0, {}))
+	sp20.abilities.run(Trigger.Type.ON_DEPLOY, AbilityContext.new(c20, sp20, null, 0, {}))
 	t.eq(c20.players_coin["player1"], coin20_before + 10, "SPC 佈署 +10$")
 
 	# ---------------- 金幣上限 ----------------
 	var c21 := _make_core(21); cores.append(c21)
 	var apt21 := _place(c21, "APTC", "player1", 0, 0)
 	c21.players_coin["player1"] = 49
-	apt21.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c21, apt21, null, 0, {}))
+	apt21.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c21, apt21, null, 0, {}))
 	t.eq(c21.players_coin["player1"], 50, "金幣上限封頂 50（49+4→50）")
 
 	# ---------------- price_check ----------------

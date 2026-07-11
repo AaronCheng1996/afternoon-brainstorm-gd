@@ -2,7 +2,7 @@
 # piece_view.tscn 的根腳本；子節點於 configure() 時程序建立（headless 可測資料組裝，無需進場景樹）。
 # 動畫插槽（VisualRoot / SpriteSlot）先做好結構，實際動畫由 P2-2 驅動——換圖不改程式：
 # 美術到位時填 SpriteSlot 並隱藏 PlaceholderShape 即可。
-class_name PieceViewV2
+class_name PieceView
 extends Node2D
 
 const PieceShapesScript := preload("res://script/view/piece_shapes.gd")

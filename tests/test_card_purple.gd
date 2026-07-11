@@ -32,7 +32,7 @@ func run(t: Object) -> void:
 	var c1 := _make_core(1); cores.append(c1)
 	var ap1 := _place(c1, "APP", "player1", 0, 0)
 	var tgt1 := _place(c1, "ADCR", "player2", 1, 0)   # AP nearest
-	CombatV2.attack(c1, ap1)
+	Combat.attack(c1, ap1)
 	t.ok(tgt1.is_numb(), "APP 攻擊 → 目標麻痺")
 
 	# 驅散：護盾歸 0。
@@ -40,7 +40,7 @@ func run(t: Object) -> void:
 	var ap2 := _place(c2, "APP", "player1", 0, 0)
 	var tgt2 := _place(c2, "ADCR", "player2", 1, 0)
 	tgt2.armor = 10
-	CombatV2.attack(c2, ap2)
+	Combat.attack(c2, ap2)
 	t.eq(tgt2.armor, 0, "APP 攻擊 → 目標護盾歸 0")
 
 	# 驅散：ATK 回原值。
@@ -48,7 +48,7 @@ func run(t: Object) -> void:
 	var ap3 := _place(c3, "APP", "player1", 0, 0)
 	var tgt3 := _place(c3, "ADCR", "player2", 1, 0)
 	tgt3.damage = tgt3.original_damage + 5
-	CombatV2.attack(c3, ap3)
+	Combat.attack(c3, ap3)
 	t.eq(tgt3.damage, tgt3.original_damage, "APP 攻擊 → 目標 ATK 回原值")
 
 	# 佈署驅散最近敵方（護盾歸 0、ATK 回原值），不麻痺。
@@ -57,7 +57,7 @@ func run(t: Object) -> void:
 	var tgt4 := _place(c4, "ADCR", "player2", 1, 0)
 	tgt4.armor = 7
 	tgt4.damage = tgt4.original_damage + 3
-	ap4.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(c4, ap4, null, 0, {}))
+	ap4.abilities.run(Trigger.Type.ON_DEPLOY, AbilityContext.new(c4, ap4, null, 0, {}))
 	t.eq(tgt4.armor, 0, "APP 佈署 → 最近敵方護盾歸 0")
 	t.eq(tgt4.damage, tgt4.original_damage, "APP 佈署 → 最近敵方 ATK 回原值")
 	t.ok(not tgt4.is_numb(), "APP 佈署驅散不附帶麻痺")
@@ -69,7 +69,7 @@ func run(t: Object) -> void:
 	var enemy5 := _place(c5, "ADCR", "player2", 1, 0)
 	var e5_before: int = enemy5.health
 	var strike: int = int(c5.balance.param("TANKP", "move_strike_damage", 0))
-	tank5.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(c5, tank5, enemy5, 0, {"mover": enemy5}))
+	tank5.abilities.run(Trigger.Type.ON_MOVE_BROADCAST, AbilityContext.new(c5, tank5, enemy5, 0, {"mover": enemy5}))
 	t.eq(enemy5.health, e5_before - strike, "TANKP：敵方移動 → 造成 move_strike_damage")
 
 	# 我方移動 → 不反擊。
@@ -77,7 +77,7 @@ func run(t: Object) -> void:
 	var tank6 := _place(c6, "TANKP", "player1", 0, 0)
 	var ally6 := _place(c6, "ADCR", "player1", 0, 1)
 	var a6_before: int = ally6.health
-	tank6.abilities.run(TriggerV2.Type.ON_MOVE_BROADCAST, AbilityContextV2.new(c6, tank6, ally6, 0, {"mover": ally6}))
+	tank6.abilities.run(Trigger.Type.ON_MOVE_BROADCAST, AbilityContext.new(c6, tank6, ally6, 0, {"mover": ally6}))
 	t.eq(ally6.health, a6_before, "TANKP：我方移動 → 不反擊")
 
 	# ---------------- HFP：範圍內每 3 敵人 +1 攻擊次數 ----------------
@@ -88,7 +88,7 @@ func run(t: Object) -> void:
 	_place(c7, "ADCR", "player2", 1, 0)   # small_cross
 	_place(c7, "ADCR", "player2", 2, 0)   # small_x
 	var atk7_before: int = c7.number_of_attacks["player1"]
-	hf7.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c7, hf7, null, 0, {}))
+	hf7.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c7, hf7, null, 0, {}))
 	t.eq(c7.number_of_attacks["player1"], atk7_before + 1, "HFP：範圍內 3 敵人 → 攻擊次數 +1")
 
 	# 少於 3 敵人 → 無加成。
@@ -97,7 +97,7 @@ func run(t: Object) -> void:
 	_place(c8, "ADCR", "player2", 0, 0)
 	_place(c8, "ADCR", "player2", 1, 0)
 	var atk8_before: int = c8.number_of_attacks["player1"]
-	hf8.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c8, hf8, null, 0, {}))
+	hf8.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c8, hf8, null, 0, {}))
 	t.eq(c8.number_of_attacks["player1"], atk8_before, "HFP：少於 3 敵人 → 無加成")
 
 	# ---------------- ASSP：擊殺依人數差爆抽（含上限）----------------
@@ -109,7 +109,7 @@ func run(t: Object) -> void:
 	_place(c9, "ADCR", "player2", 2, 2)
 	_place(c9, "ADCR", "player2", 3, 0)
 	var d9_before: int = c9.card_to_draw["player1"]
-	CombatV2.attack(c9, ass9)
+	Combat.attack(c9, ass9)
 	t.eq(c9.card_to_draw["player1"], d9_before + 1, "ASSP：敵4 我1 → 抽 (4-1-2)=1")
 
 	# 人數差不足 → 不抽（敵 2、我 1 → 2-1-2 = -1）。
@@ -118,7 +118,7 @@ func run(t: Object) -> void:
 	var v10 := _place(c10, "ADCR", "player2", 2, 0); v10.health = 1
 	_place(c10, "ADCR", "player2", 2, 1)
 	var d10_before: int = c10.card_to_draw["player1"]
-	CombatV2.attack(c10, ass10)
+	Combat.attack(c10, ass10)
 	t.eq(c10.card_to_draw["player1"], d10_before, "ASSP：人數差不足 → 不抽")
 
 	# 上限邊界：填滿棋盤（敵 15、我 1）→ min(15-1-2, 12) = 12（恰達上限）。
@@ -134,7 +134,7 @@ func run(t: Object) -> void:
 				kill11 = e   # (0,0) 為 ASS small_x 目標
 	kill11.health = 1
 	var d11_before: int = c11.card_to_draw["player1"]
-	CombatV2.attack(c11, ass11)
+	Combat.attack(c11, ass11)
 	t.eq(c11.card_to_draw["player1"], d11_before + 12, "ASSP：填滿棋盤 → 抽牌達上限 12")
 
 	for c in cores:

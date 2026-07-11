@@ -37,8 +37,8 @@ func _place(core: GameCore, card_id: String, owner: String, x: int, y: int) -> P
 	return p
 
 
-func _find_event(core: GameCore, kind: int) -> GameEventV2:
-	for e: GameEventV2 in core.event_sink:
+func _find_event(core: GameCore, kind: int) -> GameEvent:
+	for e: GameEvent in core.event_sink:
 		if e.kind == kind:
 			return e
 	return null
@@ -59,7 +59,7 @@ func run(t: Object) -> void:
 	var atkA := _place(cA, "ADCW", "player1", 0, 0); atkA.damage = 3
 	var vicA := _place(cA, "TANKW", "player2", 1, 0)
 	vicA.health = 10; vicA.max_health = 10; vicA.armor = 5
-	CombatV2.damage_calculate(cA, vicA, 3, atkA, false, 0.0)
+	Combat.damage_calculate(cA, vicA, 3, atkA, false, 0.0)
 	t.eq(vicA.armor, 2, "護盾抵銷：armor 5-3=2")
 	t.eq(vicA.health, 10, "護盾抵銷：本體無傷")
 	t.eq(cA.stats.get_stat(DEALT, atkA.uid()), 3, "護盾抵銷：DAMAGE_DEALT=3")
@@ -71,7 +71,7 @@ func run(t: Object) -> void:
 	var atkB := _place(cB, "ADCW", "player1", 0, 0); atkB.damage = 5
 	var vicB := _place(cB, "TANKW", "player2", 1, 0)
 	vicB.health = 10; vicB.max_health = 10; vicB.armor = 2
-	CombatV2.damage_calculate(cB, vicB, 5, atkB, false, 0.0)
+	Combat.damage_calculate(cB, vicB, 5, atkB, false, 0.0)
 	t.eq(vicB.armor, 0, "溢出：護盾清空")
 	t.eq(vicB.health, 7, "溢出：溢出 3 打血 10→7")
 	t.eq(cB.stats.get_stat(DEALT, atkB.uid()), 5, "溢出：DAMAGE_DEALT 記全額 5")
@@ -82,13 +82,13 @@ func run(t: Object) -> void:
 	var atkC := _place(cC, "ADCW", "player1", 0, 0); atkC.damage = 10
 	var vicC := _place(cC, "TANKW", "player2", 1, 0)
 	vicC.health = 4; vicC.max_health = 4; vicC.armor = 0
-	CombatV2.damage_calculate(cC, vicC, 10, atkC, false, 1.5)
+	Combat.damage_calculate(cC, vicC, 10, atkC, false, 1.5)
 	t.eq(vicC.health, 0, "無盾致死：health→0")
 	t.eq(cC.stats.get_stat(DEALT, atkC.uid()), 4, "無盾致死：DAMAGE_DEALT 記實際 4（非 10）")
 	t.eq(cC.stats.get_stat(KILLED, atkC.uid()), 1, "無盾致死：KILLED+1")
 	t.eq(cC.stats.get_stat(DEATH, vicC.uid()), 1, "無盾致死：DEATH+1")
 	t.ok(vicC.pending_death, "致死：標記 pending_death")
-	var deC := _find_event(cC, GameEventV2.Kind.DEATH)
+	var deC := _find_event(cC, GameEvent.Kind.DEATH)
 	t.ok(deC != null, "致死：產生 death 事件")
 	t.eq(deC.data["delay"], 1.5, "death 事件 delay = anim_delay(1.5)")
 
@@ -98,12 +98,12 @@ func run(t: Object) -> void:
 	var vicK := _place(cK, "TANKW", "player2", 1, 0)
 	vicK.health = 4; vicK.max_health = 4; vicK.armor = 0
 	var order_log: Array = []
-	var tags1: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	atkK.abilities.grant(AbilityV2.new("k_killed", TriggerV2.Type.ON_KILLED,
+	var tags1: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	atkK.abilities.grant(Ability.new("k_killed", Trigger.Type.ON_KILLED,
 		[RecordEffect.new(order_log, "killed")], tags1))
-	vicK.abilities.grant(AbilityV2.new("k_bk", TriggerV2.Type.ON_BEEN_KILLED,
+	vicK.abilities.grant(Ability.new("k_bk", Trigger.Type.ON_BEEN_KILLED,
 		[RecordEffect.new(order_log, "been_killed")], tags1))
-	CombatV2.damage_calculate(cK, vicK, 10, atkK, false, 0.0)
+	Combat.damage_calculate(cK, vicK, 10, atkK, false, 0.0)
 	t.eq(order_log, ["killed", "been_killed"], "擊殺鉤子順序：killed 先於 been_killed")
 
 	# --- 5. 攻擊 numbness 者無效且不耗次數、不記 HIT ---
@@ -128,10 +128,10 @@ func run(t: Object) -> void:
 	var box: Dictionary = {"n": 0, "draining": false}
 	var eff := EnqueueFollowupEffect.new()
 	eff.follower = B; eff.victim = V; eff.box = box
-	var tags2: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	A.abilities.grant(AbilityV2.new("q_follow", TriggerV2.Type.ON_AFTER_DAMAGE, [eff], tags2))
+	var tags2: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	A.abilities.grant(Ability.new("q_follow", Trigger.Type.ON_AFTER_DAMAGE, [eff], tags2))
 	# A 直接對 V 打（custom target 繞過 detection）；ignore_numbness 已非暈眩但明示。
-	CombatV2.launch_attack(cQ, A, A.attack_types, [V], true, true)
+	Combat.launch_attack(cQ, A, A.attack_types, [V], true, true)
 	A.hit_cards.clear()
 	t.eq(V.health, 12, "佇列 drain：A(3)+B(5)=8 傷害，20→12")
 	t.eq(box["n"], 1, "追加攻擊只入列一次（不同步遞迴）")
@@ -147,25 +147,25 @@ func run(t: Object) -> void:
 # --- 測試用假效果 ---
 
 # 記錄觸發順序。
-class RecordEffect extends AbilityEffectV2:
+class RecordEffect extends AbilityEffect:
 	var log: Array
 	var tag: String
 	func _init(l: Array, tg: String) -> void:
 		log = l
 		tag = tg
-	func execute(ctx: AbilityContextV2) -> Variant:
+	func execute(ctx: AbilityContext) -> Variant:
 		log.append(tag)
 		return null
 
 
 # 於傷害後把「另一隻棋子攻擊 victim」排入佇列（只入列一次，並記錄當下 draining 狀態）。
-class EnqueueFollowupEffect extends AbilityEffectV2:
+class EnqueueFollowupEffect extends AbilityEffect:
 	var follower: PieceState
 	var victim: PieceState
 	var box: Dictionary
-	func execute(ctx: AbilityContextV2) -> Variant:
+	func execute(ctx: AbilityContext) -> Variant:
 		if int(box.get("n", 0)) == 0:
 			box["n"] = 1
 			box["draining"] = ctx.core._attack_draining
-			CombatV2.enqueue_attack(ctx.core, follower, null, [victim], true, false)
+			Combat.enqueue_attack(ctx.core, follower, null, [victim], true, false)
 		return null

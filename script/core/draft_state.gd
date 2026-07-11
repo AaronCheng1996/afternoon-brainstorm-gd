@@ -1,7 +1,7 @@
 # P2-4 選秀 BP 狀態（翻譯自 core/draft_state.py DraftState，本機模式）。
 # 純資料（RefCounted，零 Node 依賴）。LAN 遮蔽/暫停/存檔序列化（D8）本輪不做。
 # 三階段：p1_first6（p1 選滿 ≥6）→ p2_pick12（p2 選滿 12）→ p1_last6（p1 補滿 12）→ done。
-class_name DraftStateV2
+class_name DraftState
 extends RefCounted
 
 var player1_deck: Array[String] = []

@@ -34,7 +34,7 @@ func run(t: Object) -> void:
 	var ap := _place(cAp, "APW", "player1", 0, 0)
 	var ap_target := _place(cAp, "ADCW", "player2", 1, 0)
 	ap_target.set_numb(false)
-	CombatV2.attack(cAp, ap)
+	Combat.attack(cAp, ap)
 	t.ok(ap_target.is_numb(), "APW 攻擊後目標進入麻痺")
 
 	# --- TestWhiteApt：最近友方 + 自己各得 self.damage 護盾 ---
@@ -44,7 +44,7 @@ func run(t: Object) -> void:
 	_place(cApt, "ADCW", "player2", 1, 0)   # 敵方目標（APTW nearest 攻擊對象）
 	var before_apt: int = apt.armor
 	var before_ally: int = ally.armor
-	CombatV2.attack(cApt, apt)
+	Combat.attack(cApt, apt)
 	t.eq(apt.armor, before_apt + apt.damage, "APTW 攻擊後自身 +ATK 護盾")
 	t.eq(ally.armor, before_ally + apt.damage, "APTW 攻擊後最近友方 +ATK 護盾")
 

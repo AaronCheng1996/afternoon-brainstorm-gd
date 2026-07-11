@@ -1,7 +1,6 @@
 # P1-3 能力觸發點（見 docs/rebuild/04 §5.1）。
 # 必須完整覆蓋 Python 的 hook 集（cards/base.py 的各多型方法）。
-# 命名加 V2 以與舊碼 script/events/game_trigger.gd 的 GameTrigger 區隔（Phase 6 收編再統一）。
-class_name TriggerV2
+class_name Trigger
 extends RefCounted
 
 enum Type {

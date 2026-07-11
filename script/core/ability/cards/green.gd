@@ -1,82 +1,82 @@
 # P1-7 Green 全卡能力組裝 + LuckEngine（見 docs/rebuild/02 §Green，Python 出處 cards/card_green.py）。
 # 綠色主題：運氣值（players_luck）機制。共用 lucky_effects：擲 1–100 ≤ 擁有者運氣 → 好運，否則壞運。
 # 變體旗標：ap（自己：壞運跳過、好運不生方塊）、ap_target（必走壞運分支，見 R §B2）、tank（好運分支跳過）。
-# 每個 static func 回傳該 card_id 的 native 能力陣列（Array[AbilityV2]）。
-class_name GreenCardsV2
+# 每個 static func 回傳該 card_id 的 native 能力陣列（Array[Ability]）。
+class_name GreenCards
 extends RefCounted
 
 
-# 註冊表：card_id -> Callable（回傳 Array[AbilityV2]）。
+# 註冊表：card_id -> Callable（回傳 Array[Ability]）。
 static func registrations() -> Dictionary:
 	return {
-		"LUCKYBLOCK": Callable(GreenCardsV2, "luckyblock"),
-		"ADCG": Callable(GreenCardsV2, "adcg"),
-		"APG": Callable(GreenCardsV2, "apg"),
-		"TANKG": Callable(GreenCardsV2, "tankg"),
-		"HFG": Callable(GreenCardsV2, "hfg"),
-		"LFG": Callable(GreenCardsV2, "lfg"),
-		"ASSG": Callable(GreenCardsV2, "assg"),
-		"APTG": Callable(GreenCardsV2, "aptg"),
-		"SPG": Callable(GreenCardsV2, "spg"),
+		"LUCKYBLOCK": Callable(GreenCards, "luckyblock"),
+		"ADCG": Callable(GreenCards, "adcg"),
+		"APG": Callable(GreenCards, "apg"),
+		"TANKG": Callable(GreenCards, "tankg"),
+		"HFG": Callable(GreenCards, "hfg"),
+		"LFG": Callable(GreenCards, "lfg"),
+		"ASSG": Callable(GreenCards, "assg"),
+		"APTG": Callable(GreenCards, "aptg"),
+		"SPG": Callable(GreenCards, "spg"),
 	}
 
 
 # LUCKYBLOCK：中立方塊。被擊殺 → 對攻擊者發動 lucky_effects；攻擊者方每張 APTG +1 護盾（Python LuckyBlock.been_killed）。
 static func luckyblock() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_lb_been_killed", TriggerV2.Type.ON_BEEN_KILLED, [LuckyBlockBeenKilledEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_lb_been_killed", Trigger.Type.ON_BEEN_KILLED, [LuckyBlockBeenKilledEffect.new()], trig)]
 
 
 # ADCG：攻擊時 自身同行同列每個空格 luckyblock_spawn_chance% 生成 LUCKYBLOCK（Python Adc.ability）。
 static func adcg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_adc_spawn", TriggerV2.Type.ON_ABILITY_HIT, [AdcAbilityEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_adc_spawn", Trigger.Type.ON_ABILITY_HIT, [AdcAbilityEffect.new()], trig)]
 
 
 # APG：攻擊附帶麻痺；目標必吃一個壞運（ap_target）；自己擲好運（不會被懲罰，ap）（Python Ap.ability）。
 static func apg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_ap_luck", TriggerV2.Type.ON_ABILITY_HIT, [ApAbilityEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_ap_luck", Trigger.Type.ON_ABILITY_HIT, [ApAbilityEffect.new()], trig)]
 
 
 # TANKG：被攻擊後 攻擊者依其運氣可能吃壞運（TANK 變體）（Python Tank.been_attacked）。
 static func tankg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_tank_jinx", TriggerV2.Type.ON_BEEN_ATTACKED, [TankBeenAttackedEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_tank_jinx", Trigger.Type.ON_BEEN_ATTACKED, [TankBeenAttackedEffect.new()], trig)]
 
 
 # HFG：若攻擊目標是 LUCKYBLOCK → 自方運氣 +luck_increase，隨機空格再生 1 個 LUCKYBLOCK（Python Hf.ability）。
 static func hfg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_hf_lb_luck", TriggerV2.Type.ON_ABILITY_HIT, [HfAbilityEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_hf_lb_luck", Trigger.Type.ON_ABILITY_HIT, [HfAbilityEffect.new()], trig)]
 
 
 # LFG：斬殺 LUCKYBLOCK 後 對最近敵方造成自身 ATK 傷害（不觸發攻擊附帶）；attack_gain_chance% 攻擊次數 +1（Python Lf.killed）。
 static func lfg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_lf_lb_kill", TriggerV2.Type.ON_KILLED, [LfKilledEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_lf_lb_kill", Trigger.Type.ON_KILLED, [LfKilledEffect.new()], trig)]
 
 
 # ASSG：斬殺後 自方運氣 +5、敵方運氣 -enemy_luck_loss（Python Ass.killed）。
 static func assg() -> Array:
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
-	return [AbilityV2.new("green_ass_kill_luck", TriggerV2.Type.ON_KILLED, [AssKilledEffect.new()], trig)]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
+	return [Ability.new("green_ass_kill_luck", Trigger.Type.ON_KILLED, [AssKilledEffect.new()], trig)]
 
 
 # APTG：不能攻擊（attack 恆 False）；回合開始 小十字內每個空格生成 LUCKYBLOCK（Python Apt.attack / on_refresh）。
 static func aptg() -> Array:
-	var passive: Array[int] = [AbilityComponentV2.Tag.PASSIVE]
-	var trig: Array[int] = [AbilityComponentV2.Tag.TRIGGERED]
+	var passive: Array[int] = [AbilityComponent.Tag.PASSIVE]
+	var trig: Array[int] = [AbilityComponent.Tag.TRIGGERED]
 	return [
-		AbilityV2.new("green_apt_cannot_attack", TriggerV2.Type.ATTACK_OVERRIDE, [AptCannotAttackEffect.new()], passive),
-		AbilityV2.new("green_apt_refresh_spawn", TriggerV2.Type.ON_REFRESH, [AptRefreshEffect.new()], trig),
+		Ability.new("green_apt_cannot_attack", Trigger.Type.ATTACK_OVERRIDE, [AptCannotAttackEffect.new()], passive),
+		Ability.new("green_apt_refresh_spawn", Trigger.Type.ON_REFRESH, [AptRefreshEffect.new()], trig),
 	]
 
 
 # SPG：佈署時 運氣 +luck_increase；若運氣 > min_luck_to_spawn，每超出 10 點在隨機空格放 1 個 LUCKYBLOCK（Python Sp.deploy）。
 static func spg() -> Array:
-	var enter: Array[int] = [AbilityComponentV2.Tag.ON_ENTER]
-	return [AbilityV2.new("green_sp_deploy_luck", TriggerV2.Type.ON_DEPLOY, [SpDeployEffect.new()], enter)]
+	var enter: Array[int] = [AbilityComponent.Tag.ON_ENTER]
+	return [Ability.new("green_sp_deploy_luck", Trigger.Type.ON_DEPLOY, [SpDeployEffect.new()], enter)]
 
 
 # --- 共用輔助 ---
@@ -102,7 +102,7 @@ static func lucky_effects(core: GameCore, target: PieceState, ap: bool = false,
 			2:
 				target.damage *= 2
 			3:
-				CombatV2.enqueue_attack(core, target)
+				Combat.enqueue_attack(core, target)
 			4:
 				target.set_moving(true)
 			5:
@@ -125,26 +125,26 @@ static func lucky_effects(core: GameCore, target: PieceState, ap: bool = false,
 				target.set_numb(true)
 			3:
 				target.health = target.health / 2
-				core.event_sink.append(GameEventV2.hurt(target.pos(), 0.0, target.health))
+				core.event_sink.append(GameEvent.hurt(target.pos(), 0.0, target.health))
 			4:
 				target.damage = target.damage / 2
 			5:
 				if target.health >= 2:
 					target.health -= 2
-					core.event_sink.append(GameEventV2.hurt(target.pos(), 0.0, target.health))
+					core.event_sink.append(GameEvent.hurt(target.pos(), 0.0, target.health))
 
 
 # --- 效果 ---
 
 # LUCKYBLOCK 被擊殺：對攻擊者發動 lucky_effects；攻擊者方每張 APTG +1 護盾。
 # ON_BEEN_KILLED：ctx.source=被殺者(LUCKYBLOCK)、ctx.target=攻擊者。
-class LuckyBlockBeenKilledEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class LuckyBlockBeenKilledEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var core: GameCore = ctx.core
 		var attacker: PieceState = ctx.target
 		if attacker == null:
 			return true
-		GreenCardsV2.lucky_effects(core, attacker)
+		GreenCards.lucky_effects(core, attacker)
 		for c: PieceState in core.get_player(attacker.owner).on_board:
 			if c.card_id == "APTG":
 				c.armor += 1
@@ -152,43 +152,43 @@ class LuckyBlockBeenKilledEffect extends AbilityEffectV2:
 
 
 # ADCG：自身同行同列每個空格 luckyblock_spawn_chance% 生成 LUCKYBLOCK。
-class AdcAbilityEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class AdcAbilityEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		var chance: int = int(core.balance.param(src.card_id, "luckyblock_spawn_chance", 0))
 		for pos: Vector2i in core.board.occupy:
 			if (pos.x == src.board_x or pos.y == src.board_y) and core.board.is_free(pos):
 				if core.rng.randi_range(1, 100) <= chance:
-					GreenCardsV2._spawn_luckyblock(core, pos.x, pos.y)
+					GreenCards._spawn_luckyblock(core, pos.x, pos.y)
 		return true
 
 
 # APG：目標麻痺 + 必吃壞運（ap_target）；自己擲好運（ap，不受懲罰）。
-class ApAbilityEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class ApAbilityEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		if ctx.target != null:
 			ctx.target.set_numb(true)
-			GreenCardsV2.lucky_effects(core, ctx.target, false, true, false)
-		GreenCardsV2.lucky_effects(core, src, true, false, false)
+			GreenCards.lucky_effects(core, ctx.target, false, true, false)
+		GreenCards.lucky_effects(core, src, true, false, false)
 		return true
 
 
 # TANKG：被攻擊後 攻擊者擲運氣（TANK 變體，好運跳過）。
 # ON_BEEN_ATTACKED：ctx.source=受擊者(TANKG)、ctx.target=攻擊者。
-class TankBeenAttackedEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class TankBeenAttackedEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var attacker: PieceState = ctx.target
 		if attacker != null:
-			GreenCardsV2.lucky_effects(ctx.core, attacker, false, false, true)
+			GreenCards.lucky_effects(ctx.core, attacker, false, false, true)
 		return true
 
 
 # HFG：若目標是 LUCKYBLOCK → 自方運氣 +luck_increase，隨機空格再生 1 個 LUCKYBLOCK。
-class HfAbilityEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class HfAbilityEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		if ctx.target != null and ctx.target.card_id == "LUCKYBLOCK":
@@ -199,29 +199,29 @@ class HfAbilityEffect extends AbilityEffectV2:
 					free.append(pos)
 			if not free.is_empty():
 				var pick: Vector2i = core.rng.choice(free)
-				GreenCardsV2._spawn_luckyblock(core, pick.x, pick.y)
+				GreenCards._spawn_luckyblock(core, pick.x, pick.y)
 		return true
 
 
 # LFG：斬殺 LUCKYBLOCK 後 對最近敵方（不含中立）造成自身 ATK 傷害（無附帶）；attack_gain_chance% 攻擊次數 +N。
 # ON_KILLED：ctx.source=攻擊者(LFG)、ctx.target=被殺者。
-class LfKilledEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class LfKilledEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var victim: PieceState = ctx.target
 		var core: GameCore = ctx.core
 		if victim != null and victim.card_id == "LUCKYBLOCK":
 			var opp: String = core.opponent_name(src.owner)
-			for c: PieceState in CombatV2.detection(core, src, "nearest", core.get_player(opp).on_board):
-				CombatV2.damage_calculate(core, c, src.damage, src, false, 0.0)
+			for c: PieceState in Combat.detection(core, src, "nearest", core.get_player(opp).on_board):
+				Combat.damage_calculate(core, c, src.damage, src, false, 0.0)
 			if core.rng.randi_range(1, 100) <= int(core.balance.param(src.card_id, "attack_gain_chance", 0)):
 				core.number_of_attacks[src.owner] += int(core.balance.param(src.card_id, "attack_gain_per_luckyblock_kill", 0))
 		return true
 
 
 # ASSG：斬殺後 自方運氣 +5、敵方運氣 -enemy_luck_loss。
-class AssKilledEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class AssKilledEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		core.players_luck[src.owner] += 5
@@ -230,14 +230,14 @@ class AssKilledEffect extends AbilityEffectV2:
 
 
 # APTG：完全禁止攻擊（Python attack 恆回傳 False）。
-class AptCannotAttackEffect extends AbilityEffectV2:
-	func execute(_ctx: AbilityContextV2) -> Variant:
+class AptCannotAttackEffect extends AbilityEffect:
+	func execute(_ctx: AbilityContext) -> Variant:
 		return false
 
 
 # APTG：回合開始，小十字內每個空格生成 LUCKYBLOCK。
-class AptRefreshEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class AptRefreshEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		var offsets: Array = [
@@ -246,14 +246,14 @@ class AptRefreshEffect extends AbilityEffectV2:
 		]
 		for pos: Vector2i in offsets:
 			if core.board.is_free(pos):
-				GreenCardsV2._spawn_luckyblock(core, pos.x, pos.y)
+				GreenCards._spawn_luckyblock(core, pos.x, pos.y)
 		return true
 
 
 # SPG：佈署時 運氣 +luck_increase；運氣 > min 時每超出 10 點在隨機空格放 1 個 LUCKYBLOCK。
 # 佈署在「本子佔格之前」執行（對齊 Python），故需手動排除自身格。
-class SpDeployEffect extends AbilityEffectV2:
-	func execute(ctx: AbilityContextV2) -> Variant:
+class SpDeployEffect extends AbilityEffect:
+	func execute(ctx: AbilityContext) -> Variant:
 		var src: PieceState = ctx.source
 		var core: GameCore = ctx.core
 		var owner: String = src.owner
@@ -269,5 +269,5 @@ class SpDeployEffect extends AbilityEffectV2:
 		if int(core.players_luck[owner]) > min_luck:
 			var n: int = mini((int(core.players_luck[owner]) - min_luck) / 10, free.size())
 			for i: int in n:
-				GreenCardsV2._spawn_luckyblock(core, free[i].x, free[i].y)
+				GreenCards._spawn_luckyblock(core, free[i].x, free[i].y)
 		return true

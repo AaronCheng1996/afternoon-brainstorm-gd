@@ -27,7 +27,7 @@ func _place(core: GameCore, card_id: String, owner: String, x: int, y: int) -> P
 
 
 func _deploy(core: GameCore, p: PieceState) -> void:
-	p.abilities.run(TriggerV2.Type.ON_DEPLOY, AbilityContextV2.new(core, p, null, 0, {}))
+	p.abilities.run(Trigger.Type.ON_DEPLOY, AbilityContext.new(core, p, null, 0, {}))
 
 
 func run(t: Object) -> void:
@@ -50,7 +50,7 @@ func run(t: Object) -> void:
 	var before2: int = enemy2.health
 	_deploy(c2, adc2)
 	adc2.set_numb(false)
-	CombatV2.attack(c2, adc2)
+	Combat.attack(c2, adc2)
 	t.eq(enemy2.health, before2 - adc2.damage * 2, "ADCF 本體+鏡像雙重命中 = ATK×2")
 
 	# ---------------- APF ----------------
@@ -59,7 +59,7 @@ func run(t: Object) -> void:
 	var ap3 := _place(c3, "APF", "player1", 0, 0)
 	var tgt3 := _place(c3, "ADCR", "player2", 1, 0); tgt3.set_numb(false)
 	ap3.set_numb(false)
-	CombatV2.attack(c3, ap3)
+	Combat.attack(c3, ap3)
 	t.ok(tgt3.is_numb(), "APF 攻擊後目標麻痺")
 
 	# 光環：站在鏡像格上的敵人麻痺。
@@ -67,7 +67,7 @@ func run(t: Object) -> void:
 	var ap3b := _place(c3b, "APF", "player1", 0, 0)
 	_deploy(c3b, ap3b)                                     # 鏡像於 (3,3)
 	var onshadow := _place(c3b, "ADCR", "player2", SIZE - 1, SIZE - 1); onshadow.set_numb(false)
-	ap3b.abilities.run(TriggerV2.Type.ON_REFRESH, AbilityContextV2.new(c3b, ap3b, null, 0, {}))
+	ap3b.abilities.run(Trigger.Type.ON_REFRESH, AbilityContext.new(c3b, ap3b, null, 0, {}))
 	t.ok(onshadow.is_numb(), "APF 光環：站在鏡像格上的敵人麻痺")
 
 	# ---------------- HFF ----------------
@@ -78,7 +78,7 @@ func run(t: Object) -> void:
 	var before4: int = enemy4.health
 	_deploy(c4, hf4)
 	hf4.set_numb(false)
-	CombatV2.attack(c4, hf4)
+	Combat.attack(c4, hf4)
 	t.eq(enemy4.health, before4 - hf4.damage * 2, "HFF 本體+鏡像雙重命中 = ATK×2")
 
 	# ---------------- ASSF ----------------
@@ -87,7 +87,7 @@ func run(t: Object) -> void:
 	var ass5 := _place(c5, "ASSF", "player1", 1, 1)
 	var enemy5 := _place(c5, "ADCR", "player2", 2, 0); enemy5.health = 1   # small_x 命中
 	ass5.set_numb(false)
-	CombatV2.attack(c5, ass5)
+	Combat.attack(c5, ass5)
 	t.eq(ass5.shadows.size(), 1, "ASSF 斬殺後生成 1 個鏡像")
 	t.eq(ass5.shadows[0].board_x, 2, "ASSF 鏡像於受害者 x")
 	t.eq(ass5.shadows[0].board_y, 0, "ASSF 鏡像於受害者 y")
@@ -97,10 +97,10 @@ func run(t: Object) -> void:
 	var ass6 := _place(c6, "ASSF", "player1", 1, 1)
 	var victim6 := _place(c6, "TANKR", "player2", 2, 2); victim6.health = 1
 	ass6.set_numb(false)
-	CombatV2.attack(c6, ass6)                              # 斬殺 (2,2) → 鏡像於 (2,2)
+	Combat.attack(c6, ass6)                              # 斬殺 (2,2) → 鏡像於 (2,2)
 	var enemy6 := _place(c6, "TANKR", "player2", 3, 3)
 	var before6: int = enemy6.health
-	CombatV2.attack(c6, ass6)                              # 本體無目標 → 鏡像(2,2) small_x 打 (3,3)
+	Combat.attack(c6, ass6)                              # 本體無目標 → 鏡像(2,2) small_x 打 (3,3)
 	t.eq(enemy6.health, before6 - ass6.damage, "ASSF 鏡像代打命中新敵方")
 
 	# 鏡像斬殺亦生成新鏡像（越殺越多）。
@@ -108,9 +108,9 @@ func run(t: Object) -> void:
 	var ass7 := _place(c7, "ASSF", "player1", 1, 1)
 	var fv7 := _place(c7, "TANKR", "player2", 2, 2); fv7.health = 1
 	ass7.set_numb(false)
-	CombatV2.attack(c7, ass7)                              # 鏡像於 (2,2)
+	Combat.attack(c7, ass7)                              # 鏡像於 (2,2)
 	var sv7 := _place(c7, "TANKR", "player2", 3, 3); sv7.health = 1
-	CombatV2.attack(c7, ass7)                              # 鏡像(2,2)斬殺 (3,3) → 新鏡像 (3,3)
+	Combat.attack(c7, ass7)                              # 鏡像(2,2)斬殺 (3,3) → 新鏡像 (3,3)
 	t.eq(ass7.shadows.size(), 2, "ASSF 鏡像斬殺後鏡像數 = 2")
 	var positions7: Array = []
 	for s: PieceState in ass7.shadows:
@@ -145,7 +145,7 @@ func run(t: Object) -> void:
 	var shadow10: PieceState = apt10.shadows[0]
 	var atk10 := _place(c10, "ADCR", "player2", 1, 0)
 	var before10: int = apt10.armor
-	shadow10.abilities.any_true(TriggerV2.Type.BLOCK_DAMAGE, AbilityContextV2.new(c10, shadow10, atk10, 4, {}))
+	shadow10.abilities.any_true(Trigger.Type.BLOCK_DAMAGE, AbilityContext.new(c10, shadow10, atk10, 4, {}))
 	t.eq(apt10.armor, before10 + 2, "APTF 鏡像承傷 4 → 本體 +2 護盾")
 
 	# 場地攔截：我方棋子站在鏡像格上受傷 → APTF 獲得護盾。
@@ -156,7 +156,7 @@ func run(t: Object) -> void:
 	var ally11 := _place(c11, "ADCR", "player1", shadow11.board_x, shadow11.board_y)
 	var atk11 := _place(c11, "ADCR", "player2", 1, 0)
 	var before11: int = apt11.armor
-	var mods: Array = apt11.abilities.collect_field(AbilityContextV2.new(c11, apt11, ally11, 10, {"attacker": atk11}))
+	var mods: Array = apt11.abilities.collect_field(AbilityContext.new(c11, apt11, ally11, 10, {"attacker": atk11}))
 	t.ok(mods.size() > 0, "APTF 場地攔截：鏡像覆蓋友方時回傳修改子")
 	t.eq(apt11.armor, before11 + 5, "APTF 場地攔截：獲得減免量護盾（floor(10*0.5)=5）")
 

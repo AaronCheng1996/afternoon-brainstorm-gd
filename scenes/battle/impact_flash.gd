@@ -1,5 +1,5 @@
 # P2-2 命中特效（佔位）：一圈快速擴散並淡出的閃光。見 04 §7.2/7.3。
-class_name ImpactFlashV2
+class_name ImpactFlash
 extends Node2D
 
 const FILL := Color(1.0, 0.95, 0.6)

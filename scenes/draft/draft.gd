@@ -1,5 +1,5 @@
 # P2-4 選秀 BP 場景（本機模式）。見 docs/rebuild/06 P2-4、01 §9。
-# 一切行動經 DraftDispatcherV2.dispatch(DraftActionV2, DraftStateV2)（純邏輯核心）。
+# 一切行動經 DraftDispatcher.dispatch(DraftAction, DraftState)（純邏輯核心）。
 # 三階段 p1_first6 → p2_pick12 → p1_last6 → done；完成後帶雙方牌組進 battle.tscn。
 # UI 全程程式建立（headless 可實例化並直接呼叫行動方法測試）。
 extends Node2D
@@ -22,8 +22,8 @@ const PHASE_TEXT := {
 	"done": "完成",
 }
 
-var _state: DraftStateV2
-var _dispatcher: DraftDispatcherV2
+var _state: DraftState
+var _dispatcher: DraftDispatcher
 var _db: Object = null
 var _seed: int = 0
 var _selected_color: int = 0
@@ -54,8 +54,8 @@ func _ready() -> void:
 func boot(seed_value: int, db: Object = null) -> void:
 	_db = db if db != null else Balance
 	_seed = seed_value
-	_state = DraftStateV2.new()
-	_dispatcher = DraftDispatcherV2.new()
+	_state = DraftState.new()
+	_dispatcher = DraftDispatcher.new()
 	_selected_color = 0
 	_message = ""
 	_ready_to_start = false
@@ -65,11 +65,11 @@ func boot(seed_value: int, db: Object = null) -> void:
 
 # ---------------- 行動（唯一入口）----------------
 
-func _dispatch(action_type: String, card_name: String = "") -> DraftResultV2:
+func _dispatch(action_type: String, card_name: String = "") -> DraftResult:
 	# 回合限定行動的 player 一律為當前可編輯玩家；切換類不受限（沿用同一 player 欄位）。
 	var editor: String = _state.current_editor()
-	var action := DraftActionV2.new(editor, action_type, card_name)
-	var r: DraftResultV2 = _dispatcher.dispatch(action, _state)
+	var action := DraftAction.new(editor, action_type, card_name)
+	var r: DraftResult = _dispatcher.dispatch(action, _state)
 	return r
 
 

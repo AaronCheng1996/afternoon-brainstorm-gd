@@ -1,6 +1,6 @@
 # P2-2 投射物（佔位）：三角形箭矢，從槍口飛向目標，命中時回呼 on_hit。見 04 §7.2/7.3。
 # 之後換美術：替換 _build 的幾何或改用 AnimatedSprite2D，飛行/命中介面不變。
-class_name ProjectileV2
+class_name Projectile
 extends Node2D
 
 const FILL := Color(1.0, 0.85, 0.3)
