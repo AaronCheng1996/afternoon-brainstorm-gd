@@ -3,7 +3,7 @@
 # 操作：空白鍵=重播；I=切換動畫開關（瞬時模式）。在編輯器對本場景按 F6 執行。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
+const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
 
@@ -107,7 +107,7 @@ func _place(core: GameCore, card_id: String, owner: String, pos: Vector2i) -> Pi
 
 
 func _make_view(pos: Vector2i, card_id: String, owner: int, aset: Resource) -> void:
-	var v: Node2D = PieceViewScript.new()
+	var v: Node2D = PieceViewScene.instantiate()
 	v.position = ORIGIN + Vector2(pos) * STRIDE
 	_board_layer.add_child(v)
 	v.configure(card_id, owner, Balance)

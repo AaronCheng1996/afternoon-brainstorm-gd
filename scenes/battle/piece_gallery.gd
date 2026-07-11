@@ -3,7 +3,8 @@
 # 純展示，不依賴 GameCore；資料取自 autoload Balance。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")   # 常數（CELL_SIZE）用
+const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實例化用
 
 # 色碼 → 繁中名（沿用 02 對照表）。順序＝展示館列序。
 const COLORS := [
@@ -73,14 +74,14 @@ func _build() -> void:
 
 
 func _add_piece(card_id: String, owner: int, pos: Vector2) -> void:
-	var pv: Node2D = PieceViewScript.new()
+	var pv: Node2D = PieceViewScene.instantiate()
 	pv.position = pos
 	add_child(pv)
 	pv.configure(card_id, owner, Balance)
 
 
 func _add_shadow(shadow_job: String, pos: Vector2) -> void:
-	var pv: Node2D = PieceViewScript.new()
+	var pv: Node2D = PieceViewScene.instantiate()
 	pv.position = pos
 	add_child(pv)
 	pv.configure("SHADOW", 1, Balance, true, shadow_job)

@@ -1,6 +1,7 @@
-# P2-1 棋子視圖（佔位美術）。規格見 04_架構設計.md §7.1。
-# piece_view.tscn 的根腳本；子節點於 configure() 時程序建立（headless 可測資料組裝，無需進場景樹）。
-# 動畫插槽（VisualRoot / SpriteSlot）先做好結構，實際動畫由 P2-2 驅動——換圖不改程式：
+# P2-1 棋子視圖（佔位美術）。規格見 04_架構設計.md §7.1、08_場景編輯器化.md §3。
+# P7-3：節點樹宣告於 piece_view.tscn（編輯器可視可編輯，美術可接手）；本腳本只用場景唯一名稱
+# （`%NodeName`）綁定既有節點，不再程序建構。呼叫端一律 instantiate 場景。
+# 動畫插槽（VisualRoot / SpriteSlot）已在 .tscn 備好，實際動畫由 combat_scheduler 驅動——換圖不改程式：
 # 美術到位時填 SpriteSlot 並隱藏 PlaceholderShape 即可。
 class_name PieceView
 extends Node2D
@@ -16,15 +17,7 @@ const SHADOW_ALPHA := 0.45
 const CUBE_FILL := Color(0.70, 0.70, 0.70)
 const LUCKYBLOCK_FILL := Color(1.0, 0.84, 0.16)
 
-# 狀態圖示（沿用舊 UI buff 圖；見 04 §6）。以 preload 常數持有，避免 runtime load 殘留於資源快取。
-const TEX_NUMBNESS := preload("res://img/UI/buff/stun.png")
-const TEX_ANGER := preload("res://img/UI/buff/rage.png")
-const TEX_MOVING := preload("res://img/UI/buff/move.png")
-const STATUS_TEXTURES := {
-	"numbness": TEX_NUMBNESS,
-	"anger": TEX_ANGER,
-	"moving": TEX_MOVING,
-}
+# 狀態圖示（沿用舊 UI buff 圖；見 04 §6）。圖檔已貼於 piece_view.tscn 的 StatusIcons 子節點。
 const STATUS_ORDER := ["numbness", "anger", "moving"]
 
 var card_id: String = ""
@@ -36,7 +29,7 @@ var animation_set: PieceAnimationSet = null
 var instant: bool = false
 var _base_visual_pos := Vector2.ZERO
 
-# 節點參考（configure/_ensure_built 後有效）。
+# 節點參考（_bind_nodes 後有效，取自 .tscn 內宣告的 `%` 唯一名稱節點）。
 var visual_root: Node2D
 var outline_shape: Polygon2D
 var placeholder_shape: Polygon2D
@@ -51,13 +44,17 @@ var armor_label: Label
 var extra_label: Label
 var status_icons: Dictionary = {}   # status_id -> TextureRect
 
-var _built: bool = false
+var _bound: bool = false
+
+
+func _ready() -> void:
+	_bind_nodes()
 
 
 # 依 card_id 組裝視覺。db 為 BalanceDB（預設用 autoload Balance）；
 # shadow=true 時為 Fuchsia 鏡像（沿用 shadow_job 形狀、半透明、不顯數值）。
 func configure(a_card_id: String, a_owner: int, db: Object = null, shadow: bool = false, shadow_job: String = "") -> void:
-	_ensure_built()
+	_bind_nodes()
 	card_id = a_card_id
 	owner_id = a_owner
 	is_shadow = shadow
@@ -134,7 +131,7 @@ func is_status_visible(status_id: String) -> bool:
 
 # 僅更新 HP 標籤（被攻擊後結算用）。
 func set_health_display(health: int) -> void:
-	_ensure_built()
+	_bind_nodes()
 	health_label.text = str(health)
 
 
@@ -146,7 +143,7 @@ func set_animation_set(a_set: PieceAnimationSet) -> void:
 
 # 攻擊演出：遠程（有投射物）發射箭矢並於命中點播特效；近戰則向目標撲擊。fx_layer 收納投射物/特效。
 func play_attack(target_global: Vector2, fx_layer: Node) -> void:
-	_ensure_built()
+	_bind_nodes()
 	var aset := _aset()
 	if aset.has_projectile() and fx_layer != null:
 		_fire_projectile(target_global, fx_layer, aset)
@@ -155,7 +152,7 @@ func play_attack(target_global: Vector2, fx_layer: Node) -> void:
 
 
 func play_hurt() -> void:
-	_ensure_built()
+	_bind_nodes()
 	if instant:
 		return
 	var tw := create_tween()
@@ -167,7 +164,7 @@ func play_hurt() -> void:
 
 
 func play_death(on_done: Callable) -> void:
-	_ensure_built()
+	_bind_nodes()
 	if instant:
 		if on_done.is_valid():
 			on_done.call()
@@ -182,7 +179,7 @@ func play_death(on_done: Callable) -> void:
 
 
 func play_move(to_global: Vector2) -> void:
-	_ensure_built()
+	_bind_nodes()
 	if instant:
 		global_position = to_global
 		return
@@ -191,7 +188,7 @@ func play_move(to_global: Vector2) -> void:
 
 
 func play_cast() -> void:
-	_ensure_built()
+	_bind_nodes()
 	if instant:
 		return
 	var tw := create_tween()
@@ -281,92 +278,27 @@ func _set_stats_visible(v: bool) -> void:
 		extra_label.visible = false
 
 
-func _ensure_built() -> void:
-	if _built:
+# 綁定 .tscn 內宣告的節點（場景唯一名稱 `%`）。idempotent：_ready 與各公開方法皆會呼叫，
+# 首次生效。`%` 於 instantiate 後即可解析（不需先加入場景樹），故 headless 亦適用。
+func _bind_nodes() -> void:
+	if _bound:
 		return
-	_built = true
-
-	visual_root = Node2D.new()
-	visual_root.name = "VisualRoot"
-	add_child(visual_root)
-
-	outline_shape = Polygon2D.new()
-	outline_shape.name = "OutlineShape"
-	visual_root.add_child(outline_shape)
-
-	placeholder_shape = Polygon2D.new()
-	placeholder_shape.name = "PlaceholderShape"
-	visual_root.add_child(placeholder_shape)
-
-	sprite_slot = Sprite2D.new()          # 動畫插槽（P2-2 起使用；美術到位換此節點）
-	sprite_slot.name = "SpriteSlot"
-	sprite_slot.visible = false
-	visual_root.add_child(sprite_slot)
-
-	stats_overlay = Node2D.new()
-	stats_overlay.name = "StatsOverlay"
-	add_child(stats_overlay)
-
-	job_label = _make_label("JobLabel", 22, HORIZONTAL_ALIGNMENT_CENTER)
-	job_label.position = Vector2(0, CELL_SIZE * 0.5 - 16)
-	job_label.size = Vector2(CELL_SIZE, 24)
-	stats_overlay.add_child(job_label)
-
-	name_label = _make_label("NameLabel", 12, HORIZONTAL_ALIGNMENT_CENTER)
-	name_label.position = Vector2(-4, -18)
-	name_label.size = Vector2(CELL_SIZE + 8, 16)
-	name_label.modulate = Color(0.9, 0.9, 0.9)
-	stats_overlay.add_child(name_label)
-
-	health_label = _make_label("HealthLabel", 15, HORIZONTAL_ALIGNMENT_LEFT)
-	health_label.position = Vector2(2, CELL_SIZE - 20)
-	health_label.size = Vector2(CELL_SIZE * 0.5, 20)
-	health_label.modulate = Color(0.55, 1.0, 0.55)
-	stats_overlay.add_child(health_label)
-
-	attack_label = _make_label("AttackLabel", 15, HORIZONTAL_ALIGNMENT_RIGHT)
-	attack_label.position = Vector2(CELL_SIZE * 0.5 - 2, CELL_SIZE - 20)
-	attack_label.size = Vector2(CELL_SIZE * 0.5, 20)
-	attack_label.modulate = Color(1.0, 0.75, 0.4)
-	stats_overlay.add_child(attack_label)
-
-	armor_label = _make_label("ArmorLabel", 13, HORIZONTAL_ALIGNMENT_RIGHT)
-	armor_label.position = Vector2(CELL_SIZE * 0.5, -2)
-	armor_label.size = Vector2(CELL_SIZE * 0.5 - 2, 18)
-	armor_label.modulate = Color(0.6, 0.85, 1.0)
-	armor_label.visible = false
-	stats_overlay.add_child(armor_label)
-
-	extra_label = _make_label("ExtraLabel", 13, HORIZONTAL_ALIGNMENT_RIGHT)
-	extra_label.position = Vector2(CELL_SIZE * 0.5 - 2, CELL_SIZE - 36)
-	extra_label.size = Vector2(CELL_SIZE * 0.5, 18)
-	extra_label.modulate = Color(1.0, 0.5, 0.5)
-	extra_label.visible = false
-	stats_overlay.add_child(extra_label)
-
-	status_root = Node2D.new()
-	status_root.name = "StatusIcons"
-	add_child(status_root)
-	var ix := 2.0
-	for id in STATUS_ORDER:
-		var icon := TextureRect.new()
-		icon.name = id
-		icon.texture = STATUS_TEXTURES[id]
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.size = Vector2(18, 18)
-		icon.position = Vector2(ix, 2)
-		icon.visible = false
-		status_root.add_child(icon)
-		status_icons[id] = icon
-		ix += 20.0
-
-
-func _make_label(node_name: String, font_size: int, align: int) -> Label:
-	var l := Label.new()
-	l.name = node_name
-	l.horizontal_alignment = align
-	l.add_theme_font_size_override("font_size", font_size)
-	# 描邊讓文字在任何底色上可讀。
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	l.add_theme_constant_override("outline_size", 4)
-	return l
+	_bound = true
+	visual_root = %VisualRoot
+	outline_shape = %OutlineShape
+	placeholder_shape = %PlaceholderShape
+	sprite_slot = %SpriteSlot
+	stats_overlay = %StatsOverlay
+	status_root = %StatusIcons
+	job_label = %JobLabel
+	name_label = %NameLabel
+	health_label = %HealthLabel
+	attack_label = %AttackLabel
+	armor_label = %ArmorLabel
+	extra_label = %ExtraLabel
+	status_icons = {
+		"numbness": %NumbnessIcon,
+		"anger": %AngerIcon,
+		"moving": %MovingIcon,
+	}
+	_base_visual_pos = visual_root.position

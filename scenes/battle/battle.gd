@@ -6,7 +6,8 @@
 # 換美術：棋子視覺在 PieceView 的 SpriteSlot；本場景不含任何美術資源。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")   # 常數（CELL_SIZE）用
+const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實例化用
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 
 const BOARD := 4
@@ -223,7 +224,7 @@ func _rebuild_board() -> void:
 		for sh: PieceState in piece.shadows:
 			var linker: PieceState = sh.get_linker()
 			var job: String = linker.job if linker != null else "ADC"
-			var sv: Node2D = PieceViewScript.new()
+			var sv: Node2D = PieceViewScene.instantiate()
 			sv.position = _cell_topleft(sh.pos())
 			_board_layer.add_child(sv)
 			sv.configure("SHADOW", _owner_int(sh.owner), _db, true, job)
@@ -231,7 +232,7 @@ func _rebuild_board() -> void:
 
 
 func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D:
-	var v: Node2D = PieceViewScript.new()
+	var v: Node2D = PieceViewScene.instantiate()
 	v.position = _cell_topleft(cell)
 	_board_layer.add_child(v)
 	v.configure(card_id, owner_int, _db)

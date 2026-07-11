@@ -1,6 +1,129 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://dvs65riqj3157"]
 
-[ext_resource type="Script" path="res://scenes/battle/piece_view.gd" id="1_pv"]
+[ext_resource type="Script" uid="uid://bgcanw00m87ho" path="res://scenes/battle/piece_view.gd" id="1_pv"]
+[ext_resource type="Texture2D" uid="uid://c1e34uiuw2ogh" path="res://img/UI/buff/stun.png" id="2_stun"]
+[ext_resource type="Texture2D" uid="uid://2qwnuvaexd03" path="res://img/UI/buff/rage.png" id="3_rage"]
+[ext_resource type="Texture2D" uid="uid://b4lsy1m3ngvsa" path="res://img/UI/buff/move.png" id="4_move"]
 
-[node name="PieceView" type="Node2D"]
+[node name="PieceView" type="Node2D" unique_id=1234186568]
 script = ExtResource("1_pv")
+
+[node name="VisualRoot" type="Node2D" parent="." unique_id=1534096834]
+unique_name_in_owner = true
+
+[node name="OutlineShape" type="Polygon2D" parent="VisualRoot" unique_id=694664702]
+unique_name_in_owner = true
+
+[node name="PlaceholderShape" type="Polygon2D" parent="VisualRoot" unique_id=653374425]
+unique_name_in_owner = true
+
+[node name="SpriteSlot" type="Sprite2D" parent="VisualRoot" unique_id=1604563127]
+unique_name_in_owner = true
+visible = false
+
+[node name="StatsOverlay" type="Node2D" parent="." unique_id=1854477026]
+unique_name_in_owner = true
+
+[node name="JobLabel" type="Label" parent="StatsOverlay" unique_id=1046608944]
+unique_name_in_owner = true
+offset_top = 32.0
+offset_right = 96.0
+offset_bottom = 56.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="NameLabel" type="Label" parent="StatsOverlay" unique_id=1332703995]
+unique_name_in_owner = true
+modulate = Color(0.9, 0.9, 0.9, 1)
+offset_left = -4.0
+offset_top = -18.0
+offset_right = 100.0
+offset_bottom = -2.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="HealthLabel" type="Label" parent="StatsOverlay" unique_id=492918619]
+unique_name_in_owner = true
+modulate = Color(0.55, 1, 0.55, 1)
+offset_left = 2.0
+offset_top = 76.0
+offset_right = 50.0
+offset_bottom = 96.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+
+[node name="AttackLabel" type="Label" parent="StatsOverlay" unique_id=353821207]
+unique_name_in_owner = true
+modulate = Color(1, 0.75, 0.4, 1)
+offset_left = 46.0
+offset_top = 76.0
+offset_right = 94.0
+offset_bottom = 96.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 2
+
+[node name="ArmorLabel" type="Label" parent="StatsOverlay" unique_id=1726872753]
+unique_name_in_owner = true
+visible = false
+modulate = Color(0.6, 0.85, 1, 1)
+offset_left = 48.0
+offset_top = -2.0
+offset_right = 94.0
+offset_bottom = 16.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 2
+
+[node name="ExtraLabel" type="Label" parent="StatsOverlay" unique_id=753182844]
+unique_name_in_owner = true
+visible = false
+modulate = Color(1, 0.5, 0.5, 1)
+offset_left = 46.0
+offset_top = 60.0
+offset_right = 94.0
+offset_bottom = 78.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 2
+
+[node name="StatusIcons" type="Node2D" parent="." unique_id=945361173]
+unique_name_in_owner = true
+
+[node name="NumbnessIcon" type="TextureRect" parent="StatusIcons" unique_id=1876759872]
+unique_name_in_owner = true
+visible = false
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 20.0
+offset_bottom = 20.0
+texture = ExtResource("2_stun")
+stretch_mode = 5
+
+[node name="AngerIcon" type="TextureRect" parent="StatusIcons" unique_id=383597698]
+unique_name_in_owner = true
+visible = false
+offset_left = 22.0
+offset_top = 2.0
+offset_right = 40.0
+offset_bottom = 20.0
+texture = ExtResource("3_rage")
+stretch_mode = 5
+
+[node name="MovingIcon" type="TextureRect" parent="StatusIcons" unique_id=1862808086]
+unique_name_in_owner = true
+visible = false
+offset_left = 42.0
+offset_top = 2.0
+offset_right = 60.0
+offset_bottom = 20.0
+texture = ExtResource("4_move")
+stretch_mode = 5
