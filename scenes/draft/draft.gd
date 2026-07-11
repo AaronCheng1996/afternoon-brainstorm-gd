@@ -1,7 +1,10 @@
-# P2-4 選秀 BP 場景（本機模式）。見 docs/rebuild/06 P2-4、01 §9。
+# P2-4 選秀 BP 場景（本機模式）。見 docs/rebuild/06 P2-4/P7-5、01 §9、08 §3。
 # 一切行動經 DraftDispatcher.dispatch(DraftAction, DraftState)（純邏輯核心）。
 # 三階段 p1_first6 → p2_pick12 → p1_last6 → done；完成後帶雙方牌組進 battle.tscn。
-# UI 全程程式建立（headless 可實例化並直接呼叫行動方法測試）。
+#
+# P7-5：UI 骨架（背景/標題/色頁鈕/展示格/牌組面板/控制列）宣告於 draft.tscn（編輯器可視可編輯，
+# 美術可接手）；本腳本只用場景唯一名稱（`%NodeName`）綁定既有節點、連接信號，不再程序建構。
+# 動態集合生成到宣告好的容器：展示卡 → ExhibitGrid、魔法卡 → MagicBox、牌組列 → P1/P2DeckPanel。
 extends Node2D
 
 const BattleScene := preload("res://scenes/battle/battle.tscn")
@@ -30,9 +33,9 @@ var _selected_color: int = 0
 var _message: String = ""
 var _ready_to_start: bool = false
 
-# UI
+# UI（皆綁定自 draft.tscn 內宣告的 `%` 唯一名稱節點）
 var _hud: CanvasLayer
-var _ui_built: bool = false
+var _ui_built: bool = false          # 節點綁定完成旗標（沿用舊名，供測試斷言）
 var _phase_label: Label
 var _msg_label: Label
 var _exhibit_box: GridContainer
@@ -59,7 +62,7 @@ func boot(seed_value: int, db: Object = null) -> void:
 	_selected_color = 0
 	_message = ""
 	_ready_to_start = false
-	_build_ui()
+	_bind_nodes()
 	_refresh()
 
 
@@ -142,95 +145,34 @@ func _start_battle() -> void:
 	queue_free()
 
 
-# ---------------- UI 建構 ----------------
+# ---------------- 節點綁定 ----------------
 
-func _build_ui() -> void:
+func _bind_nodes() -> void:
 	if _ui_built:
 		return
 	_ui_built = true
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.10, 0.11, 0.13)
-	bg.size = Vector2(1024, 768)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
+	_hud = %HUD
+	_phase_label = %PhaseLabel
+	_msg_label = %MsgLabel
+	_exhibit_box = %ExhibitGrid
+	_magic_box = %MagicBox
+	_p1_panel = %P1DeckPanel
+	_p2_panel = %P2DeckPanel
 
-	_hud = CanvasLayer.new()
-	add_child(_hud)
-
-	var title := _mk_label(Vector2(24, 14), 22, 900)
-	title.text = "午後激盪 — 選秀 BP（本機）"
-	_hud.add_child(title)
-
-	_phase_label = _mk_label(Vector2(24, 48), 17, 900)
-	_hud.add_child(_phase_label)
-
-	_msg_label = _mk_label(Vector2(24, 76), 15, 640)
-	_msg_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5))
-	_hud.add_child(_msg_label)
-
-	# 色頁分頁鈕。
-	var tx := 24.0
-	for i in COLORS.size():
-		var b := _mk_button(COLORS[i][1], Vector2(tx, 104), Vector2(66, 30))
-		b.add_theme_font_size_override("font_size", 13)
-		b.pressed.connect(_select_color.bind(i))
-		_hud.add_child(b)
-		_color_tabs.append(b)
-		tx += 70.0
-
-	# 展示館（職業卡格）。
-	_exhibit_box = GridContainer.new()
-	_exhibit_box.columns = 4
-	_exhibit_box.position = Vector2(24, 150)
-	_exhibit_box.add_theme_constant_override("h_separation", 8)
-	_exhibit_box.add_theme_constant_override("v_separation", 8)
-	_hud.add_child(_exhibit_box)
-
-	var magic_title := _mk_label(Vector2(24, 360), 14, 400)
-	magic_title.text = "魔法卡（同名 ≤3）"
-	_hud.add_child(magic_title)
-	_magic_box = HBoxContainer.new()
-	_magic_box.position = Vector2(24, 384)
-	_magic_box.add_theme_constant_override("separation", 8)
-	_hud.add_child(_magic_box)
-
-	# 雙方牌組面板。
-	var p1_title := _mk_label(Vector2(560, 104), 15, 200)
-	p1_title.text = "先手 P1 牌組"
-	p1_title.add_theme_color_override("font_color", Color(0.95, 0.5, 0.5))
-	_hud.add_child(p1_title)
-	_p1_panel = _mk_deck_panel(Vector2(560, 130))
-	_hud.add_child(_p1_panel)
-
-	var p2_title := _mk_label(Vector2(792, 104), 15, 200)
-	p2_title.text = "後手 P2 牌組"
-	p2_title.add_theme_color_override("font_color", Color(0.55, 0.7, 1.0))
-	_hud.add_child(p2_title)
-	_p2_panel = _mk_deck_panel(Vector2(792, 130))
-	_hud.add_child(_p2_panel)
+	# 色頁分頁鈕（10 個預置於 ColorTabs，順序對齊 COLORS）。
+	_color_tabs = %ColorTabs.get_children()
+	for i in _color_tabs.size():
+		(_color_tabs[i] as Button).pressed.connect(_select_color.bind(i))
 
 	# 底部控制列。
-	_advance_btn = _mk_button("下一階段", Vector2(24, 470), Vector2(220, 48))
+	_advance_btn = %AdvanceBtn
 	_advance_btn.pressed.connect(_on_advance)
-	_hud.add_child(_advance_btn)
-
-	var rm := _mk_button("移除最後一張 (C)", Vector2(256, 470), Vector2(190, 48))
-	rm.pressed.connect(_on_remove_last)
-	_hud.add_child(rm)
-
-	_timer_btn = _mk_button("計時", Vector2(24, 528), Vector2(150, 34))
+	(%RemoveLastBtn as Button).pressed.connect(_on_remove_last)
+	_timer_btn = %TimerBtn
 	_timer_btn.pressed.connect(_on_toggle_timer)
-	_hud.add_child(_timer_btn)
-
-	_file_btn = _mk_button("存檔", Vector2(184, 528), Vector2(180, 34))
+	_file_btn = %FileBtn
 	_file_btn.pressed.connect(_on_toggle_file)
-	_hud.add_child(_file_btn)
-
-	var hint := _mk_label(Vector2(24, 580), 13, 900)
-	hint.add_theme_color_override("font_color", Color(0.7, 0.75, 0.82))
-	hint.text = "點展示館卡片＝加入當前選手牌組；點自己牌組的卡＝移除。單位同名 ≤2、魔法 ≤3、共 12 張。"
-	_hud.add_child(hint)
 
 
 func _refresh() -> void:
@@ -298,35 +240,4 @@ func _mk_card_button(card_id: String, glyph: String, color_code: String) -> Butt
 		var fc: Color = _db.color_rgb(color_code)
 		b.modulate = fc.lerp(Color.WHITE, 0.45)
 	b.pressed.connect(_on_exhibit_pressed.bind(card_id))
-	return b
-
-
-# ---------------- 小工具 ----------------
-
-func _mk_deck_panel(pos: Vector2) -> VBoxContainer:
-	var v := VBoxContainer.new()
-	v.position = pos
-	v.add_theme_constant_override("separation", 3)
-	return v
-
-
-func _mk_label(pos: Vector2, font_size: int, width: float) -> Label:
-	var l := Label.new()
-	l.position = pos
-	l.size = Vector2(width, 0)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Color(0.92, 0.93, 0.95))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
-	return l
-
-
-func _mk_button(text: String, pos: Vector2, size: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.position = pos
-	b.custom_minimum_size = size
-	b.size = size
-	b.add_theme_font_size_override("font_size", 15)
 	return b

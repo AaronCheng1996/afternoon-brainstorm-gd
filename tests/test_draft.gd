@@ -3,15 +3,28 @@
 # 「觀感」由人工於編輯器跑 draft.tscn 驗收（docs/rebuild/驗收_BP.md）。
 extends RefCounted
 
-const DraftSceneScript := preload("res://scenes/draft/draft.gd")
+const DraftScene := preload("res://scenes/draft/draft.tscn")
 
 
 func run(t: Object) -> void:
+	_test_node_tree(t)
 	_test_phase_flow(t)
 	_test_limits(t)
 	_test_remove(t)
 	_test_toggles(t)
 	_test_scene(t)
+
+
+# ---------------- 0. 節點樹存在（instantiate 後 `%` 名稱解析成功）----------------
+func _test_node_tree(t: Object) -> void:
+	var b: Node = DraftScene.instantiate()
+	for name in ["Background", "HUD", "TitleLabel", "PhaseLabel", "MsgLabel", "ColorTabs",
+			"ExhibitGrid", "MagicBox", "P1DeckPanel", "P2DeckPanel",
+			"AdvanceBtn", "RemoveLastBtn", "TimerBtn", "FileBtn"]:
+		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
+	# 10 色頁鈕預置於 ColorTabs。
+	t.eq(b.get_node("%ColorTabs").get_child_count(), 10, "tree：ColorTabs 預置 10 色鈕")
+	b.free()
 
 
 func _add(disp: DraftDispatcher, st: DraftState, who: String, card: String) -> DraftResult:
@@ -128,7 +141,7 @@ func _test_toggles(t: Object) -> void:
 # ---------------- 5. 場景 headless 冒煙（經場景行動路徑）----------------
 func _test_scene(t: Object) -> void:
 	var db: Object = load("res://script/data/balance_db.gd").new()
-	var b: Node = DraftSceneScript.new()
+	var b: Node = DraftScene.instantiate()
 	b.boot(42, db)
 
 	t.ok(b._ui_built, "scene：UI 已建構")
