@@ -1,141 +1,133 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://d0f817a60j5nn"]
 
-[ext_resource type="Script" path="res://scenes/battle/battle.gd" id="1_battle"]
-[ext_resource type="Script" path="res://scenes/battle/draw_layer.gd" id="2_draw"]
+[ext_resource type="Script" uid="uid://dlltot83n4084" path="res://scenes/battle/battle.gd" id="1_battle"]
+[ext_resource type="Script" uid="uid://cnc10nltha65w" path="res://scenes/battle/draw_layer.gd" id="2_draw"]
 
-[node name="Battle" type="Node2D"]
+[node name="Battle" type="Node2D" unique_id=652386525]
 script = ExtResource("1_battle")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1020023488]
 unique_name_in_owner = true
 offset_right = 1024.0
 offset_bottom = 768.0
 mouse_filter = 2
 color = Color(0.1, 0.11, 0.13, 1)
 
-[node name="GridLayer" type="Node2D" parent="."]
+[node name="GridLayer" type="Node2D" parent="." unique_id=74254080]
 unique_name_in_owner = true
 
-[node name="H0" type="Line2D" parent="GridLayer"]
+[node name="H0" type="Line2D" parent="GridLayer" unique_id=1169387029]
 points = PackedVector2Array(40, 150, 512, 150)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="H1" type="Line2D" parent="GridLayer"]
+[node name="H1" type="Line2D" parent="GridLayer" unique_id=741123884]
 points = PackedVector2Array(40, 268, 512, 268)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="H2" type="Line2D" parent="GridLayer"]
+[node name="H2" type="Line2D" parent="GridLayer" unique_id=1365140238]
 points = PackedVector2Array(40, 386, 512, 386)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="H3" type="Line2D" parent="GridLayer"]
+[node name="H3" type="Line2D" parent="GridLayer" unique_id=437209961]
 points = PackedVector2Array(40, 504, 512, 504)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="H4" type="Line2D" parent="GridLayer"]
+[node name="H4" type="Line2D" parent="GridLayer" unique_id=1777109011]
 points = PackedVector2Array(40, 622, 512, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="V0" type="Line2D" parent="GridLayer"]
+[node name="V0" type="Line2D" parent="GridLayer" unique_id=1282430543]
 points = PackedVector2Array(40, 150, 40, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="V1" type="Line2D" parent="GridLayer"]
+[node name="V1" type="Line2D" parent="GridLayer" unique_id=54338534]
 points = PackedVector2Array(158, 150, 158, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="V2" type="Line2D" parent="GridLayer"]
+[node name="V2" type="Line2D" parent="GridLayer" unique_id=1926880429]
 points = PackedVector2Array(276, 150, 276, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="V3" type="Line2D" parent="GridLayer"]
+[node name="V3" type="Line2D" parent="GridLayer" unique_id=1039216471]
 points = PackedVector2Array(394, 150, 394, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="V4" type="Line2D" parent="GridLayer"]
+[node name="V4" type="Line2D" parent="GridLayer" unique_id=1415901582]
 points = PackedVector2Array(512, 150, 512, 622)
 width = 1.5
 default_color = Color(0.3, 0.32, 0.36, 1)
 
-[node name="PersistLayer" type="Node2D" parent="."]
+[node name="PersistLayer" type="Node2D" parent="." unique_id=738816428]
 unique_name_in_owner = true
 script = ExtResource("2_draw")
 
-[node name="PreviewLayer" type="Node2D" parent="."]
+[node name="PreviewLayer" type="Node2D" parent="." unique_id=957690012]
 unique_name_in_owner = true
 script = ExtResource("2_draw")
 
-[node name="BoardLayer" type="Node2D" parent="."]
+[node name="BoardLayer" type="Node2D" parent="." unique_id=782276777]
 unique_name_in_owner = true
 
-[node name="FxLayer" type="Node2D" parent="."]
+[node name="FxLayer" type="Node2D" parent="." unique_id=1199185436]
 unique_name_in_owner = true
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=178920985]
 unique_name_in_owner = true
 
-[node name="ScoreLabel" type="Label" parent="HUD"]
+[node name="ScoreLabel" type="Label" parent="HUD" unique_id=2110814768]
 unique_name_in_owner = true
 offset_left = 40.0
 offset_top = 14.0
 offset_right = 740.0
 offset_bottom = 14.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 20
-autowrap_mode = 0
 
-[node name="TurnLabel" type="Label" parent="HUD"]
+[node name="TurnLabel" type="Label" parent="HUD" unique_id=748771455]
 unique_name_in_owner = true
 offset_left = 40.0
 offset_top = 44.0
 offset_right = 740.0
 offset_bottom = 44.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 16
-autowrap_mode = 0
 
-[node name="ResLabel" type="Label" parent="HUD"]
+[node name="ResLabel" type="Label" parent="HUD" unique_id=1747825366]
 unique_name_in_owner = true
 offset_left = 548.0
 offset_top = 150.0
 offset_right = 808.0
 offset_bottom = 150.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
-autowrap_mode = 0
 
-[node name="CountsLabel" type="Label" parent="HUD"]
+[node name="CountsLabel" type="Label" parent="HUD" unique_id=162849920]
 unique_name_in_owner = true
 offset_left = 548.0
 offset_top = 300.0
 offset_right = 1008.0
 offset_bottom = 300.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
-autowrap_mode = 0
 
-[node name="AttackBtn" type="Button" parent="HUD"]
+[node name="AttackBtn" type="Button" parent="HUD" unique_id=1370081781]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(108, 34)
 offset_left = 548.0
@@ -145,7 +137,7 @@ offset_bottom = 464.0
 theme_override_font_sizes/font_size = 15
 text = "攻擊(A)"
 
-[node name="MoveBtn" type="Button" parent="HUD"]
+[node name="MoveBtn" type="Button" parent="HUD" unique_id=1542816400]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(108, 34)
 offset_left = 664.0
@@ -155,7 +147,7 @@ offset_bottom = 464.0
 theme_override_font_sizes/font_size = 15
 text = "移動(M)"
 
-[node name="HealBtn" type="Button" parent="HUD"]
+[node name="HealBtn" type="Button" parent="HUD" unique_id=1786833874]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(108, 34)
 offset_left = 780.0
@@ -165,7 +157,7 @@ offset_bottom = 464.0
 theme_override_font_sizes/font_size = 15
 text = "治療(H)"
 
-[node name="CubeBtn" type="Button" parent="HUD"]
+[node name="CubeBtn" type="Button" parent="HUD" unique_id=2123078598]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(108, 34)
 offset_left = 896.0
@@ -175,7 +167,7 @@ offset_bottom = 464.0
 theme_override_font_sizes/font_size = 15
 text = "方塊(C)"
 
-[node name="UpgradeBtn" type="Button" parent="HUD"]
+[node name="UpgradeBtn" type="Button" parent="HUD" unique_id=938396847]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 32)
 offset_left = 548.0
@@ -185,7 +177,7 @@ offset_bottom = 504.0
 theme_override_font_sizes/font_size = 15
 text = "升級切換(+)"
 
-[node name="HintToggle" type="Button" parent="HUD"]
+[node name="HintToggle" type="Button" parent="HUD" unique_id=2087869668]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(110, 32)
 offset_left = 708.0
@@ -195,7 +187,7 @@ offset_bottom = 504.0
 theme_override_font_sizes/font_size = 15
 text = "提示：開"
 
-[node name="AnimToggle" type="Button" parent="HUD"]
+[node name="AnimToggle" type="Button" parent="HUD" unique_id=898848553]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(110, 32)
 offset_left = 828.0
@@ -205,7 +197,7 @@ offset_bottom = 504.0
 theme_override_font_sizes/font_size = 15
 text = "動畫：開"
 
-[node name="EndTurnBtn" type="Button" parent="HUD"]
+[node name="EndTurnBtn" type="Button" parent="HUD" unique_id=1056753949]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(230, 44)
 offset_left = 548.0
@@ -215,26 +207,24 @@ offset_bottom = 556.0
 theme_override_font_sizes/font_size = 15
 text = "結束回合 (Space)"
 
-[node name="HintLabel" type="Label" parent="HUD"]
+[node name="HintLabel" type="Label" parent="HUD" unique_id=1550389597]
 unique_name_in_owner = true
 offset_left = 40.0
 offset_top = 632.0
 offset_right = 980.0
 offset_bottom = 632.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.75, 0.85, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
-autowrap_mode = 0
 
-[node name="HandBox" type="HBoxContainer" parent="HUD"]
+[node name="HandBox" type="HBoxContainer" parent="HUD" unique_id=1145017565]
 unique_name_in_owner = true
 offset_left = 40.0
 offset_top = 662.0
 theme_override_constants/separation = 6
 
-[node name="WinPanel" type="Panel" parent="HUD"]
+[node name="WinPanel" type="Panel" parent="HUD" unique_id=925805844]
 unique_name_in_owner = true
 visible = false
 offset_left = 232.0
@@ -242,8 +232,9 @@ offset_top = 250.0
 offset_right = 792.0
 offset_bottom = 520.0
 
-[node name="WinLabel" type="Label" parent="HUD/WinPanel"]
+[node name="WinLabel" type="Label" parent="HUD/WinPanel" unique_id=1437854499]
 unique_name_in_owner = true
+layout_mode = 0
 offset_left = 30.0
 offset_top = 40.0
 offset_right = 530.0
@@ -253,11 +244,11 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
-autowrap_mode = 0
 
-[node name="RestartBtn" type="Button" parent="HUD/WinPanel"]
+[node name="RestartBtn" type="Button" parent="HUD/WinPanel" unique_id=661020989]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 52)
+layout_mode = 0
 offset_left = 30.0
 offset_top = 170.0
 offset_right = 190.0
@@ -265,9 +256,10 @@ offset_bottom = 222.0
 theme_override_font_sizes/font_size = 15
 text = "再來一局 (R)"
 
-[node name="StatsBtn" type="Button" parent="HUD/WinPanel"]
+[node name="StatsBtn" type="Button" parent="HUD/WinPanel" unique_id=559162624]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 52)
+layout_mode = 0
 offset_left = 200.0
 offset_top = 170.0
 offset_right = 360.0
@@ -275,9 +267,10 @@ offset_bottom = 222.0
 theme_override_font_sizes/font_size = 15
 text = "終局統計"
 
-[node name="MenuBtn" type="Button" parent="HUD/WinPanel"]
+[node name="MenuBtn" type="Button" parent="HUD/WinPanel" unique_id=960169954]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 52)
+layout_mode = 0
 offset_left = 370.0
 offset_top = 170.0
 offset_right = 530.0

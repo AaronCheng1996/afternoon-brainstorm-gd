@@ -32,6 +32,7 @@ offset_bottom = 56.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 22
+text = "class"
 horizontal_alignment = 1
 
 [node name="NameLabel" type="Label" parent="StatsOverlay" unique_id=1332703995]
@@ -44,6 +45,7 @@ offset_bottom = -2.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
+text = "Name"
 horizontal_alignment = 1
 
 [node name="HealthLabel" type="Label" parent="StatsOverlay" unique_id=492918619]
@@ -56,6 +58,7 @@ offset_bottom = 96.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
+text = "hp"
 
 [node name="AttackLabel" type="Label" parent="StatsOverlay" unique_id=353821207]
 unique_name_in_owner = true
@@ -67,11 +70,11 @@ offset_bottom = 96.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 15
+text = "atk"
 horizontal_alignment = 2
 
 [node name="ArmorLabel" type="Label" parent="StatsOverlay" unique_id=1726872753]
 unique_name_in_owner = true
-visible = false
 modulate = Color(0.6, 0.85, 1, 1)
 offset_left = 48.0
 offset_top = -2.0
@@ -80,11 +83,11 @@ offset_bottom = 16.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 13
+text = "armor"
 horizontal_alignment = 2
 
 [node name="ExtraLabel" type="Label" parent="StatsOverlay" unique_id=753182844]
 unique_name_in_owner = true
-visible = false
 modulate = Color(1, 0.5, 0.5, 1)
 offset_left = 46.0
 offset_top = 60.0
@@ -93,6 +96,7 @@ offset_bottom = 78.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 13
+text = "extra"
 horizontal_alignment = 2
 
 [node name="StatusIcons" type="Node2D" parent="." unique_id=945361173]
@@ -100,7 +104,6 @@ unique_name_in_owner = true
 
 [node name="NumbnessIcon" type="TextureRect" parent="StatusIcons" unique_id=1876759872]
 unique_name_in_owner = true
-visible = false
 offset_left = 2.0
 offset_top = 2.0
 offset_right = 20.0
@@ -110,7 +113,6 @@ stretch_mode = 5
 
 [node name="AngerIcon" type="TextureRect" parent="StatusIcons" unique_id=383597698]
 unique_name_in_owner = true
-visible = false
 offset_left = 22.0
 offset_top = 2.0
 offset_right = 40.0
@@ -120,7 +122,6 @@ stretch_mode = 5
 
 [node name="MovingIcon" type="TextureRect" parent="StatusIcons" unique_id=1862808086]
 unique_name_in_owner = true
-visible = false
 offset_left = 42.0
 offset_top = 2.0
 offset_right = 60.0
