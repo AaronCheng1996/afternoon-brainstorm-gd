@@ -23,13 +23,13 @@ Godot 4.7 重構版，規則以 Python 原版為唯一基準。
 
 需要 Godot **4.7 stable**。
 
-- 直接開專案執行：入口場景為 `scenes_v2/menu/main_menu.tscn`。
+- 直接開專案執行：入口場景為 `scenes/menu/main_menu.tscn`。
 - 或在編輯器對任一場景按 **F6** 單獨執行：
-  - `scenes_v2/menu/main_menu.tscn`　主選單（完整流程入口）
-  - `scenes_v2/draft/draft.tscn`　　　選秀 BP
-  - `scenes_v2/battle/battle.tscn`　　對戰（預設牌組）
-  - `scenes_v2/battle/piece_gallery.tscn`　棋子佔位美術一覽
-  - `scenes_v2/battle/anim_demo.tscn`　攻擊演出示範
+  - `scenes/menu/main_menu.tscn`　主選單（完整流程入口）
+  - `scenes/draft/draft.tscn`　　　選秀 BP
+  - `scenes/battle/battle.tscn`　　對戰（預設牌組）
+  - `scenes/battle/piece_gallery.tscn`　棋子佔位美術一覽
+  - `scenes/battle/anim_demo.tscn`　攻擊演出示範
 
 ## 測試（headless）
 
@@ -51,21 +51,21 @@ tools/sync_balance.ps1            # 預設來源 ..\AfternoonBrainstorming\FOS b
 tools/sync_balance.ps1 -Check     # 只檢查是否一致（未變 exit 0）
 ```
 
-產生 `data/balance/_meta.json`（來源版本 + hash）。載入時由 `Balance`（autoload `script_v2/data/balance_db.gd`）驗 schema 並提供查詢。
+產生 `data/balance/_meta.json`（來源版本 + hash）。載入時由 `Balance`（autoload `script/data/balance_db.gd`）驗 schema 並提供查詢。
 
 ---
 
 ## 架構（Sim / View 分離）
 
 ```
-script_v2/core/     純規則核心（RefCounted，零 Node 依賴）
+script/core/     純規則核心（RefCounted，零 Node 依賴）
                     game_core / combat / turn_engine / piece_state / ...
                     ability/  能力系統 v2（trigger 全表、沉默/附魔）
                     faction 引擎：token / luck / totem / coin / shadow
                     draft_*   選秀 BP 邏輯
-script_v2/data/     balance_db.gd（autoload Balance）、settings_store.gd
-script_v2/view/     piece_animation_set / combat_scheduler（表現層協定）
-scenes_v2/          menu / draft / battle / end_game 場景（Node 世界）
+script/data/     balance_db.gd（autoload Balance）、settings_store.gd
+script/view/     piece_animation_set / combat_scheduler（表現層協定）
+scenes/          menu / draft / battle / end_game 場景（Node 世界）
 data/balance/       由 Python 同步來的平衡 JSON
 data/card_text.json 顯示名/描述/提示
 tests/              headless 測試（翻譯自 Python tests/）
@@ -73,12 +73,12 @@ tools/              sync_balance.ps1 等
 docs/rebuild/       重構規劃與規格（00 總覽起）
 ```
 
-**鐵律**：`script_v2/core` 不得 `extends Node` / `get_tree()` / `load("res://scenes...")`。
+**鐵律**：`script/core` 不得 `extends Node` / `get_tree()` / `load("res://scenes...")`。
 核心只吃 `GameAction`、吐 `GameEventV2` 陣列 + 可查詢狀態；場景層訂閱事件播動畫，靠事件是否清空判斷是否可再操作。
 
 ## 換美術（不改程式）
 
-佔位視覺集中在 `scenes_v2/battle/piece_view.gd`（`PieceViewV2`）：
+佔位視覺集中在 `scenes/battle/piece_view.gd`（`PieceViewV2`）：
 
 - 每棋子有 `VisualRoot/SpriteSlot`（`Sprite2D`）動畫插槽，目前隱藏、以 `PlaceholderShape`（Polygon2D）＋文字佔位。
 - 到位美術：填 `SpriteSlot` 並隱藏 `PlaceholderShape` 即可；每張卡可在 `PieceAnimationSet` 指定待機/攻擊/投射物/命中/受擊/死亡/施法，沒指定的自動用 fallback。

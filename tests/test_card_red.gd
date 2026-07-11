@@ -5,7 +5,7 @@ extends RefCounted
 
 
 func _make_core(seed_v: int) -> GameCore:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var core := GameCore.new()
 	var deck: Array = []
 	for _i in 12:

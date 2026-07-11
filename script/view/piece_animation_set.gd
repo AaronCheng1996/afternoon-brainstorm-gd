@@ -32,8 +32,8 @@ static func fallback() -> PieceAnimationSet:
 # ADC 遠程示範：三角形箭矢投射物 + 命中閃光（驗證投射物/特效插槽可用）。
 static func adc_ranged() -> PieceAnimationSet:
 	var s := PieceAnimationSet.new()
-	s.projectile = load("res://scenes_v2/battle/projectile.tscn")
-	s.impact = load("res://scenes_v2/battle/impact_flash.tscn")
+	s.projectile = load("res://scenes/battle/projectile.tscn")
+	s.impact = load("res://scenes/battle/impact_flash.tscn")
 	return s
 
 

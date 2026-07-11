@@ -7,7 +7,7 @@ const PURPLE_JOBS := ["AP", "TANK", "HF", "ASS"]
 
 
 func run(t: Object) -> void:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 
 	# 指定值驗收。
 	t.eq(db.stats("ADCW").get("health"), 5, "ADCW health")

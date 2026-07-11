@@ -3,7 +3,7 @@
 # 「觀感」由人工於編輯器跑 draft.tscn 驗收（docs/rebuild/驗收_BP.md）。
 extends RefCounted
 
-const DraftSceneScript := preload("res://scenes_v2/draft/draft.gd")
+const DraftSceneScript := preload("res://scenes/draft/draft.gd")
 
 
 func run(t: Object) -> void:
@@ -127,7 +127,7 @@ func _test_toggles(t: Object) -> void:
 
 # ---------------- 5. 場景 headless 冒煙（經場景行動路徑）----------------
 func _test_scene(t: Object) -> void:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var b: Node = DraftSceneScript.new()
 	b.boot(42, db)
 

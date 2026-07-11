@@ -4,7 +4,7 @@
 # UI 全程程式建立（headless 可實例化並直接呼叫行動方法測試）。
 extends Node2D
 
-const BattleScene := preload("res://scenes_v2/battle/battle.tscn")
+const BattleScene := preload("res://scenes/battle/battle.tscn")
 
 # 色碼 → 繁中名（沿用 02 對照表 / piece_gallery）。分頁順序。
 const COLORS := [

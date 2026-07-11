@@ -3,9 +3,9 @@
 # 操作：空白鍵=重播；I=切換動畫開關（瞬時模式）。在編輯器對本場景按 F6 執行。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes_v2/battle/piece_view.gd")
-const SchedulerScript := preload("res://script_v2/view/combat_scheduler.gd")
-const AnimSetScript := preload("res://script_v2/view/piece_animation_set.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
+const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
+const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
 
 const CELL := 96.0
 const STRIDE := 116.0
@@ -76,7 +76,7 @@ func _run() -> void:
 		c.free()
 	_views.clear()
 
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var deck: Array = []
 	for _i in 12:
 		deck.append("ADCW")

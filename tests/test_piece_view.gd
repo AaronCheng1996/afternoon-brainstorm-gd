@@ -2,14 +2,14 @@
 # 這裡守住可自動化的資料組裝：形狀頂點、填色、外框（先/後手）、卡名/數值標籤、狀態圖示、鏡像模式。
 extends RefCounted
 
-const PieceShapesScript := preload("res://script_v2/view/piece_shapes.gd")
-const PieceViewScript := preload("res://scenes_v2/battle/piece_view.gd")
+const PieceShapesScript := preload("res://script/view/piece_shapes.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
 
 const SHAPE_KEYS := ["ADC", "AP", "TANK", "HF", "LF", "ASS", "APT", "SP", "CUBE", "LUCKYBLOCK"]
 
 
 func run(t: Object) -> void:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	_test_shapes(t)
 	_test_configure(t, db)
 	_test_status_and_shadow(t, db)

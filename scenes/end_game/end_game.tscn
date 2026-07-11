@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes_v2/end_game/end_game.gd" id="1_end"]
+[ext_resource type="Script" path="res://scenes/end_game/end_game.gd" id="1_end"]
 
 [node name="EndGame" type="Node2D"]
 script = ExtResource("1_end")

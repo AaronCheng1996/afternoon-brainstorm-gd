@@ -2,7 +2,7 @@
 # 戰役/爬塔為佔位（Phase 3–5）。設定頁存 user://settings.json（提示/動畫開關）。
 extends Node2D
 
-const DRAFT_SCENE := "res://scenes_v2/draft/draft.tscn"
+const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 
 var _hud: CanvasLayer
 var _ui_built: bool = false

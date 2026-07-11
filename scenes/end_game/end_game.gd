@@ -3,8 +3,8 @@
 # 由 battle 於對局結束時 configure() 後轉場而來；「回主選單／重新選秀」串起流程閉環。
 extends Node2D
 
-const MENU_SCENE := "res://scenes_v2/menu/main_menu.tscn"
-const DRAFT_SCENE := "res://scenes_v2/draft/draft.tscn"
+const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
+const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 
 const STAT_TITLES := {"KILLED": "擊殺", "DAMAGE_DEALT": "造成傷害", "SCORED": "得分"}
 const STAT_COLORS := {

@@ -1,9 +1,9 @@
 # P2-1 佔位美術展示館：擺出 10 色 × 8 職業 + CUBE/LUCKYBLOCK/SHADOW 一覽。
-# 在 Godot 編輯器直接跑本場景（scenes_v2/battle/piece_gallery.tscn，F6）即可肉眼驗收。
+# 在 Godot 編輯器直接跑本場景（scenes/battle/piece_gallery.tscn，F6）即可肉眼驗收。
 # 純展示，不依賴 GameCore；資料取自 autoload Balance。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes_v2/battle/piece_view.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
 
 # 色碼 → 繁中名（沿用 02 對照表）。順序＝展示館列序。
 const COLORS := [

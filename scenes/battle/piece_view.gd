@@ -5,7 +5,7 @@
 class_name PieceViewV2
 extends Node2D
 
-const PieceShapesScript := preload("res://script_v2/view/piece_shapes.gd")
+const PieceShapesScript := preload("res://script/view/piece_shapes.gd")
 
 const CELL_SIZE := 96.0
 const P1_OUTLINE := Color(0.90, 0.22, 0.22)   # 先手：紅外框

@@ -4,7 +4,7 @@
 # 攻擊範圍預覽（含鏡像）計算、勝負畫面與重開。以「動畫關（瞬時）」模式讓 _post_dispatch 同步收斂。
 extends RefCounted
 
-const BattleScript := preload("res://scenes_v2/battle/battle.gd")
+const BattleScript := preload("res://scenes/battle/battle.gd")
 
 
 func run(t: Object) -> void:
@@ -18,7 +18,7 @@ func run(t: Object) -> void:
 
 
 func _new_db() -> Object:
-	return load("res://script_v2/data/balance_db.gd").new()
+	return load("res://script/data/balance_db.gd").new()
 
 
 func _mk_battle(dbs: Array, p1: Array, p2: Array, seed_v: int) -> Node:

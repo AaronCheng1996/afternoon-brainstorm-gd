@@ -6,8 +6,8 @@
 # 換美術：棋子視覺在 PieceViewV2 的 SpriteSlot；本場景不含任何美術資源。
 extends Node2D
 
-const PieceViewScript := preload("res://scenes_v2/battle/piece_view.gd")
-const SchedulerScript := preload("res://script_v2/view/combat_scheduler.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
+const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 
 const BOARD := 4
 const STRIDE := 118.0
@@ -323,7 +323,7 @@ func _on_win_restart() -> void:
 func _on_win_menu() -> void:
 	var tree := get_tree()
 	if tree != null:
-		tree.change_scene_to_file("res://scenes_v2/menu/main_menu.tscn")
+		tree.change_scene_to_file("res://scenes/menu/main_menu.tscn")
 
 
 # 轉到終局統計畫面（帶勝者/分數/每回合分數/主要統計前幾名）。
@@ -331,7 +331,7 @@ func _open_end_game() -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
-	var end_scene: Node = load("res://scenes_v2/end_game/end_game.tscn").instantiate()
+	var end_scene: Node = load("res://scenes/end_game/end_game.tscn").instantiate()
 	end_scene.configure(_core.winner(), _core.score, _core.config.win_threshold,
 		_core.stats.score_history.duplicate(), _build_stat_bars())
 	tree.root.add_child(end_scene)

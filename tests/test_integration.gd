@@ -7,7 +7,7 @@ extends RefCounted
 
 
 func _make_core(p1_deck: Array, p2_deck: Array, seed_v: int) -> GameCore:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var core := GameCore.new()
 	core.setup(p1_deck, p2_deck, seed_v, db)
 	return core
@@ -184,10 +184,10 @@ func _test_random_smoke(t: Object, cores: Array) -> void:
 
 
 # ---------------- 4. game_core 無 Node 依賴（靜態 grep 檢查）----------------
-# 掃 script_v2/core 全部 .gd，非註解行不得出現 get_tree( 或 load("res://scenes（見 D1）。
+# 掃 script/core 全部 .gd，非註解行不得出現 get_tree( 或 load("res://scenes（見 D1）。
 func _test_no_node_dependency(t: Object) -> void:
 	var files: Array = []
-	_gather_gd("res://script_v2/core", files)
+	_gather_gd("res://script/core", files)
 	t.ok(files.size() > 0, "無 Node 依賴：掃到 core 腳本檔")
 	var offenders: Array = []
 	for path: String in files:

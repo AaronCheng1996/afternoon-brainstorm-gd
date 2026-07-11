@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes_v2/battle/piece_gallery.gd" id="1_g"]
+[ext_resource type="Script" path="res://scenes/battle/piece_gallery.gd" id="1_g"]
 
 [node name="PieceGallery" type="Node2D"]
 script = ExtResource("1_g")

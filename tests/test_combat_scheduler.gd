@@ -2,9 +2,9 @@
 # 這裡守可自動化的排程邏輯：依 delay 排序播放、is_busy 轉換、死亡待機、瞬時模式套用最終狀態。
 extends RefCounted
 
-const SchedulerScript := preload("res://script_v2/view/combat_scheduler.gd")
-const AnimSetScript := preload("res://script_v2/view/piece_animation_set.gd")
-const PieceViewScript := preload("res://scenes_v2/battle/piece_view.gd")
+const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
+const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
+const PieceViewScript := preload("res://scenes/battle/piece_view.gd")
 
 var _map: Dictionary = {}   # Vector2i -> view（供 _resolve 查詢，避免 inline lambda 捕獲疑慮）
 
@@ -49,7 +49,7 @@ func _test_animation_set(t: Object) -> void:
 	t.ok(ranged.has_projectile(), "adc_ranged 有投射物")
 	t.ok(ranged.impact != null, "adc_ranged 有命中特效")
 	# PieceView 未指定時退回 fallback。
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var v: Node2D = PieceViewScript.new()
 	v.configure("ADCW", 1, db)
 	t.ok(v._aset() != null, "PieceView 無 set 時退回 fallback")
@@ -109,7 +109,7 @@ func _test_death_keeps_busy(t: Object) -> void:
 
 func _test_instant_terminal_state(t: Object) -> void:
 	# 瞬時模式：play_events 後立即套用最終狀態、不忙碌。用真實 PieceView 驗 HP 標籤。
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var v: Node2D = PieceViewScript.new()
 	v.configure("TANKW", 2, db)
 	_map = {Vector2i(0, 0): v}

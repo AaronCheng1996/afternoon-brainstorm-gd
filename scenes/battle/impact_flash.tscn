@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes_v2/battle/impact_flash.gd" id="1_if"]
+[ext_resource type="Script" path="res://scenes/battle/impact_flash.gd" id="1_if"]
 
 [node name="ImpactFlash" type="Node2D"]
 script = ExtResource("1_if")

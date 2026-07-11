@@ -3,9 +3,9 @@
 # 「觀感」與整條流程串接由人工於編輯器驗收（docs/rebuild/驗收_選單流程.md）。
 extends RefCounted
 
-const MenuScript := preload("res://scenes_v2/menu/main_menu.gd")
-const EndGameScript := preload("res://scenes_v2/end_game/end_game.gd")
-const BattleScript := preload("res://scenes_v2/battle/battle.gd")
+const MenuScript := preload("res://scenes/menu/main_menu.gd")
+const EndGameScript := preload("res://scenes/end_game/end_game.gd")
+const BattleScript := preload("res://scenes/battle/battle.gd")
 
 
 func run(t: Object) -> void:
@@ -83,7 +83,7 @@ func _test_main_menu_build(t: Object) -> void:
 
 # ---------------- 4. battle 統計前幾名（供終局圖表）----------------
 func _test_stat_bars(t: Object) -> void:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var b: Node = BattleScript.new()
 	b.boot(["ADCW"], ["ADCW"], 1, db)
 	b.set_animation_enabled(false)

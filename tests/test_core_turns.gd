@@ -4,7 +4,7 @@ extends RefCounted
 
 # 建一顆注入 BalanceDB 的 GameCore。
 func _make_core(p1_deck: Array, p2_deck: Array, seed_v: int) -> GameCore:
-	var db: Object = load("res://script_v2/data/balance_db.gd").new()
+	var db: Object = load("res://script/data/balance_db.gd").new()
 	var core := GameCore.new()
 	core.setup(p1_deck, p2_deck, seed_v, db)
 	return core
