@@ -7,8 +7,8 @@ script = ExtResource("1_draft")
 
 [node name="Background" type="ColorRect" parent="."]
 unique_name_in_owner = true
-offset_right = 1024.0
-offset_bottom = 768.0
+anchor_right = 1.0
+anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.1, 0.11, 0.13, 1)
 

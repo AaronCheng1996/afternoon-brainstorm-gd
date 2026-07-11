@@ -7,8 +7,8 @@ script = ExtResource("1_menu")
 
 [node name="Background" type="ColorRect" parent="."]
 unique_name_in_owner = true
-offset_right = 1024.0
-offset_bottom = 768.0
+anchor_right = 1.0
+anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.09, 0.1, 0.13, 1)
 
@@ -17,8 +17,8 @@ unique_name_in_owner = true
 
 [node name="TitleLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
+anchor_right = 1.0
 offset_top = 120.0
-offset_right = 1024.0
 offset_bottom = 120.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.93, 0.94, 0.96, 1)
@@ -31,8 +31,8 @@ autowrap_mode = 0
 
 [node name="SubtitleLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
+anchor_right = 1.0
 offset_top = 180.0
-offset_right = 1024.0
 offset_bottom = 180.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
@@ -46,9 +46,11 @@ autowrap_mode = 0
 [node name="LocalBattleBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
-offset_left = 392.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
 offset_top = 260.0
-offset_right = 632.0
+offset_right = 120.0
 offset_bottom = 312.0
 theme_override_font_sizes/font_size = 16
 text = "本機對戰"
@@ -56,9 +58,11 @@ text = "本機對戰"
 [node name="CampaignBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
-offset_left = 392.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
 offset_top = 324.0
-offset_right = 632.0
+offset_right = 120.0
 offset_bottom = 376.0
 disabled = true
 theme_override_font_sizes/font_size = 16
@@ -67,9 +71,11 @@ text = "戰役模式（尚未開放）"
 [node name="EndlessBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
-offset_left = 392.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
 offset_top = 388.0
-offset_right = 632.0
+offset_right = 120.0
 offset_bottom = 440.0
 disabled = true
 theme_override_font_sizes/font_size = 16
@@ -78,9 +84,11 @@ text = "爬塔模式（尚未開放）"
 [node name="SettingsBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
-offset_left = 392.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
 offset_top = 452.0
-offset_right = 632.0
+offset_right = 120.0
 offset_bottom = 504.0
 theme_override_font_sizes/font_size = 16
 text = "設定"
@@ -88,17 +96,19 @@ text = "設定"
 [node name="QuitBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
-offset_left = 392.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
 offset_top = 516.0
-offset_right = 632.0
+offset_right = 120.0
 offset_bottom = 568.0
 theme_override_font_sizes/font_size = 16
 text = "離開"
 
 [node name="MsgLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
+anchor_right = 1.0
 offset_top = 600.0
-offset_right = 1024.0
 offset_bottom = 600.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.7, 0.5, 1)
@@ -110,10 +120,12 @@ autowrap_mode = 0
 
 [node name="VersionLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
+anchor_top = 1.0
+anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = 738.0
+offset_top = -26.0
 offset_right = 716.0
-offset_bottom = 738.0
+offset_bottom = -8.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.6, 0.63, 0.68, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
@@ -125,10 +137,14 @@ autowrap_mode = 0
 [node name="SettingsPanel" type="Panel" parent="HUD"]
 unique_name_in_owner = true
 visible = false
-offset_left = 312.0
-offset_top = 240.0
-offset_right = 712.0
-offset_bottom = 500.0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -130.0
+offset_right = 200.0
+offset_bottom = 130.0
 
 [node name="SettingsTitle" type="Label" parent="HUD/SettingsPanel"]
 offset_left = 24.0
