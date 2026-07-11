@@ -636,8 +636,10 @@ func _counts_text(cur: String) -> String:
 
 
 func _rebuild_hand(cur: String) -> void:
+	# 用 queue_free（非 free）：手牌按鈕的 pressed 信號會觸發本重建，emit 期間該按鈕被鎖定，
+	# 立即 free 會報「Object is locked」。queue_free 延到本幀 idle 釋放（繪製前已清，無殘影）。
 	for c in _hand_box.get_children():
-		c.free()
+		c.queue_free()
 	var hand: Array = _core.get_player(cur).hand
 	for i in hand.size():
 		var card: String = hand[i]
