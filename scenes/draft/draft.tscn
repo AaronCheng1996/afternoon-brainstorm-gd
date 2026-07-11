@@ -10,7 +10,7 @@ unique_name_in_owner = true
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-color = Color(0.1, 0.11, 0.13, 1)
+color = Color(0.09, 0.1, 0.13, 1)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 unique_name_in_owner = true
@@ -22,9 +22,6 @@ offset_top = 14.0
 offset_right = 924.0
 offset_bottom = 14.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 22
 text = "午後激盪 — 選秀 BP（本機）"
 autowrap_mode = 0
@@ -36,9 +33,6 @@ offset_top = 48.0
 offset_right = 924.0
 offset_bottom = 48.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 17
 autowrap_mode = 0
 
@@ -50,9 +44,6 @@ offset_right = 664.0
 offset_bottom = 76.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.55, 0.5, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 15
 autowrap_mode = 0
 
 [node name="ColorTabs" type="HBoxContainer" parent="HUD"]
@@ -125,9 +116,6 @@ offset_top = 360.0
 offset_right = 424.0
 offset_bottom = 360.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.92, 0.93, 0.95, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 14
 text = "魔法卡（同名 ≤3）"
 autowrap_mode = 0
@@ -145,9 +133,6 @@ offset_right = 760.0
 offset_bottom = 104.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.5, 0.5, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 15
 text = "先手 P1 牌組"
 autowrap_mode = 0
 
@@ -164,9 +149,6 @@ offset_right = 992.0
 offset_bottom = 104.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.55, 0.7, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 15
 text = "後手 P2 牌組"
 autowrap_mode = 0
 
@@ -183,7 +165,6 @@ offset_left = 24.0
 offset_top = 470.0
 offset_right = 244.0
 offset_bottom = 518.0
-theme_override_font_sizes/font_size = 15
 text = "下一階段"
 
 [node name="RemoveLastBtn" type="Button" parent="HUD"]
@@ -193,7 +174,6 @@ offset_left = 256.0
 offset_top = 470.0
 offset_right = 446.0
 offset_bottom = 518.0
-theme_override_font_sizes/font_size = 15
 text = "移除最後一張 (C)"
 
 [node name="TimerBtn" type="Button" parent="HUD"]
@@ -203,7 +183,6 @@ offset_left = 24.0
 offset_top = 528.0
 offset_right = 174.0
 offset_bottom = 562.0
-theme_override_font_sizes/font_size = 15
 text = "計時"
 
 [node name="FileBtn" type="Button" parent="HUD"]
@@ -213,7 +192,6 @@ offset_left = 184.0
 offset_top = 528.0
 offset_right = 364.0
 offset_bottom = 562.0
-theme_override_font_sizes/font_size = 15
 text = "存檔"
 
 [node name="HelpLabel" type="Label" parent="HUD"]
@@ -223,8 +201,6 @@ offset_right = 924.0
 offset_bottom = 580.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
-theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 13
 text = "點展示館卡片＝加入當前選手牌組；點自己牌組的卡＝移除。單位同名 ≤2、魔法 ≤3、共 12 張。"
 autowrap_mode = 0

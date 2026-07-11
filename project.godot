@@ -31,6 +31,10 @@ window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://theme/main_theme.tres"
+
 [input]
 
 mouse_left={
