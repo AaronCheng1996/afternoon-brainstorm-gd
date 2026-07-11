@@ -1,6 +1,10 @@
-# P2-5 終局統計畫面（見 docs/rebuild/06 P2-5）。
+# P2-5 終局統計畫面（見 docs/rebuild/06 P2-5/P7-6、08 §3）。
 # 勝者 + 每回合分數折線（Line2D）+ 主要統計長條（ColorRect）。以節點繪製（headless 可建、可測）。
 # 由 battle 於對局結束時 configure() 後轉場而來；「回主選單／重新選秀」串起流程閉環。
+#
+# P7-6：UI 骨架（背景/圖表框/圖層/HUD 標題/說明/長條容器/兩鈕）宣告於 end_game.tscn（編輯器可視可編輯）；
+# 本腳本只用場景唯一名稱（`%NodeName`）綁定節點、連接信號；動態內容（折線→ChartLayer、長條→BarsRoot）
+# 由程式生成到宣告好的容器。configure() 對外 API 不變。
 extends Node2D
 
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
@@ -21,9 +25,13 @@ var _stat_bars: Dictionary = {}   # name -> Array[[key:String, val:int]]
 
 var _hud: CanvasLayer
 var _chart_layer: Node2D
+var _bars_root: Node2D
+var _title_label: Label
+var _caption_label: Label
+var _bound: bool = false
 var _built: bool = false
 
-# 折線圖區域（世界＝螢幕座標，無 Camera）。
+# 折線圖區域（世界＝螢幕座標，無 Camera）。與 .tscn 的 ChartFrame 對齊。
 const CHART := Rect2(56, 150, 560, 300)
 
 
@@ -44,58 +52,42 @@ func configure(winner: int, score: int, win_threshold: int, score_history: Array
 	_win_threshold = maxi(1, win_threshold)
 	_score_history = score_history
 	_stat_bars = stat_bars
-	_build()
+	_bind_nodes()
+	_rebuild()
 
 
-func _build() -> void:
+func _bind_nodes() -> void:
+	if _bound:
+		return
+	_bound = true
+	_hud = %HUD
+	_chart_layer = %ChartLayer
+	_bars_root = %BarsRoot
+	_title_label = %TitleLabel
+	_caption_label = %ChartCaption
+	(%AgainBtn as Button).pressed.connect(_change_scene.bind(DRAFT_SCENE))
+	(%MenuBtn as Button).pressed.connect(_change_scene.bind(MENU_SCENE))
+
+
+# 依 configure() 傳入的資料重繪動態內容（可重複呼叫）。
+func _rebuild() -> void:
 	_built = true
-	for c in get_children():
+	for c in _chart_layer.get_children():
+		c.queue_free()
+	for c in _bars_root.get_children():
 		c.queue_free()
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.10, 0.13)
-	bg.size = Vector2(1024, 768)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
-
-	_chart_layer = Node2D.new()
-	add_child(_chart_layer)
-
-	_hud = CanvasLayer.new()
-	add_child(_hud)
-
 	var who := "先手 P1" if _winner == 0 else ("後手 P2" if _winner == 1 else "平手")
-	var title := _mk_label(Vector2(0, 40), 34, 1024, HORIZONTAL_ALIGNMENT_CENTER)
-	title.text = "%s 獲勝！　最終分數 %d" % [who, _score]
-	_hud.add_child(title)
-
-	var sub := _mk_label(Vector2(56, 120), 16, 600, HORIZONTAL_ALIGNMENT_LEFT)
-	sub.text = "每回合分數（負＝P1 領先，正＝P2 領先；門檻 ±%d）" % _win_threshold
-	sub.add_theme_color_override("font_color", Color(0.75, 0.8, 0.86))
-	_hud.add_child(sub)
+	_title_label.text = "%s 獲勝！　最終分數 %d" % [who, _score]
+	_caption_label.text = "每回合分數（負＝P1 領先，正＝P2 領先；門檻 ±%d）" % _win_threshold
 
 	_draw_score_chart()
 	_draw_stat_bars()
 
-	var again := _mk_button("重新選秀", Vector2(56, 690), Vector2(200, 52))
-	again.pressed.connect(_change_scene.bind(DRAFT_SCENE))
-	_hud.add_child(again)
 
-	var menu := _mk_button("回主選單", Vector2(272, 690), Vector2(200, 52))
-	menu.pressed.connect(_change_scene.bind(MENU_SCENE))
-	_hud.add_child(menu)
-
-
-# ---------------- 折線圖（Line2D）----------------
+# ---------------- 折線圖（Line2D → ChartLayer）----------------
 
 func _draw_score_chart() -> void:
-	var frame := ColorRect.new()
-	frame.color = Color(0.13, 0.14, 0.17)
-	frame.position = CHART.position
-	frame.size = CHART.size
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hud.add_child(frame)
-
 	var max_abs: int = _win_threshold
 	for s in _score_history:
 		max_abs = maxi(max_abs, abs(int(s)))
@@ -129,7 +121,7 @@ func _add_hline(y: float, color: Color, w: float) -> void:
 	_chart_layer.add_child(l)
 
 
-# ---------------- 統計長條（ColorRect）----------------
+# ---------------- 統計長條（ColorRect → BarsRoot）----------------
 
 func _draw_stat_bars() -> void:
 	var col_x: float = 660.0
@@ -139,7 +131,7 @@ func _draw_stat_bars() -> void:
 		var title := _mk_label(Vector2(col_x, y), 16, 320, HORIZONTAL_ALIGNMENT_LEFT)
 		title.text = STAT_TITLES.get(stat_name, stat_name)
 		title.add_theme_color_override("font_color", STAT_COLORS.get(stat_name, Color.WHITE))
-		_hud.add_child(title)
+		_bars_root.add_child(title)
 		y += 26.0
 		var max_val: int = 1
 		for entry: Array in rows:
@@ -148,7 +140,7 @@ func _draw_stat_bars() -> void:
 			var none := _mk_label(Vector2(col_x + 8, y), 13, 320, HORIZONTAL_ALIGNMENT_LEFT)
 			none.text = "（無）"
 			none.add_theme_color_override("font_color", Color(0.6, 0.62, 0.66))
-			_hud.add_child(none)
+			_bars_root.add_child(none)
 			y += 24.0
 		for entry: Array in rows:
 			var key: String = _short_key(String(entry[0]))
@@ -158,10 +150,10 @@ func _draw_stat_bars() -> void:
 			bar.position = Vector2(col_x + 4, y + 3)
 			bar.size = Vector2(4.0 + float(val) / float(max_val) * 180.0, 14)
 			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_hud.add_child(bar)
+			_bars_root.add_child(bar)
 			var lbl := _mk_label(Vector2(col_x + 200, y), 13, 160, HORIZONTAL_ALIGNMENT_LEFT)
 			lbl.text = "%s  %d" % [key, val]
-			_hud.add_child(lbl)
+			_bars_root.add_child(lbl)
 			y += 22.0
 		y += 14.0
 
@@ -178,7 +170,7 @@ func _change_scene(path: String) -> void:
 		tree.change_scene_to_file(path)
 
 
-# ---------------- 小工具 ----------------
+# ---------------- 小工具（動態長條/標籤仍程式生成）----------------
 
 func _mk_label(pos: Vector2, font_size: int, width: float, align: int) -> Label:
 	var l := Label.new()
@@ -191,13 +183,3 @@ func _mk_label(pos: Vector2, font_size: int, width: float, align: int) -> Label:
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	l.add_theme_constant_override("outline_size", 4)
 	return l
-
-
-func _mk_button(text: String, pos: Vector2, size: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.position = pos
-	b.custom_minimum_size = size
-	b.size = size
-	b.add_theme_font_size_override("font_size", 16)
-	return b

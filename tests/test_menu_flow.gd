@@ -3,16 +3,33 @@
 # 「觀感」與整條流程串接由人工於編輯器驗收（docs/rebuild/驗收_選單流程.md）。
 extends RefCounted
 
-const MenuScript := preload("res://scenes/menu/main_menu.gd")
-const EndGameScript := preload("res://scenes/end_game/end_game.gd")
+const MenuScene := preload("res://scenes/menu/main_menu.tscn")     # P7-6：改 instantiate
+const EndGameScene := preload("res://scenes/end_game/end_game.tscn")  # P7-6：改 instantiate
 const BattleScene := preload("res://scenes/battle/battle.tscn")   # P7-4：battle 已編輯器化，改 instantiate
 
 
 func run(t: Object) -> void:
+	_test_node_tree(t)
 	_test_settings_roundtrip(t)
 	_test_end_game_build(t)
 	_test_main_menu_build(t)
 	_test_stat_bars(t)
+
+
+# ---------------- 0. 節點樹存在（instantiate 後 `%` 名稱解析成功）----------------
+func _test_node_tree(t: Object) -> void:
+	var m: Node = MenuScene.instantiate()
+	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
+			"CampaignBtn", "EndlessBtn", "SettingsBtn", "QuitBtn", "MsgLabel", "VersionLabel",
+			"SettingsPanel", "HintBtn", "AnimBtn", "BackBtn"]:
+		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
+	m.free()
+
+	var e: Node = EndGameScene.instantiate()
+	for name in ["Background", "ChartLayer", "HUD", "TitleLabel", "ChartCaption",
+			"BarsRoot", "AgainBtn", "MenuBtn"]:
+		t.ok(e.get_node_or_null("%" + name) != null, "end tree：%s 節點存在" % name)
+	e.free()
 
 
 # ---------------- 1. 設定持久化 round-trip ----------------
@@ -41,7 +58,7 @@ func _test_settings_roundtrip(t: Object) -> void:
 
 # ---------------- 2. 終局統計畫面建構 ----------------
 func _test_end_game_build(t: Object) -> void:
-	var e: Node = EndGameScript.new()
+	var e: Node = EndGameScene.instantiate()
 	e.configure(0, -10, 10, [0, -1, -3, -4, -7, -10], {
 		"KILLED": [["player1_ADCW", 3], ["player2_TANKW", 1]],
 		"DAMAGE_DEALT": [],
@@ -50,9 +67,10 @@ func _test_end_game_build(t: Object) -> void:
 	t.ok(e._built, "end：configure 後已建構")
 	t.eq(e._winner, 0, "end：勝者為 P1")
 	t.eq(e._win_threshold, 10, "end：門檻 10")
-	t.ok(e.get_child_count() > 0, "end：建出節點（背景/圖層/HUD）")
+	t.ok(e.get_node("%ChartLayer").get_child_count() > 0, "end：折線圖層繪出內容")
+	t.ok(e.get_node("%BarsRoot").get_child_count() > 0, "end：統計長條繪出內容")
 	# 空 score_history 也不崩潰。
-	var e2: Node = EndGameScript.new()
+	var e2: Node = EndGameScene.instantiate()
 	e2.configure(-1, 0, 8, [], {})
 	t.ok(e2._built, "end：空資料也可建構")
 	e.free()
@@ -61,8 +79,8 @@ func _test_end_game_build(t: Object) -> void:
 
 # ---------------- 3. 主選單建構 ----------------
 func _test_main_menu_build(t: Object) -> void:
-	var m: Node = MenuScript.new()
-	m._build_ui()   # 未進場景樹，_ready 不會自動呼叫
+	var m: Node = MenuScene.instantiate()
+	m._bind_nodes()   # 未進場景樹，_ready 不會自動呼叫
 	t.ok(m._ui_built, "menu：UI 已建構")
 	t.ok(m._settings_panel != null and not m._settings_panel.visible, "menu：設定面板預設隱藏")
 	# 開設定 → 顯示；切換不崩潰（會寫檔，之後 round-trip 測試已保護，這裡切回原值）。

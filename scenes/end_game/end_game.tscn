@@ -4,3 +4,73 @@
 
 [node name="EndGame" type="Node2D"]
 script = ExtResource("1_end")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+offset_right = 1024.0
+offset_bottom = 768.0
+mouse_filter = 2
+color = Color(0.09, 0.1, 0.13, 1)
+
+[node name="ChartLayer" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="ChartFrame" type="ColorRect" parent="HUD"]
+offset_left = 56.0
+offset_top = 150.0
+offset_right = 616.0
+offset_bottom = 450.0
+mouse_filter = 2
+color = Color(0.13, 0.14, 0.17, 1)
+
+[node name="TitleLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_top = 40.0
+offset_right = 1024.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.93, 0.94, 0.96, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="ChartCaption" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 56.0
+offset_top = 120.0
+offset_right = 656.0
+offset_bottom = 120.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.86, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 0
+
+[node name="BarsRoot" type="Node2D" parent="HUD"]
+unique_name_in_owner = true
+
+[node name="AgainBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 52)
+offset_left = 56.0
+offset_top = 690.0
+offset_right = 256.0
+offset_bottom = 742.0
+theme_override_font_sizes/font_size = 16
+text = "重新選秀"
+
+[node name="MenuBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 52)
+offset_left = 272.0
+offset_top = 690.0
+offset_right = 472.0
+offset_bottom = 742.0
+theme_override_font_sizes/font_size = 16
+text = "回主選單"
