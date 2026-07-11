@@ -4,11 +4,13 @@
 # 攻擊範圍預覽（含鏡像）計算、勝負畫面與重開。以「動畫關（瞬時）」模式讓 _post_dispatch 同步收斂。
 extends RefCounted
 
-const BattleScript := preload("res://scenes/battle/battle.gd")
+# P7-4：場景已編輯器化——battle.tscn 內宣告 UI 骨架，測試改為 instantiate 場景（見 08 §2.6/§4）。
+const BattleScene := preload("res://scenes/battle/battle.tscn")
 
 
 func run(t: Object) -> void:
 	var dbs: Array = []
+	_test_node_tree(t, dbs)
 	_test_attack_flow(t, dbs)
 	_test_all_actions(t, dbs)
 	_test_win_and_restart(t, dbs)
@@ -24,10 +26,24 @@ func _new_db() -> Object:
 func _mk_battle(dbs: Array, p1: Array, p2: Array, seed_v: int) -> Node:
 	var db: Object = _new_db()
 	dbs.append(db)
-	var b: Node = BattleScript.new()
+	var b: Node = BattleScene.instantiate()
 	b.boot(p1, p2, seed_v, db)
 	b.set_animation_enabled(false)   # 瞬時模式：行動同步收斂（headless 無 _process）
 	return b
+
+
+# ---------------- 0. 節點樹存在（instantiate 後 `%` 名稱解析成功）----------------
+func _test_node_tree(t: Object, dbs: Array) -> void:
+	var b: Node = BattleScene.instantiate()
+	# 世界層與 HUD 骨架皆宣告於 .tscn，instantiate 後即可解析。
+	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
+			"FxLayer", "HUD", "ScoreLabel", "TurnLabel", "ResLabel", "CountsLabel", "HintLabel",
+			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
+			"EndTurnBtn", "HandBox", "WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
+		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
+	# 格線 10 條預置於 GridLayer。
+	t.eq(b.get_node("%GridLayer").get_child_count(), 10, "tree：GridLayer 預置 10 條格線")
+	b.free()
 
 
 func _deck(card_id: String, n: int) -> Array:

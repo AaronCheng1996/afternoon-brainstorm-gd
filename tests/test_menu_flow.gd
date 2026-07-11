@@ -5,7 +5,7 @@ extends RefCounted
 
 const MenuScript := preload("res://scenes/menu/main_menu.gd")
 const EndGameScript := preload("res://scenes/end_game/end_game.gd")
-const BattleScript := preload("res://scenes/battle/battle.gd")
+const BattleScene := preload("res://scenes/battle/battle.tscn")   # P7-4：battle 已編輯器化，改 instantiate
 
 
 func run(t: Object) -> void:
@@ -84,7 +84,7 @@ func _test_main_menu_build(t: Object) -> void:
 # ---------------- 4. battle 統計前幾名（供終局圖表）----------------
 func _test_stat_bars(t: Object) -> void:
 	var db: Object = load("res://script/data/balance_db.gd").new()
-	var b: Node = BattleScript.new()
+	var b: Node = BattleScene.instantiate()
 	b.boot(["ADCW"], ["ADCW"], 1, db)
 	b.set_animation_enabled(false)
 	b._core.stats.increment(Statistics.StatType.KILLED, "player2_TANKW", 1)

@@ -1,8 +1,10 @@
-# P2-3 對戰場景（本機雙人 hot-seat）。見 docs/rebuild/06 P2-3、04 §7。
+# P2-3 對戰場景（本機雙人 hot-seat）。見 docs/rebuild/06 P2-3/P7-4、04 §7、08 §3。
 # 一切行動經 GameCore.dispatch；core 吐事件 → CombatScheduler 播動畫 → 動畫結束後
 # 由 core 最終狀態「重建棋盤」重新同步（sim/view 分離，見 D1）。
 #
-# UI 全程以程式建立（headless 可實例化並直接呼叫行動方法測試；不依賴輸入事件）。
+# P7-4：UI 骨架（背景/格線/圖層/HUD/勝負面板）宣告於 battle.tscn（編輯器可視可編輯，美術可接手）；
+# 本腳本只用場景唯一名稱（`%NodeName`）綁定既有節點、連接信號，不再程序建構。
+# 動態集合生成到宣告好的容器：棋子視圖 → BoardLayer、投射物/飄字 → FxLayer、手牌鈕 → HandBox。
 # 換美術：棋子視覺在 PieceView 的 SpriteSlot；本場景不含任何美術資源。
 extends Node2D
 
@@ -27,13 +29,6 @@ const P2_COL := Color(0.45, 0.6, 1.0)
 const MAGIC_CARDS := ["HEAL", "MOVE", "MOVEO", "CUBES"]
 
 
-# 以 draw 回呼繪製的 Node2D（queue_redraw() → _draw() → 呼叫 cb）。用於高亮/預覽層。
-class DrawLayer extends Node2D:
-	var cb: Callable = Callable()
-	func _draw() -> void:
-		if cb.is_valid():
-			cb.call()
-
 # --- 設定 / 狀態 ---
 var _p1_deck: Array = []
 var _p2_deck: Array = []
@@ -50,19 +45,17 @@ var _instant: bool = false          # 動畫開關（true=瞬時）
 var _hints_on: bool = true
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 
-# 視圖層 / 節點
-var _bg_layer: Node2D
-var _grid_layer: Node2D
-var _persist_layer: Node2D          # 選取/移動中高亮（隨棋盤重建）
-var _board_layer: Node2D            # 棋子視圖
-var _preview_layer: Node2D          # 滑鼠懸停/攻擊範圍預覽
-var _fx_layer: Node2D               # 投射物 / 飄字
+# 視圖層 / 節點（皆綁定自 battle.tscn 內宣告的 `%` 唯一名稱節點）
+var _persist_layer: BattleDrawLayer  # 選取/移動中高亮（隨棋盤重建）
+var _board_layer: Node2D             # 棋子視圖容器
+var _preview_layer: BattleDrawLayer  # 滑鼠懸停/攻擊範圍預覽
+var _fx_layer: Node2D                # 投射物 / 飄字容器
 var _views: Dictionary = {}         # Vector2i -> PieceView（真實棋子+neutral）
 var _shadow_views: Array = []       # Fuchsia 鏡像視圖（僅顯示）
 
 # HUD
 var _hud: CanvasLayer
-var _ui_built: bool = false
+var _ui_built: bool = false         # 節點綁定完成旗標（沿用舊名，供測試斷言）
 var _score_label: Label
 var _turn_label: Label
 var _res_label: Label
@@ -93,7 +86,7 @@ func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null) ->
 	_p2_deck = p2_deck
 	_seed = seed_value
 	_db = db if db != null else Balance
-	_build_ui()
+	_bind_nodes()
 	_apply_settings()
 	_new_game()
 
@@ -510,115 +503,63 @@ func _update_hint_text() -> void:
 
 # ---------------- HUD 建構與刷新 ----------------
 
-func _build_ui() -> void:
+# 綁定 battle.tscn 內宣告的節點（場景唯一名稱 `%`）並連接信號 + 建立排程器。
+# idempotent：_ready 與 boot 皆呼叫，首次生效。`%` 於 instantiate 後即可解析（不需先進場景樹），
+# 故 headless 亦適用（見 P7-3 進度日誌技術註記）。
+func _bind_nodes() -> void:
 	if _ui_built:
 		return
 	_ui_built = true
 
-	_bg_layer = Node2D.new()
-	add_child(_bg_layer)
-	var bg := ColorRect.new()
-	bg.color = COL_BG
-	bg.size = Vector2(1024, 768)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bg_layer.add_child(bg)
+	# 世界層（Node2D）。
+	_persist_layer = %PersistLayer
+	_persist_layer.cb = _persist_draw
+	_preview_layer = %PreviewLayer
+	_preview_layer.cb = _preview_draw
+	_board_layer = %BoardLayer
+	_fx_layer = %FxLayer
 
-	_grid_layer = Node2D.new()
-	add_child(_grid_layer)
-	_draw_grid()
-
-	var persist := DrawLayer.new()
-	persist.cb = _persist_draw
-	_persist_layer = persist
-	add_child(_persist_layer)
-
-	var preview := DrawLayer.new()
-	preview.cb = _preview_draw
-	_preview_layer = preview
-	add_child(_preview_layer)
-
-	_board_layer = Node2D.new()
-	add_child(_board_layer)
-
-	_fx_layer = Node2D.new()
-	add_child(_fx_layer)
-
+	# 排程器（非視覺、不在 .tscn；建為子節點以供動畫；瞬時模式無需進場景樹）。
 	_scheduler = SchedulerScript.new()
 	add_child(_scheduler)
 	_scheduler.setup(Callable(self, "_view_at"), _fx_layer, Callable(self, "_cell_center"))
 	_scheduler.instant = _instant
 
-	_build_hud()
-
-
-func _draw_grid() -> void:
-	for i in range(BOARD + 1):
-		var h := Line2D.new()
-		h.add_point(ORIGIN + Vector2(0, i * STRIDE))
-		h.add_point(ORIGIN + Vector2(BOARD * STRIDE, i * STRIDE))
-		h.width = 1.5
-		h.default_color = COL_GRID
-		_grid_layer.add_child(h)
-		var v := Line2D.new()
-		v.add_point(ORIGIN + Vector2(i * STRIDE, 0))
-		v.add_point(ORIGIN + Vector2(i * STRIDE, BOARD * STRIDE))
-		v.width = 1.5
-		v.default_color = COL_GRID
-		_grid_layer.add_child(v)
-
-
-func _build_hud() -> void:
-	_hud = CanvasLayer.new()
-	add_child(_hud)
-
-	_score_label = _mk_label(Vector2(40, 14), 20, 700)
-	_hud.add_child(_score_label)
-	_turn_label = _mk_label(Vector2(40, 44), 16, 700)
-	_hud.add_child(_turn_label)
-
-	# 右側資訊面板。
-	_res_label = _mk_label(Vector2(548, 150), 15, 260)
-	_hud.add_child(_res_label)
-	_counts_label = _mk_label(Vector2(548, 300), 15, 460)
-	_hud.add_child(_counts_label)
+	# HUD 標籤。
+	_hud = %HUD
+	_score_label = %ScoreLabel
+	_turn_label = %TurnLabel
+	_res_label = %ResLabel
+	_counts_label = %CountsLabel
+	_hint_label = %HintLabel
 
 	# 模式工具列。
-	var modes := [["attack", "攻擊(A)"], ["move", "移動(M)"], ["heal", "治療(H)"], ["cube", "方塊(C)"]]
-	var mx := 548.0
-	for entry in modes:
-		var b := _mk_button(entry[1], Vector2(mx, 430), Vector2(108, 34))
-		b.pressed.connect(_set_mode.bind(entry[0]))
-		_hud.add_child(b)
-		_mode_buttons[entry[0]] = b
-		mx += 116.0
+	_mode_buttons = {
+		"attack": %AttackBtn,
+		"move": %MoveBtn,
+		"heal": %HealBtn,
+		"cube": %CubeBtn,
+	}
+	for m: String in _mode_buttons:
+		_mode_buttons[m].pressed.connect(_set_mode.bind(m))
 
-	_upgrade_btn = _mk_button("升級切換(+)", Vector2(548, 472), Vector2(150, 32))
+	_upgrade_btn = %UpgradeBtn
 	_upgrade_btn.pressed.connect(_on_toggle_upgrade)
-	_hud.add_child(_upgrade_btn)
-
-	_toggle_hint_btn = _mk_button("提示：開", Vector2(708, 472), Vector2(110, 32))
+	_toggle_hint_btn = %HintToggle
 	_toggle_hint_btn.pressed.connect(_on_toggle_hints)
-	_hud.add_child(_toggle_hint_btn)
-
-	_toggle_anim_btn = _mk_button("動畫：開", Vector2(828, 472), Vector2(110, 32))
+	_toggle_anim_btn = %AnimToggle
 	_toggle_anim_btn.pressed.connect(func() -> void: set_animation_enabled(_instant))
-	_hud.add_child(_toggle_anim_btn)
+	(%EndTurnBtn as Button).pressed.connect(_do.bind("end_turn", -1, -1, -1))
 
-	var end_btn := _mk_button("結束回合 (Space)", Vector2(548, 512), Vector2(230, 44))
-	end_btn.pressed.connect(_do.bind("end_turn", -1, -1, -1))
-	_hud.add_child(end_btn)
+	# 手牌容器（動態手牌鈕生成於此）。
+	_hand_box = %HandBox
 
-	_hint_label = _mk_label(Vector2(40, 632), 14, 940)
-	_hint_label.add_theme_color_override("font_color", Color(0.75, 0.85, 0.95))
-	_hud.add_child(_hint_label)
-
-	# 手牌列。
-	_hand_box = HBoxContainer.new()
-	_hand_box.position = Vector2(40, 662)
-	_hand_box.add_theme_constant_override("separation", 6)
-	_hud.add_child(_hand_box)
-
-	_build_win_panel()
+	# 勝負面板。
+	_win_panel = %WinPanel
+	_win_label = %WinLabel
+	(%RestartBtn as Button).pressed.connect(_on_win_restart)
+	(%StatsBtn as Button).pressed.connect(_open_end_game)
+	(%MenuBtn as Button).pressed.connect(_on_win_menu)
 
 
 func _refresh_hud() -> void:
@@ -703,30 +644,6 @@ func _rebuild_hand(cur: String) -> void:
 
 # ---------------- 勝負畫面 ----------------
 
-func _build_win_panel() -> void:
-	_win_panel = Panel.new()
-	_win_panel.position = Vector2(232, 250)
-	_win_panel.size = Vector2(560, 270)
-	_win_panel.visible = false
-	_hud.add_child(_win_panel)
-
-	_win_label = _mk_label(Vector2(30, 40), 26, 500)
-	_win_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_win_panel.add_child(_win_label)
-
-	var again := _mk_button("再來一局 (R)", Vector2(30, 170), Vector2(160, 52))
-	again.pressed.connect(_on_win_restart)
-	_win_panel.add_child(again)
-
-	var stats := _mk_button("終局統計", Vector2(200, 170), Vector2(160, 52))
-	stats.pressed.connect(_open_end_game)
-	_win_panel.add_child(stats)
-
-	var menu := _mk_button("回主選單", Vector2(370, 170), Vector2(160, 52))
-	menu.pressed.connect(_on_win_menu)
-	_win_panel.add_child(menu)
-
-
 func _show_win() -> void:
 	var w: int = _core.winner()
 	var who: String = "先手 P1" if w == 0 else ("後手 P2" if w == 1 else "平手")
@@ -740,29 +657,6 @@ func _hide_win() -> void:
 
 
 # ---------------- 小工具 ----------------
-
-func _mk_label(pos: Vector2, font_size: int, width: float) -> Label:
-	var l := Label.new()
-	l.position = pos
-	l.size = Vector2(width, 0)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Color(0.92, 0.93, 0.95))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
-	return l
-
-
-func _mk_button(text: String, pos: Vector2, size: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.position = pos
-	b.custom_minimum_size = size
-	b.size = size
-	b.add_theme_font_size_override("font_size", 15)
-	return b
-
 
 # 預設牌組（編輯器 F6 直接執行用；含 B/G/C/DKG 以顯示四種色資源列）。
 func _default_deck_a() -> Array:
