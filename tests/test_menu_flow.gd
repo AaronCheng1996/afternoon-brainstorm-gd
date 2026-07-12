@@ -20,7 +20,7 @@ func run(t: Object) -> void:
 func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
-			"CampaignBtn", "EndlessBtn", "SettingsBtn", "QuitBtn", "MsgLabel", "VersionLabel",
+			"EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn", "MsgLabel", "VersionLabel",
 			"SettingsPanel", "HintBtn", "AnimBtn", "BackBtn"]:
 		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
 	m.free()

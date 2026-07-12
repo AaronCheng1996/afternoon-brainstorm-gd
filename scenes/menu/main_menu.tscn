@@ -50,7 +50,7 @@ offset_bottom = 312.0
 theme_override_font_sizes/font_size = 16
 text = "本機對戰"
 
-[node name="CampaignBtn" type="Button" parent="HUD"]
+[node name="EncyclopediaBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
@@ -59,9 +59,8 @@ offset_left = -120.0
 offset_top = 324.0
 offset_right = 120.0
 offset_bottom = 376.0
-disabled = true
 theme_override_font_sizes/font_size = 16
-text = "戰役模式（尚未開放）"
+text = "百科圖鑑"
 
 [node name="EndlessBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true

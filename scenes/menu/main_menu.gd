@@ -6,6 +6,7 @@
 extends Node2D
 
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
+const ENCYCLOPEDIA_SCENE := "res://scenes/encyclopedia/encyclopedia.tscn"
 
 var _hud: CanvasLayer
 var _ui_built: bool = false          # 節點綁定完成旗標（沿用舊名，供測試斷言）
@@ -37,7 +38,7 @@ func _bind_nodes() -> void:
 
 	# 選單鈕（戰役/爬塔於 .tscn 已 disabled）。
 	(%LocalBattleBtn as Button).pressed.connect(_on_local_battle)
-	(%CampaignBtn as Button).pressed.connect(_on_not_ready)
+	(%EncyclopediaBtn as Button).pressed.connect(_on_encyclopedia)
 	(%EndlessBtn as Button).pressed.connect(_on_not_ready)
 	(%SettingsBtn as Button).pressed.connect(_on_open_settings)
 	(%QuitBtn as Button).pressed.connect(_on_quit)
@@ -64,8 +65,12 @@ func _on_local_battle() -> void:
 	_change_scene(DRAFT_SCENE)
 
 
+func _on_encyclopedia() -> void:
+	_change_scene(ENCYCLOPEDIA_SCENE)
+
+
 func _on_not_ready() -> void:
-	_msg_label.text = "該模式將於後續階段開放（戰役 Phase 3–4／爬塔 Phase 5）。"
+	_msg_label.text = "該模式將於後續階段開放（爬塔 Phase 13）。"
 
 
 func _on_open_settings() -> void:
