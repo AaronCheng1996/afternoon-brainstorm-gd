@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dlltot83n4084" path="res://scenes/battle/battle.gd" id="1_battle"]
 [ext_resource type="Script" uid="uid://cnc10nltha65w" path="res://scenes/battle/draw_layer.gd" id="2_draw"]
+[ext_resource type="Script" path="res://scenes/ui/keyword_label.gd" id="3_kw"]
 
 [node name="Battle" type="Node2D" unique_id=652386525]
 script = ExtResource("1_battle")
@@ -185,14 +186,19 @@ offset_right = 778.0
 offset_bottom = 556.0
 text = "結束回合 (Space)"
 
-[node name="HintLabel" type="Label" parent="HUD" unique_id=1550389597]
+[node name="HintLabel" type="RichTextLabel" parent="HUD" unique_id=1550389597]
 unique_name_in_owner = true
 offset_left = 40.0
-offset_top = 632.0
+offset_top = 628.0
 offset_right = 980.0
-offset_bottom = 632.0
-theme_override_colors/font_color = Color(0.75, 0.85, 0.95, 1)
-theme_override_font_sizes/font_size = 14
+offset_bottom = 658.0
+mouse_filter = 1
+bbcode_enabled = true
+scroll_active = false
+autowrap_mode = 0
+theme_override_colors/default_color = Color(0.75, 0.85, 0.95, 1)
+theme_override_font_sizes/normal_font_size = 14
+script = ExtResource("3_kw")
 
 [node name="HandBox" type="HBoxContainer" parent="HUD" unique_id=1145017565]
 unique_name_in_owner = true

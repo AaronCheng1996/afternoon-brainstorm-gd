@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scenes/draft/draft.gd" id="1_draft"]
+[ext_resource type="Script" path="res://scenes/ui/keyword_label.gd" id="2_kw"]
 
 [node name="Draft" type="Node2D"]
 script = ExtResource("1_draft")
@@ -204,3 +205,27 @@ theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
 theme_override_font_sizes/font_size = 13
 text = "點展示館卡片＝加入當前選手牌組；點自己牌組的卡＝移除。單位同名 ≤2、魔法 ≤3、共 12 張。"
 autowrap_mode = 0
+
+[node name="CardDetailTitle" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 606.0
+offset_right = 984.0
+offset_bottom = 606.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "卡片說明（懸停展示館／牌組卡片；描述中的機制詞可再懸停看解釋）"
+autowrap_mode = 0
+
+[node name="CardDetail" type="RichTextLabel" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 628.0
+offset_right = 984.0
+offset_bottom = 750.0
+mouse_filter = 1
+bbcode_enabled = true
+scroll_active = false
+autowrap_mode = 3
+theme_override_font_sizes/normal_font_size = 15
+script = ExtResource("2_kw")

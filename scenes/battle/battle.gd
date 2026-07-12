@@ -60,7 +60,7 @@ var _score_label: Label
 var _turn_label: Label
 var _res_label: Label
 var _counts_label: Label
-var _hint_label: Label
+var _hint_label: KeywordLabel   # P8-3：RichTextLabel 子類，機制詞高亮＋懸停備註
 var _mode_buttons: Dictionary = {}  # mode -> Button
 var _hand_box: HBoxContainer
 var _toggle_hint_btn: Button
@@ -489,7 +489,7 @@ func _update_hint_text() -> void:
 	if _hint_label == null:
 		return
 	if not _hints_on:
-		_hint_label.text = ""
+		_hint_label.set_source("")
 		return
 	var txt: String = ""
 	if _in_board(_hover_cell):
@@ -497,8 +497,10 @@ func _update_hint_text() -> void:
 		if v != null:
 			var cid: String = v.card_id
 			var info: Dictionary = _db.text(cid)
-			txt = "%s：%s" % [String(info.get("name", cid)), String(info.get("hint", ""))]
-	_hint_label.text = txt
+			# 提示列高度有限：多行提示以全形空白併為單行；機制詞由 KeywordLabel 高亮＋懸停解釋。
+			var hint: String = String(info.get("hint", "")).replace("\n", "　")
+			txt = "[b]%s[/b]：%s" % [String(info.get("name", cid)), hint]
+	_hint_label.set_source(txt)
 
 
 # ---------------- HUD 建構與刷新 ----------------

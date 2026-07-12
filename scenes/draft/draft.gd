@@ -45,6 +45,7 @@ var _p2_panel: VBoxContainer
 var _advance_btn: Button
 var _timer_btn: Button
 var _file_btn: Button
+var _card_detail: KeywordLabel   # P8-3：懸停卡片時顯示描述（機制詞高亮＋可再懸停解釋）
 var _color_tabs: Array = []
 
 
@@ -159,6 +160,7 @@ func _bind_nodes() -> void:
 	_magic_box = %MagicBox
 	_p1_panel = %P1DeckPanel
 	_p2_panel = %P2DeckPanel
+	_card_detail = %CardDetail
 
 	# 色頁分頁鈕（10 個預置於 ColorTabs，順序對齊 COLORS）。
 	_color_tabs = %ColorTabs.get_children()
@@ -226,6 +228,7 @@ func _rebuild_deck_panel(panel: VBoxContainer, owner: String) -> void:
 		b.custom_minimum_size = Vector2(160, 26)
 		b.add_theme_font_size_override("font_size", 12)
 		b.pressed.connect(_on_deck_card_pressed.bind(owner, card_id))
+		b.mouse_entered.connect(_show_card_detail.bind(card_id))
 		panel.add_child(b)
 
 
@@ -240,4 +243,17 @@ func _mk_card_button(card_id: String, glyph: String, color_code: String) -> Butt
 		var fc: Color = _db.color_rgb(color_code)
 		b.modulate = fc.lerp(Color.WHITE, 0.45)
 	b.pressed.connect(_on_exhibit_pressed.bind(card_id))
+	b.mouse_entered.connect(_show_card_detail.bind(card_id))
 	return b
+
+
+# P8-3：懸停卡片 → 在下方說明區顯示名稱＋完整描述（機制詞自動高亮、可再懸停看解釋）。
+func _show_card_detail(card_id: String) -> void:
+	if _card_detail == null:
+		return
+	var info: Dictionary = _db.text(card_id)
+	var card_name: String = String(info.get("name", card_id))
+	var desc: String = String(info.get("description", ""))
+	if desc.strip_edges().is_empty():
+		desc = String(info.get("hint", ""))
+	_card_detail.set_source("[b]%s[/b]（%s）\n%s" % [card_name, card_id, desc])
