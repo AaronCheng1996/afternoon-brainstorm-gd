@@ -13,9 +13,6 @@ const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實�
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 
 const BOARD := 4
-const STRIDE := 118.0
-const INSET := (STRIDE - PieceViewScript.CELL_SIZE) * 0.5   # 96 形狀置中於 118 格
-const ORIGIN := Vector2(40.0, 150.0)
 
 const COL_BG := Color(0.10, 0.11, 0.13)
 const COL_GRID := Color(0.30, 0.32, 0.36)
@@ -45,7 +42,11 @@ var _instant: bool = false          # 動畫開關（true=瞬時）
 var _hints_on: bool = true
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 
+# 座標換算器（P9-1）：正交/等距雙模式，統一 cell↔pixel。預設等距。
+var _view := BoardView.new()
+
 # 視圖層 / 節點（皆綁定自 battle.tscn 內宣告的 `%` 唯一名稱節點）
+var _grid_layer: Node2D              # 格線容器（10 條 Line2D，依模式重排為方格/菱形）
 var _persist_layer: BattleDrawLayer  # 選取/移動中高亮（隨棋盤重建）
 var _board_layer: Node2D             # 棋子視圖容器
 var _preview_layer: BattleDrawLayer  # 滑鼠懸停/攻擊範圍預覽
@@ -218,6 +219,7 @@ func _rebuild_board() -> void:
 			var job: String = linker.job if linker != null else "ADC"
 			var sv: Node2D = PieceViewScene.instantiate()
 			sv.position = _cell_topleft(sh.pos())
+			sv.z_index = _view.depth(sh.pos())
 			_board_layer.add_child(sv)
 			sv.configure("SHADOW", _owner_int(sh.owner), _db, true, job)
 			_shadow_views.append(sv)
@@ -226,6 +228,7 @@ func _rebuild_board() -> void:
 func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D:
 	var v: Node2D = PieceViewScene.instantiate()
 	v.position = _cell_topleft(cell)
+	v.z_index = _view.depth(cell)   # 等距遮擋：畫面越前（x+y 越大）越後畫、疊在上層（P9-1）
 	_board_layer.add_child(v)
 	v.configure(card_id, owner_int, _db)
 	return v
@@ -268,6 +271,7 @@ func _handle_key(keycode: int) -> void:
 		KEY_SPACE, KEY_ENTER: _do("end_turn", -1, -1)
 		KEY_I: set_animation_enabled(_instant)   # 切換
 		KEY_T: _on_toggle_hints()
+		KEY_V: _toggle_board_mode()              # 正交／等距視角切換（P9-1，供對照）
 		KEY_R: _new_game()
 
 
@@ -333,29 +337,38 @@ func _open_end_game() -> void:
 	queue_free()
 
 
-# ---------------- 座標換算 ----------------
+# ---------------- 座標換算（統一委派 BoardView，P9-1）----------------
 
 func _cell_topleft(cell: Vector2i) -> Vector2:
-	return ORIGIN + Vector2(cell) * STRIDE + Vector2(INSET, INSET)
+	return _view.cell_topleft(cell)
 
 
 func _cell_center(cell: Vector2i) -> Vector2:
-	return ORIGIN + Vector2(cell) * STRIDE + Vector2(STRIDE, STRIDE) * 0.5
-
-
-func _cell_rect(cell: Vector2i) -> Rect2:
-	return Rect2(ORIGIN + Vector2(cell) * STRIDE, Vector2(STRIDE, STRIDE))
+	return _view.cell_center(cell)
 
 
 func _cell_from_global(p: Vector2) -> Vector2i:
-	var local: Vector2 = p - ORIGIN
-	if local.x < 0.0 or local.y < 0.0:
-		return Vector2i(-1, -1)
-	var cx: int = int(local.x / STRIDE)
-	var cy: int = int(local.y / STRIDE)
-	if cx >= 0 and cx < BOARD and cy >= 0 and cy < BOARD:
-		return Vector2i(cx, cy)
-	return Vector2i(-1, -1)
+	return _view.cell_from_pixel(p)
+
+
+# 依當前模式把 10 條格線（.tscn 預置的 H0..H4 / V0..V4）重排為方格或菱形。
+func _layout_grid() -> void:
+	if _grid_layer == null:
+		return
+	for i in range(BOARD + 1):
+		var h: Line2D = _grid_layer.get_node("H%d" % i)
+		h.points = PackedVector2Array([_view.corner(0, i), _view.corner(BOARD, i)])
+		var v: Line2D = _grid_layer.get_node("V%d" % i)
+		v.points = PackedVector2Array([_view.corner(i, 0), _view.corner(i, BOARD)])
+
+
+# 切換正交／等距（供人工過目對照；R 之外的 V 鍵）。
+func _toggle_board_mode() -> void:
+	_view.mode = BoardView.Mode.ORTHO if _view.mode == BoardView.Mode.ISO else BoardView.Mode.ISO
+	_layout_grid()
+	_rebuild_board()
+	_persist_layer.queue_redraw()
+	_update_preview()
 
 
 func _view_at(cell: Vector2i) -> Object:
@@ -384,16 +397,16 @@ func _update_preview() -> void:
 
 
 func _preview_draw() -> void:
-	# 懸停格外框。
+	# 懸停格外框（依模式為方形/菱形，走 BoardView 頂點）。
 	if _in_board(_hover_cell):
-		_preview_layer.draw_rect(_cell_rect(_hover_cell), COL_HOVER, true)
-		_preview_layer.draw_rect(_cell_rect(_hover_cell), Color(1, 1, 1, 0.5), false, 2.0)
+		_fill_cell(_preview_layer, _hover_cell, COL_HOVER)
+		_outline_cell(_preview_layer, _hover_cell, Color(1, 1, 1, 0.5), 2.0)
 	# 攻擊模式：懸停在我方棋子上 → 顯示其攻擊範圍（含 Fuchsia 鏡像）。
 	if _mode == "attack" and _in_board(_hover_cell):
 		var piece: PieceState = _my_piece_at(_hover_cell)
 		if piece != null:
 			for cell: Vector2i in _footprint_cells(piece):
-				_preview_layer.draw_rect(_cell_rect(cell), COL_RANGE, true)
+				_fill_cell(_preview_layer, cell, COL_RANGE)
 
 
 func _persist_draw() -> void:
@@ -402,9 +415,20 @@ func _persist_draw() -> void:
 		return
 	for piece: PieceState in _core.get_both_player_pieces():
 		if piece.has_status("selected"):
-			_persist_layer.draw_rect(_cell_rect(piece.pos()), COL_SELECTED, true)
+			_fill_cell(_persist_layer, piece.pos(), COL_SELECTED)
 		elif piece.is_moving():
-			_persist_layer.draw_rect(_cell_rect(piece.pos()), COL_MOVING, true)
+			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
+
+
+# 格填色 / 格外框（統一走 BoardView.cell_polygon，正交＝方形、等距＝菱形）。
+func _fill_cell(layer: BattleDrawLayer, cell: Vector2i, color: Color) -> void:
+	layer.draw_colored_polygon(_view.cell_polygon(cell), color)
+
+
+func _outline_cell(layer: BattleDrawLayer, cell: Vector2i, color: Color, width: float) -> void:
+	var poly: PackedVector2Array = _view.cell_polygon(cell)
+	poly.append(poly[0])   # 閉合
+	layer.draw_polyline(poly, color, width)
 
 
 func _my_piece_at(cell: Vector2i) -> PieceState:
@@ -496,6 +520,8 @@ func _bind_nodes() -> void:
 	_ui_built = true
 
 	# 世界層（Node2D）。
+	_grid_layer = %GridLayer
+	_layout_grid()   # 依 _view 模式把格線排成方格/菱形（P9-1）
 	_persist_layer = %PersistLayer
 	_persist_layer.cb = _persist_draw
 	_preview_layer = %PreviewLayer
