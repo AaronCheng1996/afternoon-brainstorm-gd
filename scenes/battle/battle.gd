@@ -380,8 +380,16 @@ func _update_view_toggle_text() -> void:
 		_view_toggle_btn.text = "視角：俯視" if _view.mode == BoardView.Mode.ORTHO else "視角：45度"
 
 
+# 取該格棋子視圖；已被釋放（如死亡動畫中 queue_free 但 _views 尚未重建）回 null 並剔除，
+# 避免懸停/排程器取用已釋放實例（_view_at 亦為 scheduler resolver）。
 func _view_at(cell: Vector2i) -> Object:
-	return _views.get(cell, null)
+	var v: Variant = _views.get(cell, null)
+	if v == null:
+		return null
+	if not is_instance_valid(v):
+		_views.erase(cell)
+		return null
+	return v
 
 
 func _in_board(c: Vector2i) -> bool:

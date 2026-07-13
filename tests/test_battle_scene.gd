@@ -16,6 +16,7 @@ func run(t: Object) -> void:
 	_test_win_and_restart(t, dbs)
 	_test_range_preview_with_shadow(t, dbs)
 	_test_view_toggle(t, dbs)
+	_test_view_at_freed(t, dbs)
 	for db in dbs:
 		db.free()
 
@@ -249,5 +250,25 @@ func _test_view_toggle(t: Object, dbs: Array) -> void:
 	t.eq(b._view.mode, BoardView.Mode.ISO, "view：切回 45 度")
 	var h0b: Line2D = b._grid_layer.get_node("H0")
 	t.ok(not is_equal_approx(h0b.points[0].y, h0b.points[1].y), "view：等距 H0 為斜線")
+
+	b.free()
+
+
+# ---------------- 6. _view_at 對已釋放實例的防護（死亡動畫中懸停不崩潰）----------------
+func _test_view_at_freed(t: Object, dbs: Array) -> void:
+	var b: Node = _mk_battle(dbs, _deck("ADCW", 12), _deck("ADCW", 12), 9)
+	# 出一子建立視圖，再直接釋放該視圖但保留 _views 對應（模擬死亡動畫 queue_free 後尚未重建盤面）。
+	b._on_hand_pressed(0)
+	b._board_click(Vector2i(1, 1))
+	t.ok(b._view_at(Vector2i(1, 1)) != null, "freed：出牌後該格有視圖")
+	var v: Node = b._views[Vector2i(1, 1)]
+	v.free()
+	# Godot 會把容器內已釋放的 Object 參考自動 null 化，_view_at 應據此回 null
+	# （不再取用已釋放實例的 card_id 而報錯＝本次回報的當機）。
+	t.ok(not is_instance_valid(b._views.get(Vector2i(1, 1))), "freed：_views 內參考已失效")
+	t.eq(b._view_at(Vector2i(1, 1)), null, "freed：_view_at 對已釋放實例回 null")
+	b._hover_cell = Vector2i(1, 1)
+	b._update_hint_text()   # 舊行為會在此取用已釋放實例的 card_id 而報錯
+	t.ok(true, "freed：懸停提示路徑不崩潰")
 
 	b.free()
