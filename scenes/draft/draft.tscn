@@ -1,0 +1,231 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/draft/draft.gd" id="1_draft"]
+[ext_resource type="Script" path="res://scenes/ui/keyword_label.gd" id="2_kw"]
+
+[node name="Draft" type="Node2D"]
+script = ExtResource("1_draft")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.09, 0.1, 0.13, 1)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="TitleLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 14.0
+offset_right = 924.0
+offset_bottom = 14.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "午後激盪 — 選秀 BP（本機）"
+autowrap_mode = 0
+
+[node name="PhaseLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 48.0
+offset_right = 924.0
+offset_bottom = 48.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 17
+autowrap_mode = 0
+
+[node name="MsgLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 76.0
+offset_right = 664.0
+offset_bottom = 76.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.55, 0.5, 1)
+autowrap_mode = 0
+
+[node name="ColorTabs" type="HBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 104.0
+theme_override_constants/separation = 4
+
+[node name="Tab0" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "蒼白"
+
+[node name="Tab1" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "緋紅"
+
+[node name="Tab2" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "翠綠"
+
+[node name="Tab3" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "蔚藍"
+
+[node name="Tab4" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "橙橘"
+
+[node name="Tab5" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "蒼鬱"
+
+[node name="Tab6" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "靛青"
+
+[node name="Tab7" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "緋紫"
+
+[node name="Tab8" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "褐鏽"
+
+[node name="Tab9" type="Button" parent="HUD/ColorTabs"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13
+text = "魅紫"
+
+[node name="ExhibitGrid" type="GridContainer" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 150.0
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 4
+
+[node name="MagicTitle" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 360.0
+offset_right = 424.0
+offset_bottom = 360.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+text = "魔法卡（同名 ≤3）"
+autowrap_mode = 0
+
+[node name="MagicBox" type="HBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 384.0
+theme_override_constants/separation = 8
+
+[node name="P1Title" type="Label" parent="HUD"]
+offset_left = 560.0
+offset_top = 104.0
+offset_right = 760.0
+offset_bottom = 104.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.5, 0.5, 1)
+text = "先手 P1 牌組"
+autowrap_mode = 0
+
+[node name="P1DeckPanel" type="VBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 560.0
+offset_top = 130.0
+theme_override_constants/separation = 3
+
+[node name="P2Title" type="Label" parent="HUD"]
+offset_left = 792.0
+offset_top = 104.0
+offset_right = 992.0
+offset_bottom = 104.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.7, 1, 1)
+text = "後手 P2 牌組"
+autowrap_mode = 0
+
+[node name="P2DeckPanel" type="VBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 792.0
+offset_top = 130.0
+theme_override_constants/separation = 3
+
+[node name="AdvanceBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 48)
+offset_left = 24.0
+offset_top = 470.0
+offset_right = 244.0
+offset_bottom = 518.0
+text = "下一階段"
+
+[node name="RemoveLastBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 48)
+offset_left = 256.0
+offset_top = 470.0
+offset_right = 446.0
+offset_bottom = 518.0
+text = "移除最後一張 (C)"
+
+[node name="TimerBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 34)
+offset_left = 24.0
+offset_top = 528.0
+offset_right = 174.0
+offset_bottom = 562.0
+text = "計時"
+
+[node name="FileBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 34)
+offset_left = 184.0
+offset_top = 528.0
+offset_right = 364.0
+offset_bottom = 562.0
+text = "存檔"
+
+[node name="HelpLabel" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 580.0
+offset_right = 924.0
+offset_bottom = 580.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "點展示館卡片＝加入當前選手牌組；點自己牌組的卡＝移除。單位同名 ≤2、魔法 ≤3、共 12 張。"
+autowrap_mode = 0
+
+[node name="CardDetailTitle" type="Label" parent="HUD"]
+offset_left = 24.0
+offset_top = 606.0
+offset_right = 984.0
+offset_bottom = 606.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "卡片說明（懸停展示館／牌組卡片；描述中的機制詞可再懸停看解釋）"
+autowrap_mode = 0
+
+[node name="CardDetail" type="RichTextLabel" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 628.0
+offset_right = 984.0
+offset_bottom = 750.0
+mouse_filter = 1
+bbcode_enabled = true
+scroll_active = false
+autowrap_mode = 3
+theme_override_font_sizes/normal_font_size = 15
+script = ExtResource("2_kw")

@@ -1,0 +1,174 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/menu/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Node2D"]
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.09, 0.1, 0.13, 1)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="TitleLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+anchor_right = 1.0
+offset_top = 120.0
+offset_bottom = 120.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 44
+text = "午 後 激 盪"
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="SubtitleLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+anchor_right = 1.0
+offset_top = 180.0
+offset_bottom = 180.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
+theme_override_font_sizes/font_size = 18
+text = "Afternoon Brainstorming — Godot 重構版"
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="LocalBattleBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 260.0
+offset_right = 120.0
+offset_bottom = 312.0
+theme_override_font_sizes/font_size = 16
+text = "本機對戰"
+
+[node name="EncyclopediaBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 324.0
+offset_right = 120.0
+offset_bottom = 376.0
+theme_override_font_sizes/font_size = 16
+text = "百科圖鑑"
+
+[node name="EndlessBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 388.0
+offset_right = 120.0
+offset_bottom = 440.0
+disabled = true
+theme_override_font_sizes/font_size = 16
+text = "爬塔模式（尚未開放）"
+
+[node name="SettingsBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 452.0
+offset_right = 120.0
+offset_bottom = 504.0
+theme_override_font_sizes/font_size = 16
+text = "設定"
+
+[node name="QuitBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 516.0
+offset_right = 120.0
+offset_bottom = 568.0
+theme_override_font_sizes/font_size = 16
+text = "離開"
+
+[node name="MsgLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+anchor_right = 1.0
+offset_top = 600.0
+offset_bottom = 600.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.7, 0.5, 1)
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="VersionLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -26.0
+offset_right = 716.0
+offset_bottom = -8.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.6, 0.63, 0.68, 1)
+theme_override_font_sizes/font_size = 13
+text = "平衡資料：—"
+autowrap_mode = 0
+
+[node name="SettingsPanel" type="Panel" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -130.0
+offset_right = 200.0
+offset_bottom = 130.0
+
+[node name="SettingsTitle" type="Label" parent="HUD/SettingsPanel"]
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 384.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "設定"
+autowrap_mode = 0
+
+[node name="HintBtn" type="Button" parent="HUD/SettingsPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 44)
+offset_left = 40.0
+offset_top = 70.0
+offset_right = 360.0
+offset_bottom = 114.0
+theme_override_font_sizes/font_size = 16
+
+[node name="AnimBtn" type="Button" parent="HUD/SettingsPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 44)
+offset_left = 40.0
+offset_top = 124.0
+offset_right = 360.0
+offset_bottom = 168.0
+theme_override_font_sizes/font_size = 16
+
+[node name="BackBtn" type="Button" parent="HUD/SettingsPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 44)
+offset_left = 40.0
+offset_top = 190.0
+offset_right = 360.0
+offset_bottom = 234.0
+theme_override_font_sizes/font_size = 16
+text = "返回"

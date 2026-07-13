@@ -1,0 +1,96 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/end_game/end_game.gd" id="1_end"]
+
+[node name="EndGame" type="Node2D"]
+script = ExtResource("1_end")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.09, 0.1, 0.13, 1)
+
+[node name="ChartFrame" type="ColorRect" parent="."]
+unique_name_in_owner = true
+offset_left = 56.0
+offset_top = 150.0
+offset_right = 616.0
+offset_bottom = 450.0
+mouse_filter = 2
+color = Color(0.13, 0.14, 0.17, 1)
+
+[node name="ChartLayer" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="TableRoot" type="VBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+offset_left = 56.0
+offset_top = 150.0
+offset_right = 900.0
+offset_bottom = 470.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="ViewToggle" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 40)
+offset_left = 660.0
+offset_top = 104.0
+offset_right = 840.0
+offset_bottom = 144.0
+theme_override_font_sizes/font_size = 15
+text = "切換：表格"
+
+[node name="TitleLabel" type="Label" parent="HUD"]
+unique_name_in_owner = true
+anchor_right = 1.0
+offset_top = 40.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="ChartCaption" type="Label" parent="HUD"]
+unique_name_in_owner = true
+offset_left = 56.0
+offset_top = 120.0
+offset_right = 656.0
+offset_bottom = 120.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.86, 1)
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 0
+
+[node name="BarsRoot" type="Node2D" parent="HUD"]
+unique_name_in_owner = true
+
+[node name="AgainBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 52)
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 56.0
+offset_top = -78.0
+offset_right = 256.0
+offset_bottom = -26.0
+theme_override_font_sizes/font_size = 16
+text = "重新選秀"
+
+[node name="MenuBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 52)
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 272.0
+offset_top = -78.0
+offset_right = 472.0
+offset_bottom = -26.0
+theme_override_font_sizes/font_size = 16
+text = "回主選單"
