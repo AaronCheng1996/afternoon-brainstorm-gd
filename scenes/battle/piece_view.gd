@@ -29,6 +29,10 @@ var animation_set: PieceAnimationSet = null
 var instant: bool = false
 var _base_visual_pos := Vector2.ZERO
 
+# P9-2：命中/死亡特效容器。粒子與殘影生成到此層（而非本視圖），使其在本視圖被 queue_free
+# 之後仍能存活播完。呼叫端（battle/anim_demo）於建立視圖時設定；null 時退回本視圖自身。
+var fx_layer: Node = null
+
 # 節點參考（_bind_nodes 後有效，取自 .tscn 內宣告的 `%` 唯一名稱節點）。
 var visual_root: Node2D
 var outline_shape: Polygon2D
@@ -151,6 +155,8 @@ func play_attack(target_global: Vector2, fx_layer: Node) -> void:
 		_melee_lunge(target_global, aset)
 
 
+# 受擊演出（P9-2 強化）：白閃＋抖動＋局部命中頓幀（squash-and-hold）＋受擊粒子。
+# 頓幀＝瞬間壓扁後短暫定格再彈回，強調打擊瞬間；粒子為程序生成（CPUParticles2D），非點陣素材。
 func play_hurt() -> void:
 	_bind_nodes()
 	if instant:
@@ -161,18 +167,30 @@ func play_hurt() -> void:
 	var shake := create_tween()
 	shake.tween_property(visual_root, "position", _base_visual_pos + Vector2(4, 0), 0.04)
 	shake.tween_property(visual_root, "position", _base_visual_pos, 0.09)
+	# 局部命中頓幀：壓扁 → 短暫定格 → 回彈（TRANS_BACK 收尾帶輕微過衝）。
+	var punch := create_tween()
+	punch.tween_property(visual_root, "scale", Vector2(1.18, 0.84), 0.03)
+	punch.tween_interval(0.045)
+	punch.tween_property(visual_root, "scale", Vector2(1, 1), 0.12) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_spawn_hit_particles()
 
 
+# 死亡演出（P9-2 強化）：淡出縮小＋碎裂旋轉＋短暫殘影（afterimage）＋碎片粒子。
+# 殘影與粒子掛在 fx_layer（本視圖 queue_free 後仍存活播完）。
 func play_death(on_done: Callable) -> void:
 	_bind_nodes()
 	if instant:
 		if on_done.is_valid():
 			on_done.call()
 		return
+	_spawn_afterimage()
+	_spawn_death_particles()
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(visual_root, "modulate:a", 0.0, 0.28)
 	tw.tween_property(visual_root, "scale", Vector2(0.4, 0.4), 0.28)
+	tw.tween_property(visual_root, "rotation", 0.6, 0.28)
 	tw.chain().tween_callback(func() -> void:
 		if on_done.is_valid():
 			on_done.call())
@@ -238,6 +256,68 @@ func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
 	var tw := create_tween()
 	tw.tween_property(visual_root, "position", _base_visual_pos + dir * 18.0, aset.lunge_step * 0.5)
 	tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.5)
+
+
+# --- P9-2 命中/死亡特效（程序生成粒子；不使用點陣素材，見鐵則 3） ---
+
+# 特效容器：優先 fx_layer（本視圖釋放後仍存活），否則掛本視圖自身。
+func _fx_parent() -> Node:
+	return fx_layer if fx_layer != null else self
+
+
+# 受擊小火花：向上噴濺、受重力回落，隨命中閃光色系。
+func _spawn_hit_particles() -> void:
+	var p := _make_burst(8, 0.35, 60.0, 150.0, Color(1.0, 0.92, 0.62), 2.5)
+	p.global_position = center_global()
+	p.emitting = true
+
+
+# 死亡碎片：以本體填色向四面爆開，數量更多、初速更大。
+func _spawn_death_particles() -> void:
+	var fill := placeholder_shape.color
+	fill.a = 1.0
+	var p := _make_burst(16, 0.5, 90.0, 220.0, fill, 3.5)
+	p.global_position = center_global()
+	p.emitting = true
+
+
+# 短暫殘影：複製本體多邊形，於原位放大並淡出。
+func _spawn_afterimage() -> void:
+	var ghost := Polygon2D.new()
+	ghost.polygon = placeholder_shape.polygon
+	var c := placeholder_shape.color
+	ghost.color = Color(c.r, c.g, c.b, 0.5)
+	ghost.z_index = z_index
+	_fx_parent().add_child(ghost)
+	ghost.global_position = placeholder_shape.global_position
+	ghost.scale = placeholder_shape.global_scale
+	var tw := ghost.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ghost, "scale", ghost.scale * 1.4, 0.32)
+	tw.tween_property(ghost, "modulate:a", 0.0, 0.32)
+	tw.chain().tween_callback(ghost.queue_free)
+
+
+# 一次性粒子爆發（CPUParticles2D，one_shot 完成後自我釋放）。
+func _make_burst(amount: int, lifetime: float, vmin: float, vmax: float, color: Color, size: float) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.emitting = false
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = amount
+	p.lifetime = lifetime
+	p.direction = Vector2(0, -1)
+	p.spread = 180.0
+	p.gravity = Vector2(0, 320)
+	p.initial_velocity_min = vmin
+	p.initial_velocity_max = vmax
+	p.scale_amount_min = size
+	p.scale_amount_max = size * 1.6
+	p.color = color
+	p.z_index = z_index + 1
+	p.finished.connect(p.queue_free)
+	_fx_parent().add_child(p)
+	return p
 
 
 # --- 內部 ---

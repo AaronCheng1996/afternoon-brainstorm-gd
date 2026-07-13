@@ -49,6 +49,7 @@ func _ready() -> void:
 	_scheduler.name = "CombatScheduler"
 	add_child(_scheduler)
 	_scheduler.setup(Callable(self, "_view_at"), _fx_layer, Callable(self, "_cell_center"))
+	_scheduler.on_kill = Callable(self, "_shake")   # P9-2：擊殺鏡頭震動
 
 	_run()
 
@@ -110,6 +111,7 @@ func _make_view(pos: Vector2i, card_id: String, owner: int, aset: Resource) -> v
 	var v: Node2D = PieceViewScene.instantiate()
 	v.position = ORIGIN + Vector2(pos) * STRIDE
 	_board_layer.add_child(v)
+	v.fx_layer = _fx_layer   # P9-2：命中/死亡粒子與殘影掛 fx 層
 	v.configure(card_id, owner, Balance)
 	if aset != null:
 		v.set_animation_set(aset)
@@ -118,6 +120,19 @@ func _make_view(pos: Vector2i, card_id: String, owner: int, aset: Resource) -> v
 
 func _view_at(pos: Vector2i) -> Node:
 	return _views.get(pos, null)
+
+
+# P9-2：擊殺鏡頭震動示範（震棋盤與特效層，衰減歸位）。
+func _shake() -> void:
+	if _instant:
+		return
+	for layer in [_board_layer, _fx_layer]:
+		var tw := layer.create_tween()
+		for i in 5:
+			var damp := 6.0 * (1.0 - float(i) / 5.0)
+			tw.tween_property(layer, "position",
+				Vector2(randf_range(-damp, damp), randf_range(-damp, damp)), 0.03)
+		tw.tween_property(layer, "position", Vector2.ZERO, 0.04)
 
 
 func _cell_center(pos: Vector2i) -> Vector2:

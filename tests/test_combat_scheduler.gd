@@ -7,6 +7,7 @@ const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # P7-3：實例化場景
 
 var _map: Dictionary = {}   # Vector2i -> view（供 _resolve 查詢，避免 inline lambda 捕獲疑慮）
+var _kill_count: int = 0    # P9-2 on_kill 回呼計數
 
 
 # 記錄呼叫的假視圖（避免對未進場景樹的節點建 tween）。
@@ -35,11 +36,16 @@ func _cell(_pos: Vector2i) -> Vector2:
 	return Vector2.ZERO
 
 
+func _on_kill() -> void:
+	_kill_count += 1
+
+
 func run(t: Object) -> void:
 	_test_animation_set(t)
 	_test_timeline_order(t)
 	_test_death_keeps_busy(t)
 	_test_instant_terminal_state(t)
+	_test_on_kill_hook(t)
 
 
 func _test_animation_set(t: Object) -> void:
@@ -123,3 +129,34 @@ func _test_instant_terminal_state(t: Object) -> void:
 	sched.free()
 	db.free()
 	_map = {}   # 釋放對已釋放視圖的殘留參考
+
+
+# P9-2：擊殺回呼——非瞬時 DEATH 觸發一次；瞬時模式不觸發（動畫關結果不變）。
+func _test_on_kill_hook(t: Object) -> void:
+	_kill_count = 0
+	var a := StubView.new()
+	_map = {Vector2i(1, 1): a}
+	var sched: Node = SchedulerScript.new()
+	sched.instant = false
+	sched.setup(Callable(self, "_resolve"), null, Callable(self, "_cell"))
+	sched.on_kill = Callable(self, "_on_kill")
+	sched.play_events([GameEvent.death(Vector2i(1, 1), 0.0)])
+	sched._advance(0.01)
+	t.eq(_kill_count, 1, "非瞬時：擊殺回呼觸發一次")
+	a.death_done.call()   # 收斂死亡動畫
+	a.death_done = Callable()
+	sched.free()
+
+	_kill_count = 0
+	var b := StubView.new()
+	_map = {Vector2i(2, 2): b}
+	var sched2: Node = SchedulerScript.new()
+	sched2.instant = true
+	sched2.setup(Callable(self, "_resolve"), null, Callable(self, "_cell"))
+	sched2.on_kill = Callable(self, "_on_kill")
+	sched2.play_events([GameEvent.death(Vector2i(2, 2), 0.0)])
+	t.eq(_kill_count, 0, "瞬時：擊殺回呼不觸發")
+	b.death_done.call()
+	b.death_done = Callable()
+	sched2.free()
+	_map = {}

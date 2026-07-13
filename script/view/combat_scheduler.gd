@@ -9,6 +9,9 @@ signal finished
 
 var instant: bool = false
 
+# P9-2：擊殺回呼（鏡頭震動等）。DEATH 動畫起始時呼叫；瞬時模式（動畫關）不呼叫，維持結果不變。
+var on_kill: Callable = Callable()
+
 var _resolver: Callable = Callable()       # func(Vector2i) -> PieceView 或 null
 var _cell_to_global: Callable = Callable()  # func(Vector2i) -> Vector2
 var _fx_layer: Node = null
@@ -105,6 +108,8 @@ func _schedule(e: GameEvent) -> void:
 				if v == null:
 					return
 				v.instant = instant
+				if not instant and on_kill.is_valid():
+					on_kill.call()
 				_pending_anims += 1
 				v.play_death(func() -> void:
 					_pending_anims -= 1

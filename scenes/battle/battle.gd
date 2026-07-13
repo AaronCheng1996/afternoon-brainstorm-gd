@@ -34,6 +34,7 @@ var _db: Object = null
 
 var _core: GameCore = null
 var _scheduler: Node = null
+var _world_base := Vector2.ZERO      # 鏡頭震動（P9-2）的世界根基準位
 
 var _mode: String = "attack"        # attack / move / heal / cube
 var _placing_index: int = -1        # 手牌待放置的單位卡索引（-1=無）
@@ -221,6 +222,7 @@ func _rebuild_board() -> void:
 			var sv: Node2D = PieceViewScene.instantiate()
 			sv.position = _cell_topleft(sh.pos())
 			sv.z_index = _view.depth(sh.pos())
+			sv.fx_layer = _fx_layer
 			_board_layer.add_child(sv)
 			sv.configure("SHADOW", _owner_int(sh.owner), _db, true, job)
 			_shadow_views.append(sv)
@@ -230,6 +232,7 @@ func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D
 	var v: Node2D = PieceViewScene.instantiate()
 	v.position = _cell_topleft(cell)
 	v.z_index = _view.depth(cell)   # 等距遮擋：畫面越前（x+y 越大）越後畫、疊在上層（P9-1）
+	v.fx_layer = _fx_layer          # P9-2：命中/死亡粒子與殘影掛 fx 層（本視圖釋放後仍存活）
 	_board_layer.add_child(v)
 	v.configure(card_id, owner_int, _db)
 	return v
@@ -346,6 +349,21 @@ func _cell_topleft(cell: Vector2i) -> Vector2:
 
 func _cell_center(cell: Vector2i) -> Vector2:
 	return _view.cell_center(cell)
+
+
+# P9-2 擊殺鏡頭震動：對世界根（Node2D）做衰減隨機位移，震完歸位。
+# HUD 為 CanvasLayer，不受父 Node2D 變換影響，故不跟著晃。瞬時模式（動畫關）不震。
+# 用全域 randf（純表現），不動 RngService，不影響對局決定性。
+func _camera_shake(strength: float = 6.0) -> void:
+	if _instant:
+		return
+	var tw := create_tween()
+	var steps := 5
+	for i in steps:
+		var damp := strength * (1.0 - float(i) / float(steps))
+		var off := Vector2(randf_range(-damp, damp), randf_range(-damp, damp))
+		tw.tween_property(self, "position", _world_base + off, 0.03)
+	tw.tween_property(self, "position", _world_base, 0.04)
 
 
 func _cell_from_global(p: Vector2) -> Vector2i:
@@ -551,6 +569,8 @@ func _bind_nodes() -> void:
 	add_child(_scheduler)
 	_scheduler.setup(Callable(self, "_view_at"), _fx_layer, Callable(self, "_cell_center"))
 	_scheduler.instant = _instant
+	_scheduler.on_kill = Callable(self, "_camera_shake")   # P9-2：擊殺時輕微鏡頭震動
+	_world_base = position                                  # 鏡頭震動的基準位（震完歸位）
 
 	# HUD 標籤。
 	_hud = %HUD

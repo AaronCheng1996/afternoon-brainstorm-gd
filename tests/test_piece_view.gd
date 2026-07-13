@@ -16,6 +16,7 @@ func run(t: Object) -> void:
 	_test_configure(t, db)
 	_test_status_and_shadow(t, db)
 	_test_all_cards(t, db)
+	_test_animation_instant_invariance(t, db)
 	db.free()   # BalanceDB extends Node，須手動釋放（對齊其他測試）
 
 
@@ -130,3 +131,27 @@ func _test_all_cards(t: Object, db: Object) -> void:
 			missing += 1
 		v.free()
 	t.eq(missing, 0, "全卡皆有佔位形狀")
+
+
+# P9-2：瞬時模式（動畫關）不變性——受擊/死亡不生任何特效、不改 visual_root，死亡立即回呼。
+# 這守住「表現層強化不得改變動畫關時的行為」（鐵則 4/驗收）。
+func _test_animation_instant_invariance(t: Object, db: Object) -> void:
+	var v: Node2D = PieceViewScene.instantiate()
+	v.configure("ADCW", 1, db)
+	t.ok(v.fx_layer == null, "fx_layer 預設為 null（退回自身）")
+
+	v.instant = true
+	var fx := Node2D.new()
+	v.fx_layer = fx
+	v.play_hurt()
+	t.eq(fx.get_child_count(), 0, "瞬時受擊：不生粒子")
+	t.ok(v.visual_root.scale.is_equal_approx(Vector2.ONE), "瞬時受擊：不改縮放")
+	t.ok(v.visual_root.modulate.is_equal_approx(Color(1, 1, 1, 1)), "瞬時受擊：不改亮度")
+
+	var done := [false]
+	v.play_death(func() -> void: done[0] = true)
+	t.ok(done[0], "瞬時死亡：立即回呼")
+	t.eq(fx.get_child_count(), 0, "瞬時死亡：不生殘影/粒子")
+
+	fx.free()
+	v.free()
