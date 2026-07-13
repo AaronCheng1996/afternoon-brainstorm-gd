@@ -37,7 +37,7 @@ func _test_node_tree(t: Object, dbs: Array) -> void:
 	var b: Node = BattleScene.instantiate()
 	# 世界層與 HUD 骨架皆宣告於 .tscn，instantiate 後即可解析。
 	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
-			"FxLayer", "HUD", "ScoreLabel", "TurnLabel", "ResLabel", "CountsLabel", "HintLabel",
+			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
 			"EndTurnBtn", "HandBox", "WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
 		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
@@ -59,7 +59,9 @@ func _test_attack_flow(t: Object, dbs: Array) -> void:
 
 	# HUD 已組好、初盤無棋子。
 	t.ok(b._ui_built, "attack：UI 已建構")
-	t.ok(not b._score_label.text.is_empty(), "attack：分數標籤非空")
+	t.ok(b._scoreboard != null, "attack：記分板已綁定")
+	t.eq(b._scoreboard.score, b._core.score, "attack：記分板分數同步 core")
+	t.eq(b._scoreboard.turn_number, b._core.turn_number, "attack：記分板回合同步 core")
 	t.eq(b._views.size(), 0, "attack：初盤無棋子視圖")
 
 	# p1 出一子於 (1,1)：選手牌單位 → 點空格放置。

@@ -56,8 +56,7 @@ var _shadow_views: Array = []       # Fuchsia 鏡像視圖（僅顯示）
 # HUD
 var _hud: CanvasLayer
 var _ui_built: bool = false         # 節點綁定完成旗標（沿用舊名，供測試斷言）
-var _score_label: Label
-var _turn_label: Label
+var _scoreboard: Scoreboard         # P8-5：分差 meter／門檻進度／回合／趨勢的獨立記分板
 var _res_label: Label
 var _counts_label: Label
 var _hint_label: KeywordLabel   # P8-3：RichTextLabel 子類，機制詞高亮＋懸停備註
@@ -529,8 +528,7 @@ func _bind_nodes() -> void:
 
 	# HUD 標籤。
 	_hud = %HUD
-	_score_label = %ScoreLabel
-	_turn_label = %TurnLabel
+	_scoreboard = %Scoreboard
 	_res_label = %ResLabel
 	_counts_label = %CountsLabel
 	_hint_label = %HintLabel
@@ -567,18 +565,9 @@ func _bind_nodes() -> void:
 func _refresh_hud() -> void:
 	if not _ui_built:
 		return
-	var thr: int = _core.config.win_threshold
-	var lead: String = ""
-	if _core.score < 0:
-		lead = "（P1 領先 %d）" % (-_core.score)
-	elif _core.score > 0:
-		lead = "（P2 領先 %d）" % _core.score
-	_score_label.text = "分數 %d / 勝負門檻 ±%d %s" % [_core.score, thr, lead]
-
 	var cur: String = _core.current_player()
-	var cur_txt: String = "先手 P1" if cur == "player1" else "後手 P2"
-	_turn_label.text = "回合 %d｜當前：%s" % [_core.turn_number, cur_txt]
-	_turn_label.add_theme_color_override("font_color", P1_COL if cur == "player1" else P2_COL)
+	_scoreboard.update_board(_core.score, _core.config.win_threshold, _core.turn_number,
+		cur, _core.stats.score_history)
 
 	_res_label.text = _resource_text()
 	_counts_label.text = _counts_text(cur)

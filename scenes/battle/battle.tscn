@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dlltot83n4084" path="res://scenes/battle/battle.gd" id="1_battle"]
 [ext_resource type="Script" uid="uid://cnc10nltha65w" path="res://scenes/battle/draw_layer.gd" id="2_draw"]
 [ext_resource type="Script" path="res://scenes/ui/keyword_label.gd" id="3_kw"]
+[ext_resource type="PackedScene" path="res://scenes/battle/scoreboard.tscn" id="4_sb"]
 
 [node name="Battle" type="Node2D" unique_id=652386525]
 script = ExtResource("1_battle")
@@ -84,21 +85,12 @@ unique_name_in_owner = true
 [node name="HUD" type="CanvasLayer" parent="." unique_id=178920985]
 unique_name_in_owner = true
 
-[node name="ScoreLabel" type="Label" parent="HUD" unique_id=2110814768]
+[node name="Scoreboard" parent="HUD" instance=ExtResource("4_sb")]
 unique_name_in_owner = true
 offset_left = 40.0
-offset_top = 14.0
-offset_right = 740.0
-offset_bottom = 14.0
-theme_override_font_sizes/font_size = 20
-
-[node name="TurnLabel" type="Label" parent="HUD" unique_id=748771455]
-unique_name_in_owner = true
-offset_left = 40.0
-offset_top = 44.0
-offset_right = 740.0
-offset_bottom = 44.0
-theme_override_font_sizes/font_size = 16
+offset_top = 10.0
+offset_right = 510.0
+offset_bottom = 134.0
 
 [node name="ResLabel" type="Label" parent="HUD" unique_id=1747825366]
 unique_name_in_owner = true
