@@ -59,20 +59,46 @@ func _test_settings_roundtrip(t: Object) -> void:
 # ---------------- 2. 終局統計畫面建構 ----------------
 func _test_end_game_build(t: Object) -> void:
 	var e: Node = EndGameScene.instantiate()
+	# P8-6：configure 改收完整統計 export（{stat_name: {owner_cardid: int}}）。
 	e.configure(0, -10, 10, [0, -1, -3, -4, -7, -10], {
-		"KILLED": [["player1_ADCW", 3], ["player2_TANKW", 1]],
-		"DAMAGE_DEALT": [],
-		"SCORED": [["player1_SPW", 6]],
+		"KILLED": {"player1_ADCW": 3, "player2_TANKW": 1},
+		"DAMAGE_DEALT": {"player1_ADCW": 24},
+		"SCORED": {"player1_SPW": 6, "player2_ADCW": 2},
 	})
 	t.ok(e._built, "end：configure 後已建構")
 	t.eq(e._winner, 0, "end：勝者為 P1")
 	t.eq(e._win_threshold, 10, "end：門檻 10")
 	t.ok(e.get_node("%ChartLayer").get_child_count() > 0, "end：折線圖層繪出內容")
 	t.ok(e.get_node("%BarsRoot").get_child_count() > 0, "end：統計長條繪出內容")
-	# 空 score_history 也不崩潰。
+
+	# P8-6 z-order：ChartFrame 移出 HUD、位於 ChartLayer 之前（樹序在下＝渲染於折線之下）。
+	var root_children: Array = e.get_children()
+	t.ok(root_children.find(e.get_node("%ChartFrame")) < root_children.find(e.get_node("%ChartLayer")),
+		"end：ChartFrame 樹序在 ChartLayer 之前（折線不被遮）")
+
+	# P8-6 表格：table_data() 與傳入 Statistics 一致（含未列於某類的欄位補 0）。
+	var td: Dictionary = e.table_data()
+	t.eq(td["player1_ADCW"]["KILLED"], 3, "table：ADCW 擊殺 3")
+	t.eq(td["player1_ADCW"]["DAMAGE_DEALT"], 24, "table：ADCW 造成傷害 24")
+	t.eq(td["player1_ADCW"]["SCORED"], 0, "table：ADCW 未得分補 0")
+	t.eq(td["player1_SPW"]["SCORED"], 6, "table：SPW 得分 6")
+	t.eq(td["player2_ADCW"]["SCORED"], 2, "table：P2 ADCW 得分 2")
+	t.ok(e.get_node("%TableRoot").get_child_count() > 0, "table：TableRoot 產出內容")
+
+	# P8-6 圖／表切換：預設圖表；切換後表格顯示、圖表群隱藏。
+	t.ok(not e._show_table, "view：預設為圖表")
+	t.ok(e.get_node("%ChartFrame").visible and not e.get_node("%TableRoot").visible, "view：圖表可見/表格隱藏")
+	e.toggle_view()
+	t.ok(e._show_table, "view：切換後為表格")
+	t.ok(e.get_node("%TableRoot").visible and not e.get_node("%ChartFrame").visible, "view：表格可見/圖表隱藏")
+	e.toggle_view()
+	t.ok(not e._show_table, "view：再切回圖表")
+
+	# 空 score_history / 空統計也不崩潰。
 	var e2: Node = EndGameScene.instantiate()
 	e2.configure(-1, 0, 8, [], {})
 	t.ok(e2._built, "end：空資料也可建構")
+	t.eq(e2.table_data().size(), 0, "end：空統計 table_data 為空")
 	e.free()
 	e2.free()
 
@@ -99,19 +125,36 @@ func _test_main_menu_build(t: Object) -> void:
 		d.remove("settings.json")
 
 
-# ---------------- 4. battle 統計前幾名（供終局圖表）----------------
+# ---------------- 4. 統計摘要長條 + 表格（battle stats → end_game，P8-6）----------------
+# P8-6：摘要長條與表格改由 end_game 從完整 export 派生（單一資料源）；此測經真實 battle stats
+# → export_for_charts() → end_game 驗證 top-N 排序與 per-卡表格與 Statistics 一致。
 func _test_stat_bars(t: Object) -> void:
 	var db: Object = load("res://script/data/balance_db.gd").new()
 	var b: Node = BattleScene.instantiate()
 	b.boot(["ADCW"], ["ADCW"], 1, db)
 	b.set_animation_enabled(false)
+	# 造 >5 個擊殺者以驗證取前 5 名。
 	b._core.stats.increment(Statistics.StatType.KILLED, "player2_TANKW", 1)
 	b._core.stats.increment(Statistics.StatType.KILLED, "player1_ADCW", 3)
+	for i in 5:
+		b._core.stats.increment(Statistics.StatType.KILLED, "player1_C%d" % i, i + 1)
 	b._core.stats.increment(Statistics.StatType.DAMAGE_DEALT, "player1_ADCW", 24)
-	var bars: Dictionary = b._build_stat_bars()
-	t.ok(bars.has("KILLED") and bars.has("DAMAGE_DEALT") and bars.has("SCORED"), "bars：三類齊備")
-	t.eq(bars["KILLED"][0][0], "player1_ADCW", "bars：擊殺最高者排第一")
-	t.eq(bars["KILLED"][0][1], 3, "bars：擊殺最高值 3")
-	t.ok(bars["KILLED"].size() <= 5, "bars：至多前 5 名")
+
+	var e: Node = EndGameScene.instantiate()
+	e.configure(0, -1, 10, [], b._core.stats.export_for_charts())
+
+	# 摘要長條：降冪、至多前 5。
+	var killed: Array = e._bars_for("KILLED")
+	t.eq(killed[0][0], "player1_C4", "bars：擊殺最高者（C4=5）排第一")
+	t.eq(killed[0][1], 5, "bars：擊殺最高值 5")
+	t.ok(killed.size() <= 5, "bars：至多前 5 名")
+
+	# 表格：per 卡值與 Statistics 一致。
+	var td: Dictionary = e.table_data()
+	t.eq(td["player1_ADCW"]["KILLED"], 3, "table：ADCW 擊殺 3 與 Statistics 一致")
+	t.eq(td["player1_ADCW"]["DAMAGE_DEALT"], 24, "table：ADCW 傷害 24 與 Statistics 一致")
+	t.eq(td["player2_TANKW"]["KILLED"], 1, "table：P2 TANKW 擊殺 1 與 Statistics 一致")
+
+	e.free()
 	b.free()
 	db.free()

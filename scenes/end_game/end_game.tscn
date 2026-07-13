@@ -12,19 +12,40 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.09, 0.1, 0.13, 1)
 
-[node name="ChartLayer" type="Node2D" parent="."]
+[node name="ChartFrame" type="ColorRect" parent="."]
 unique_name_in_owner = true
-
-[node name="HUD" type="CanvasLayer" parent="."]
-unique_name_in_owner = true
-
-[node name="ChartFrame" type="ColorRect" parent="HUD"]
 offset_left = 56.0
 offset_top = 150.0
 offset_right = 616.0
 offset_bottom = 450.0
 mouse_filter = 2
 color = Color(0.13, 0.14, 0.17, 1)
+
+[node name="ChartLayer" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+
+[node name="TableRoot" type="VBoxContainer" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+offset_left = 56.0
+offset_top = 150.0
+offset_right = 900.0
+offset_bottom = 470.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="ViewToggle" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 40)
+offset_left = 660.0
+offset_top = 104.0
+offset_right = 840.0
+offset_bottom = 144.0
+theme_override_font_sizes/font_size = 15
+text = "切換：表格"
 
 [node name="TitleLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true

@@ -1,15 +1,21 @@
-# P2-5 終局統計畫面（見 docs/rebuild/06 P2-5/P7-6、08 §3）。
-# 勝者 + 每回合分數折線（Line2D）+ 主要統計長條（ColorRect）。以節點繪製（headless 可建、可測）。
-# 由 battle 於對局結束時 configure() 後轉場而來；「回主選單／重新選秀」串起流程閉環。
+# P2-5／P8-6 終局統計畫面（見 docs/rebuild/06 P2-5/P7-6/P8-6、08 §3）。
+# 勝者 + 每回合分數折線（Line2D）+ 統計摘要長條 + per 玩家 per 卡的統計表格，圖／表可切換。
+# 以節點繪製（headless 可建、可測）。由 battle 於對局結束時 configure() 後轉場而來。
 #
-# P7-6：UI 骨架（背景/圖表框/圖層/HUD 標題/說明/長條容器/兩鈕）宣告於 end_game.tscn（編輯器可視可編輯）；
-# 本腳本只用場景唯一名稱（`%NodeName`）綁定節點、連接信號；動態內容（折線→ChartLayer、長條→BarsRoot）
-# 由程式生成到宣告好的容器。configure() 對外 API 不變。
+# P7-6：UI 骨架宣告於 end_game.tscn（`%` 綁定），動態內容（折線→ChartLayer、長條→BarsRoot、
+# 表格→TableRoot）由程式生成到宣告好的容器。
+# P8-6 修正：ChartFrame 由 HUD(CanvasLayer) 移到基礎場景（Background 之後、ChartLayer 之前），
+# 依樹序渲染於折線之下，解決「折線被框遮住」的 P7-6 既有問題（見 06 行為疑義登記表）。
+# P8-6 資料：configure() 改收 core 的完整統計 export（`Statistics.export_for_charts()`，
+# 格式 {stat_name: {owner_cardid: int}}）；摘要長條與表格皆由它派生（單一資料源）。
 extends Node2D
 
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 
+# 卡牌層級（key＝owner_cardid）且已被 core 追蹤的統計欄位。治療（HEALING）未被 core 追蹤
+# （只有 per-player 的 HEAL_USE），故不列入 per-卡表格，見進度日誌 P8-6 說明。
+const CARD_STATS := ["KILLED", "DAMAGE_DEALT", "SCORED"]
 const STAT_TITLES := {"KILLED": "擊殺", "DAMAGE_DEALT": "造成傷害", "SCORED": "得分"}
 const STAT_COLORS := {
 	"KILLED": Color(0.9, 0.4, 0.4),
@@ -21,11 +27,15 @@ var _winner: int = -1
 var _score: int = 0
 var _win_threshold: int = 10
 var _score_history: Array = []
-var _stat_bars: Dictionary = {}   # name -> Array[[key:String, val:int]]
+var _stats: Dictionary = {}       # {stat_name: {owner_cardid: int}}（export_for_charts 格式）
+var _show_table: bool = false
 
 var _hud: CanvasLayer
+var _chart_frame: ColorRect
 var _chart_layer: Node2D
 var _bars_root: Node2D
+var _table_root: VBoxContainer
+var _view_toggle: Button
 var _title_label: Label
 var _caption_label: Label
 var _bound: bool = false
@@ -39,19 +49,19 @@ func _ready() -> void:
 	if not _built:
 		# 直接 F6 執行：用示範資料建畫面。
 		configure(0, -10, 10, [0, -1, -3, -4, -7, -10], {
-			"KILLED": [["player1_ADCW", 3], ["player2_TANKW", 1]],
-			"DAMAGE_DEALT": [["player1_ADCW", 24], ["player1_HFW", 8]],
-			"SCORED": [["player1_SPW", 6], ["player2_ADCW", 2]],
+			"KILLED": {"player1_ADCW": 3, "player2_TANKW": 1},
+			"DAMAGE_DEALT": {"player1_ADCW": 24, "player1_HFW": 8, "player2_TANKW": 6},
+			"SCORED": {"player1_SPW": 6, "player2_ADCW": 2},
 		})
 
 
-# winner: -1 平 / 0 P1 / 1 P2。stat_bars：{stat_name: [[key,val], ...]}（已排序、取前幾名）。
-func configure(winner: int, score: int, win_threshold: int, score_history: Array, stat_bars: Dictionary) -> void:
+# winner: -1 平 / 0 P1 / 1 P2。stats：Statistics.export_for_charts() 格式 {stat_name: {key: int}}。
+func configure(winner: int, score: int, win_threshold: int, score_history: Array, stats: Dictionary) -> void:
 	_winner = winner
 	_score = score
 	_win_threshold = maxi(1, win_threshold)
 	_score_history = score_history
-	_stat_bars = stat_bars
+	_stats = stats
 	_bind_nodes()
 	_rebuild()
 
@@ -61,10 +71,14 @@ func _bind_nodes() -> void:
 		return
 	_bound = true
 	_hud = %HUD
+	_chart_frame = %ChartFrame
 	_chart_layer = %ChartLayer
 	_bars_root = %BarsRoot
+	_table_root = %TableRoot
+	_view_toggle = %ViewToggle
 	_title_label = %TitleLabel
 	_caption_label = %ChartCaption
+	_view_toggle.pressed.connect(toggle_view)
 	(%AgainBtn as Button).pressed.connect(_change_scene.bind(DRAFT_SCENE))
 	(%MenuBtn as Button).pressed.connect(_change_scene.bind(MENU_SCENE))
 
@@ -76,6 +90,8 @@ func _rebuild() -> void:
 		c.queue_free()
 	for c in _bars_root.get_children():
 		c.queue_free()
+	for c in _table_root.get_children():
+		c.queue_free()
 
 	var who := "先手 P1" if _winner == 0 else ("後手 P2" if _winner == 1 else "平手")
 	_title_label.text = "%s 獲勝！　最終分數 %d" % [who, _score]
@@ -83,6 +99,25 @@ func _rebuild() -> void:
 
 	_draw_score_chart()
 	_draw_stat_bars()
+	_build_table()
+	_apply_view()
+
+
+# ---------------- 圖／表切換 ----------------
+
+func toggle_view() -> void:
+	_show_table = not _show_table
+	_apply_view()
+
+
+func _apply_view() -> void:
+	# 圖表群：折線框/折線層/摘要長條/圖說；表格群：TableRoot。
+	_chart_frame.visible = not _show_table
+	_chart_layer.visible = not _show_table
+	_bars_root.visible = not _show_table
+	_caption_label.visible = not _show_table
+	_table_root.visible = _show_table
+	_view_toggle.text = "切換：圖表" if _show_table else "切換：表格"
 
 
 # ---------------- 折線圖（Line2D → ChartLayer）----------------
@@ -121,13 +156,23 @@ func _add_hline(y: float, color: Color, w: float) -> void:
 	_chart_layer.add_child(l)
 
 
-# ---------------- 統計長條（ColorRect → BarsRoot）----------------
+# ---------------- 統計摘要長條（ColorRect → BarsRoot）----------------
+# 由完整 _stats 派生每類前 5 名（取代舊 battle._build_stat_bars，改為單一資料源）。
+
+func _bars_for(stat_name: String) -> Array:
+	var bucket: Dictionary = _stats.get(stat_name, {})
+	var rows: Array = []
+	for key: String in bucket:
+		rows.append([key, int(bucket[key])])
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return a[1] > b[1])
+	return rows.slice(0, 5)
+
 
 func _draw_stat_bars() -> void:
 	var col_x: float = 660.0
-	var y: float = 150.0
-	for stat_name: String in ["KILLED", "DAMAGE_DEALT", "SCORED"]:
-		var rows: Array = _stat_bars.get(stat_name, [])
+	var y: float = 170.0
+	for stat_name: String in CARD_STATS:
+		var rows: Array = _bars_for(stat_name)
 		var title := _mk_label(Vector2(col_x, y), 16, 320, HORIZONTAL_ALIGNMENT_LEFT)
 		title.text = STAT_TITLES.get(stat_name, stat_name)
 		title.add_theme_color_override("font_color", STAT_COLORS.get(stat_name, Color.WHITE))
@@ -156,6 +201,71 @@ func _draw_stat_bars() -> void:
 			_bars_root.add_child(lbl)
 			y += 22.0
 		y += 14.0
+
+
+# ---------------- 統計表格（GridContainer → TableRoot）----------------
+
+# {owner_cardid: {stat_name: int}}——供表格與測試（與 Statistics 一致性斷言）。
+func table_data() -> Dictionary:
+	var out: Dictionary = {}
+	for stat_name: String in CARD_STATS:
+		var bucket: Dictionary = _stats.get(stat_name, {})
+		for key: String in bucket:
+			if not out.has(key):
+				var row: Dictionary = {}
+				for s: String in CARD_STATS:
+					row[s] = 0
+				out[key] = row
+			out[key][stat_name] = int(bucket[key])
+	return out
+
+
+func _build_table() -> void:
+	var data: Dictionary = table_data()
+	# 依玩家分組、卡 ID 排序。
+	for owner: String in ["player1", "player2"]:
+		var keys: Array = []
+		for key: String in data:
+			if key.begins_with(owner + "_"):
+				keys.append(key)
+		keys.sort()
+		var who := "先手 P1" if owner == "player1" else "後手 P2"
+		var header := _mk_label(Vector2.ZERO, 18, 0, HORIZONTAL_ALIGNMENT_LEFT)
+		header.text = "%s（%d 張出場）" % [who, keys.size()]
+		header.add_theme_color_override("font_color",
+			Color(0.95, 0.4, 0.4) if owner == "player1" else Color(0.45, 0.6, 1.0))
+		_table_root.add_child(header)
+
+		var grid := GridContainer.new()
+		grid.columns = 1 + CARD_STATS.size()
+		grid.add_theme_constant_override("h_separation", 24)
+		grid.add_theme_constant_override("v_separation", 4)
+		# 表頭列。
+		_add_cell(grid, "卡牌", 14, Color(0.8, 0.82, 0.86), 180)
+		for stat_name: String in CARD_STATS:
+			_add_cell(grid, STAT_TITLES[stat_name], 14, STAT_COLORS[stat_name], 90)
+		# 資料列。
+		if keys.is_empty():
+			_add_cell(grid, "（無出場紀錄）", 13, Color(0.6, 0.62, 0.66), 180)
+			for _i in CARD_STATS.size():
+				_add_cell(grid, "", 13, Color.WHITE, 90)
+		for key: String in keys:
+			_add_cell(grid, _short_key(key), 13, Color(0.93, 0.94, 0.96), 180)
+			for stat_name: String in CARD_STATS:
+				_add_cell(grid, str(data[key][stat_name]), 13, Color(0.93, 0.94, 0.96), 90)
+		_table_root.add_child(grid)
+
+
+func _add_cell(grid: GridContainer, txt: String, font_size: int, color: Color, min_w: float) -> void:
+	var l := Label.new()
+	l.text = txt
+	l.custom_minimum_size = Vector2(min_w, 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 4)
+	grid.add_child(l)
 
 
 func _short_key(key: String) -> String:

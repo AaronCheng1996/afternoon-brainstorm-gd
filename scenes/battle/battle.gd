@@ -325,29 +325,12 @@ func _open_end_game() -> void:
 	if tree == null:
 		return
 	var end_scene: Node = load("res://scenes/end_game/end_game.tscn").instantiate()
+	# P8-6：傳完整統計 export（{stat_name: {owner_cardid: int}}）；摘要長條與表格由 end_game 派生。
 	end_scene.configure(_core.winner(), _core.score, _core.config.win_threshold,
-		_core.stats.score_history.duplicate(), _build_stat_bars())
+		_core.stats.score_history.duplicate(), _core.stats.export_for_charts())
 	tree.root.add_child(end_scene)
 	tree.current_scene = end_scene
 	queue_free()
-
-
-# 主要統計前幾名（KILLED/DAMAGE_DEALT/SCORED）：{name: [[key, val], ...]}（降冪，取前 5）。
-func _build_stat_bars() -> Dictionary:
-	var out: Dictionary = {}
-	var types := {
-		"KILLED": Statistics.StatType.KILLED,
-		"DAMAGE_DEALT": Statistics.StatType.DAMAGE_DEALT,
-		"SCORED": Statistics.StatType.SCORED,
-	}
-	for name: String in types:
-		var all: Dictionary = _core.stats.get_all(types[name])
-		var rows: Array = []
-		for key: String in all:
-			rows.append([key, int(all[key])])
-		rows.sort_custom(func(a: Array, b: Array) -> bool: return a[1] > b[1])
-		out[name] = rows.slice(0, 5)
-	return out
 
 
 # ---------------- 座標換算 ----------------
