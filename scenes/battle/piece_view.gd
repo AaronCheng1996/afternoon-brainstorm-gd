@@ -145,12 +145,13 @@ func set_animation_set(a_set: PieceAnimationSet) -> void:
 	animation_set = a_set
 
 
-# 攻擊演出：遠程（有投射物）發射箭矢並於命中點播特效；近戰則向目標撲擊。fx_layer 收納投射物/特效。
-func play_attack(target_global: Vector2, fx_layer: Node) -> void:
+# 攻擊演出：遠程（有投射物）發射箭矢並於命中點播特效；近戰則向目標撲擊並在命中點濺出派別色火花。
+# fx_layer 收納投射物/特效（P9-3：投射物、命中特效皆以 aset.fx_color 派別色上色）。
+func play_attack(target_global: Vector2, a_fx_layer: Node) -> void:
 	_bind_nodes()
 	var aset := _aset()
-	if aset.has_projectile() and fx_layer != null:
-		_fire_projectile(target_global, fx_layer, aset)
+	if aset.has_projectile() and a_fx_layer != null:
+		_fire_projectile(target_global, a_fx_layer, aset)
 	else:
 		_melee_lunge(target_global, aset)
 
@@ -205,6 +206,8 @@ func play_move(to_global: Vector2) -> void:
 	tw.tween_property(self, "global_position", to_global, 0.2)
 
 
+# 施法/能力觸發演出（P9-3 強化）：本體脈動 ＋ 一圈派別色向外擴散的能量環（程序生成）。
+# 由 CAST 事件驅動（core 在能力型攻擊時發出）；瞬時模式不演出。
 func play_cast() -> void:
 	_bind_nodes()
 	if instant:
@@ -212,6 +215,7 @@ func play_cast() -> void:
 	var tw := create_tween()
 	tw.tween_property(visual_root, "scale", Vector2(1.15, 1.15), 0.09)
 	tw.tween_property(visual_root, "scale", Vector2(1, 1), 0.12)
+	_spawn_cast_ring()
 
 
 # 中心（本地 / 全域）。
@@ -229,18 +233,17 @@ func _aset() -> PieceAnimationSet:
 	return animation_set
 
 
-func _fire_projectile(target_global: Vector2, fx_layer: Node, aset: PieceAnimationSet) -> void:
+func _fire_projectile(target_global: Vector2, layer: Node, aset: PieceAnimationSet) -> void:
 	var flight: float = 0.0 if instant else aset.lunge_step * aset.hit_ratio
 	var proj: Node2D = aset.projectile.instantiate()
-	fx_layer.add_child(proj)
+	layer.add_child(proj)
+	if proj.has_method("set_color"):
+		proj.set_color(aset.fx_color)   # P9-3：投射物染派別色
 	var impact_scene: PackedScene = aset.impact
+	var fx_color: Color = aset.fx_color
 	var is_instant := instant
 	proj.launch(center_global(), target_global, flight, func() -> void:
-		if impact_scene != null:
-			var fl: Node2D = impact_scene.instantiate()
-			fx_layer.add_child(fl)
-			fl.global_position = target_global
-			fl.play(is_instant), is_instant)
+		_play_impact(impact_scene, layer, target_global, fx_color, is_instant), is_instant)
 	if not instant:
 		# 拉弓小後拉。
 		var dir := (target_global - center_global()).normalized()
@@ -249,6 +252,7 @@ func _fire_projectile(target_global: Vector2, fx_layer: Node, aset: PieceAnimati
 		tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.4)
 
 
+# 近戰撲擊（P9-3）：向目標衝刺後回位，命中瞬間（撲到位時）在目標點濺出派別色命中特效。
 func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
 	if instant:
 		return
@@ -256,6 +260,29 @@ func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
 	var tw := create_tween()
 	tw.tween_property(visual_root, "position", _base_visual_pos + dir * 18.0, aset.lunge_step * 0.5)
 	tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.5)
+	# 撲到位時（lunge_step*0.5）於目標點播派別色命中特效（獨立時間軸，避免與撲擊 tween 交纏）。
+	var impact_scene: PackedScene = aset.impact if aset.impact != null else _default_impact()
+	var fx_color: Color = aset.fx_color
+	var hit := create_tween()
+	hit.tween_interval(aset.lunge_step * 0.5)
+	hit.tween_callback(func() -> void:
+		_play_impact(impact_scene, _fx_parent(), target_global, fx_color, false))
+
+
+# 於 at_global 播放命中特效（染 tint）。impact_scene 為 null 時不播。
+func _play_impact(impact_scene: PackedScene, layer: Node, at_global: Vector2, tint: Color, is_instant: bool) -> void:
+	if impact_scene == null or layer == null:
+		return
+	var fl: Node2D = impact_scene.instantiate()
+	layer.add_child(fl)
+	if fl.has_method("set_color"):
+		fl.set_color(tint)
+	fl.global_position = at_global
+	fl.play(is_instant)
+
+
+func _default_impact() -> PackedScene:
+	return load("res://scenes/battle/impact_flash.tscn")
 
 
 # --- P9-2 命中/死亡特效（程序生成粒子；不使用點陣素材，見鐵則 3） ---
@@ -279,6 +306,28 @@ func _spawn_death_particles() -> void:
 	var p := _make_burst(16, 0.5, 90.0, 220.0, fill, 3.5)
 	p.global_position = center_global()
 	p.emitting = true
+
+
+# 施法能量環（P9-3）：一圈派別色圓環於本體中心向外擴散並淡出，標示「能力觸發」。
+func _spawn_cast_ring() -> void:
+	var ring := Polygon2D.new()
+	var seg := 20
+	var pts := PackedVector2Array()
+	for i in range(seg):
+		var a := TAU * float(i) / float(seg)
+		pts.append(Vector2(cos(a), sin(a)) * 30.0)
+	ring.polygon = pts
+	var c := placeholder_shape.color
+	ring.color = Color(c.r, c.g, c.b, 0.7)
+	ring.z_index = z_index + 1
+	_fx_parent().add_child(ring)
+	ring.global_position = center_global()
+	ring.scale = Vector2(0.3, 0.3)
+	var tw := ring.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.3)
+	tw.tween_property(ring, "modulate:a", 0.0, 0.3)
+	tw.chain().tween_callback(ring.queue_free)
 
 
 # 短暫殘影：複製本體多邊形，於原位放大並淡出。

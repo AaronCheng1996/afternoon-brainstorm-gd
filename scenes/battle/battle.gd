@@ -11,6 +11,7 @@ extends Node2D
 const PieceViewScript := preload("res://scenes/battle/piece_view.gd")   # 常數（CELL_SIZE）用
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實例化用
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
+const AnimLibScript := preload("res://script/view/piece_animation_library.gd")   # P9-3：職業攻擊演出
 
 const BOARD := 4
 
@@ -74,6 +75,17 @@ var _show_luck: bool = false
 var _show_token: bool = false
 var _show_totem: bool = false
 var _show_coin: bool = false
+
+# P9-3：資源事件飄字。行動前於 _do 快照、_resync 後比對正向變化並飄字（派別色＋標籤）。
+var _res_snapshot: Dictionary = {}
+
+# 資源類別 → 顯示標籤與取色用色碼（飄字染派別色）。
+const RES_KINDS := {
+	"luck": {"label": "運氣", "code": "G"},
+	"token": {"label": "藍球", "code": "B"},
+	"totem": {"label": "圖騰", "code": "DKG"},
+	"coin": {"label": "金幣", "code": "C"},
+}
 
 
 func _ready() -> void:
@@ -148,6 +160,7 @@ func _do(action_type: String, x: int, y: int, idx: int = -1) -> void:
 	a.board_x = x
 	a.board_y = y
 	a.hand_index = idx
+	_res_snapshot = _snapshot_resources()   # P9-3：記錄行動前資源，_resync 時比對變化飄字
 	_core.dispatch(a)
 	_post_dispatch()
 
@@ -188,6 +201,7 @@ func _resync() -> void:
 	_drain_logic()
 	_rebuild_board()
 	_refresh_hud()
+	_flush_resource_feedback()   # P9-3：資源正向變化飄字
 	if _core.is_over():
 		_show_win()
 
@@ -235,6 +249,7 @@ func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D
 	v.fx_layer = _fx_layer          # P9-2：命中/死亡粒子與殘影掛 fx 層（本視圖釋放後仍存活）
 	_board_layer.add_child(v)
 	v.configure(card_id, owner_int, _db)
+	v.set_animation_set(AnimLibScript.for_card(card_id, _db))   # P9-3：遠程投射物／近戰撲擊＋派別色特效
 	return v
 
 
@@ -642,6 +657,67 @@ func _resource_text() -> String:
 	if lines.size() == 1:
 		lines.append("（本局牌組無色資源）")
 	return "\n".join(lines)
+
+
+# --- P9-3 資源事件飄字（token/金幣/圖騰/運氣 獲得回饋）---
+
+# 快照當前雙方各色資源計數（行動前於 _do 呼叫）。
+func _snapshot_resources() -> Dictionary:
+	return {
+		"luck": _core.players_luck.duplicate(),
+		"token": _core.players_token.duplicate(),
+		"totem": _core.players_totem.duplicate(),
+		"coin": _core.players_coin.duplicate(),
+	}
+
+
+# 計算資源正向變化（純函式，供 headless 測）。回傳 [{kind, owner, delta}]（僅 delta>0）。
+static func resource_deltas(before: Dictionary, after: Dictionary) -> Array:
+	var out: Array = []
+	for kind: String in ["luck", "token", "totem", "coin"]:
+		var b: Dictionary = before.get(kind, {})
+		var a: Dictionary = after.get(kind, {})
+		for owner: String in ["player1", "player2"]:
+			var d: int = int(a.get(owner, 0)) - int(b.get(owner, 0))
+			if d > 0:
+				out.append({"kind": kind, "owner": owner, "delta": d})
+	return out
+
+
+# 依 _do 前的快照比對，對正向資源變化飄字。瞬時模式或 HUD 未建時只清快照不演出。
+func _flush_resource_feedback() -> void:
+	if _res_snapshot.is_empty():
+		return
+	var deltas := resource_deltas(_res_snapshot, _snapshot_resources())
+	_res_snapshot = {}
+	if _instant or not _ui_built or _hud == null or _res_label == null:
+		return
+	var slot := 0
+	for d: Dictionary in deltas:
+		_float_resource(d["kind"], d["owner"], d["delta"], slot)
+		slot += 1
+
+
+func _float_resource(kind: String, owner: String, delta: int, slot: int) -> void:
+	var info: Dictionary = RES_KINDS.get(kind, {})
+	var code: String = info.get("code", "")
+	var col: Color = _db.color_rgb(code) if code != "" else Color.WHITE
+	var who := "P1" if owner == "player1" else "P2"
+	var l := Label.new()
+	l.text = "%s +%d %s" % [who, delta, String(info.get("label", kind))]
+	l.add_theme_font_size_override("font_size", 16)
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	l.add_theme_constant_override("outline_size", 4)
+	l.z_index = 50
+	_hud.add_child(l)
+	var base: Vector2 = _res_label.global_position + Vector2(150, 4 + slot * 22)
+	l.global_position = base
+	var tw := l.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "global_position", base + Vector2(0, -26), 0.9)
+	tw.tween_property(l, "modulate:a", 0.0, 0.9)
+	tw.chain().tween_callback(l.queue_free)
 
 
 func _counts_text(cur: String) -> String:

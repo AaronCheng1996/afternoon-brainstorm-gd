@@ -6,6 +6,7 @@ extends RefCounted
 
 # P7-4：場景已編輯器化——battle.tscn 內宣告 UI 骨架，測試改為 instantiate 場景（見 08 §2.6/§4）。
 const BattleScene := preload("res://scenes/battle/battle.tscn")
+const BattleScript := preload("res://scenes/battle/battle.gd")   # 靜態 resource_deltas 用
 
 
 func run(t: Object) -> void:
@@ -17,8 +18,25 @@ func run(t: Object) -> void:
 	_test_range_preview_with_shadow(t, dbs)
 	_test_view_toggle(t, dbs)
 	_test_view_at_freed(t, dbs)
+	_test_resource_feedback(t, dbs)
 	for db in dbs:
 		db.free()
+
+
+# P9-3：資源事件飄字——純函式 resource_deltas 只回報正向變化（避免額外建場景，維持既有洩漏基準）。
+func _test_resource_feedback(t: Object, _dbs: Array) -> void:
+	var before := {"token": {"player1": 1, "player2": 0}, "coin": {"player1": 0, "player2": 3}}
+	var after := {"token": {"player1": 3, "player2": 0}, "coin": {"player1": 0, "player2": 2}}
+	var deltas: Array = BattleScript.resource_deltas(before, after)
+	t.eq(deltas.size(), 1, "res：只回報正向變化（token +2；coin 減不報）")
+	t.eq(deltas[0]["kind"], "token", "res：變化類別為 token")
+	t.eq(deltas[0]["owner"], "player1", "res：變化擁有者為 P1")
+	t.eq(deltas[0]["delta"], 2, "res：變化量 +2")
+	t.eq(BattleScript.resource_deltas({}, {}).size(), 0, "res：空快照無變化")
+	# 多類多方同時變化。
+	var b2 := {"luck": {"player1": 0}, "totem": {"player2": 5}}
+	var a2 := {"luck": {"player1": 2}, "totem": {"player2": 9}}
+	t.eq(BattleScript.resource_deltas(b2, a2).size(), 2, "res：多類正向變化各記一筆")
 
 
 func _new_db() -> Object:
@@ -74,6 +92,10 @@ func _test_attack_flow(t: Object, dbs: Array) -> void:
 	t.eq(b._placing_index, -1, "attack：放置後清除放置狀態")
 	t.ok(b._views.has(Vector2i(1, 1)), "attack：(1,1) 有棋子視圖")
 	t.eq(b._views.size(), 1, "attack：視圖與棋子同步（1）")
+	# P9-3：_make_piece_view 依職業指派攻擊演出——ADC（大十字）為遠程投射物。
+	var adc_view: Node2D = b._views[Vector2i(1, 1)]
+	t.ok(adc_view.animation_set != null and adc_view.animation_set.has_projectile(),
+		"attack：ADC 視圖獲遠程投射物演出（P9-3）")
 
 	b._do("end_turn", -1, -1)
 	t.eq(b._core.current_player(), "player2", "attack：換 p2")

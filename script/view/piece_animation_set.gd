@@ -20,6 +20,9 @@ extends Resource
 @export var projectile: PackedScene = null
 @export var impact: PackedScene = null
 
+# P9-3 特效上色：投射物/命中/施法特效以派別色呈現（PieceAnimationLibrary 依卡填入）。
+@export var fx_color: Color = Color(1, 1, 1)
+
 # 未來擴充（"victory"/"taunt"…）。
 @export var extra: Dictionary = {}
 

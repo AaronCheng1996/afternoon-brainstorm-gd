@@ -6,6 +6,7 @@ extends Node2D
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
+const AnimLibScript := preload("res://script/view/piece_animation_library.gd")   # P9-3
 
 const CELL := 96.0
 const STRIDE := 116.0
@@ -85,7 +86,7 @@ func _run() -> void:
 	core.setup(deck, deck, 1, db)
 
 	var attacker := _place(core, "ADCW", "player1", ATTACKER_POS)
-	_make_view(ATTACKER_POS, "ADCW", 1, AnimSetScript.adc_ranged())
+	_make_view(ATTACKER_POS, "ADCW", 1, null)   # P9-3：改由 AnimLibrary 依攻擊模式決定（ADC=遠程）
 	for entry in TARGETS:
 		var pos: Vector2i = entry[0]
 		var cid: String = entry[1]
@@ -113,8 +114,8 @@ func _make_view(pos: Vector2i, card_id: String, owner: int, aset: Resource) -> v
 	_board_layer.add_child(v)
 	v.fx_layer = _fx_layer   # P9-2：命中/死亡粒子與殘影掛 fx 層
 	v.configure(card_id, owner, Balance)
-	if aset != null:
-		v.set_animation_set(aset)
+	# P9-3：未指定則由 AnimLibrary 依攻擊模式（遠程/近戰）＋派別色決定佔位演出。
+	v.set_animation_set(aset if aset != null else AnimLibScript.for_card(card_id, Balance))
 	_views[pos] = v
 
 

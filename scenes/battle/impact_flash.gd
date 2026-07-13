@@ -5,13 +5,23 @@ extends Node2D
 const FILL := Color(1.0, 0.95, 0.6)
 const DURATION := 0.20
 
+var _ring: Polygon2D = null
+var tint: Color = FILL          # P9-3：派別色（set_color 於 play 前設定）
+
 
 func _ready() -> void:
-	var ring := Polygon2D.new()
-	ring.name = "Ring"
-	ring.polygon = _circle(10.0, 16)
-	ring.color = FILL
-	add_child(ring)
+	_ring = Polygon2D.new()
+	_ring.name = "Ring"
+	_ring.polygon = _circle(10.0, 16)
+	_ring.color = tint
+	add_child(_ring)
+
+
+# P9-3：設定命中特效顏色（派別色）。play 前呼叫。
+func set_color(c: Color) -> void:
+	tint = c
+	if _ring != null:
+		_ring.color = c
 
 
 # 播放閃光。instant=true 時不演出、直接消失。

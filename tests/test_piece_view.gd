@@ -153,5 +153,30 @@ func _test_animation_instant_invariance(t: Object, db: Object) -> void:
 	t.ok(done[0], "瞬時死亡：立即回呼")
 	t.eq(fx.get_child_count(), 0, "瞬時死亡：不生殘影/粒子")
 
+	# P9-3：瞬時施法不生能量環。
+	v.play_cast()
+	t.eq(fx.get_child_count(), 0, "瞬時施法：不生能量環")
+
 	fx.free()
 	v.free()
+
+	# P9-3：瞬時遠程攻擊——拉弓後拉被 instant 跳過，不改 visual_root 位置（投射物/命中特效自我釋放）。
+	var r: Node2D = PieceViewScene.instantiate()
+	r.configure("ADCW", 1, db)
+	r.instant = true
+	r.set_animation_set(PieceAnimationLibrary.for_card("ADCW", db))
+	t.ok(r.animation_set.has_projectile(), "ADCW 由 AnimLibrary 判為遠程（投射物）")
+	var rfx := Node2D.new()
+	r.fx_layer = rfx
+	var base: Vector2 = r.visual_root.position
+	r.play_attack(Vector2(300, 300), rfx)
+	t.ok(r.visual_root.position.is_equal_approx(base), "瞬時遠程攻擊：不改 visual_root 位置")
+	rfx.free()
+	r.free()
+
+	# P9-3：近戰卡（AP=nearest）不帶投射物。
+	var m: Node2D = PieceViewScene.instantiate()
+	m.configure("APW", 1, db)
+	m.set_animation_set(PieceAnimationLibrary.for_card("APW", db))
+	t.ok(not m.animation_set.has_projectile(), "APW 由 AnimLibrary 判為近戰（無投射物）")
+	m.free()
