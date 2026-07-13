@@ -242,8 +242,10 @@ func _fire_projectile(target_global: Vector2, layer: Node, aset: PieceAnimationS
 	var impact_scene: PackedScene = aset.impact
 	var fx_color: Color = aset.fx_color
 	var is_instant := instant
+	# 命中回呼只捕捉區域變數＋呼叫 static _play_impact，不參考本視圖（self）——投射物飛行期間
+	# 排程器可能已判定結束並重建棋盤而釋放本視圖（飛行 tween 不計入排程忙碌），此時回呼仍需安全執行。
 	proj.launch(center_global(), target_global, flight, func() -> void:
-		_play_impact(impact_scene, layer, target_global, fx_color, is_instant), is_instant)
+		PieceView._play_impact(impact_scene, layer, target_global, fx_color, is_instant), is_instant)
 	if not instant:
 		# 拉弓小後拉。
 		var dir := (target_global - center_global()).normalized()
@@ -261,17 +263,19 @@ func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
 	tw.tween_property(visual_root, "position", _base_visual_pos + dir * 18.0, aset.lunge_step * 0.5)
 	tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.5)
 	# 撲到位時（lunge_step*0.5）於目標點播派別色命中特效（獨立時間軸，避免與撲擊 tween 交纏）。
+	# fx 容器先取為區域變數，回呼不參考 self（撲擊 tween 綁定本節點，本視圖釋放時自動終止，此為雙保險）。
 	var impact_scene: PackedScene = aset.impact if aset.impact != null else _default_impact()
 	var fx_color: Color = aset.fx_color
+	var fx_parent := _fx_parent()
 	var hit := create_tween()
 	hit.tween_interval(aset.lunge_step * 0.5)
 	hit.tween_callback(func() -> void:
-		_play_impact(impact_scene, _fx_parent(), target_global, fx_color, false))
+		PieceView._play_impact(impact_scene, fx_parent, target_global, fx_color, false))
 
 
-# 於 at_global 播放命中特效（染 tint）。impact_scene 為 null 時不播。
-func _play_impact(impact_scene: PackedScene, layer: Node, at_global: Vector2, tint: Color, is_instant: bool) -> void:
-	if impact_scene == null or layer == null:
+# 於 at_global 播放命中特效（染 tint）。impact_scene 為 null 時不播。static：不依賴本視圖存活。
+static func _play_impact(impact_scene: PackedScene, layer: Node, at_global: Vector2, tint: Color, is_instant: bool) -> void:
+	if impact_scene == null or layer == null or not is_instance_valid(layer):
 		return
 	var fl: Node2D = impact_scene.instantiate()
 	layer.add_child(fl)

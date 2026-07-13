@@ -180,3 +180,11 @@ func _test_animation_instant_invariance(t: Object, db: Object) -> void:
 	m.set_animation_set(PieceAnimationLibrary.for_card("APW", db))
 	t.ok(not m.animation_set.has_projectile(), "APW 由 AnimLibrary 判為近戰（無投射物）")
 	m.free()
+
+	# P9-3 回歸：_play_impact 為 static（命中回呼不綁攻擊者視圖）——投射物飛行期間攻擊者視圖被
+	# 釋放（排程器已結束並重建棋盤，飛行 tween 不計入忙碌）時，命中回呼仍能安全播特效不崩潰。
+	var layer := Node2D.new()
+	PieceViewScript._play_impact(load("res://scenes/battle/impact_flash.tscn"),
+		layer, Vector2(100, 100), Color.RED, true)
+	t.eq(layer.get_child_count(), 1, "P9-3：_play_impact static 可獨立於視圖生成命中特效")
+	layer.free()
