@@ -178,6 +178,15 @@ offset_right = 778.0
 offset_bottom = 556.0
 text = "結束回合 (Space)"
 
+[node name="ViewToggle" type="Button" parent="HUD" unique_id=1056753950]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 44)
+offset_left = 788.0
+offset_top = 512.0
+offset_right = 908.0
+offset_bottom = 556.0
+text = "視角：45度"
+
 [node name="HintLabel" type="RichTextLabel" parent="HUD" unique_id=1550389597]
 unique_name_in_owner = true
 offset_left = 40.0

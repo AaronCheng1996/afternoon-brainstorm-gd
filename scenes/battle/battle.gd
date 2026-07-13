@@ -65,6 +65,7 @@ var _mode_buttons: Dictionary = {}  # mode -> Button
 var _hand_box: HBoxContainer
 var _toggle_hint_btn: Button
 var _toggle_anim_btn: Button
+var _view_toggle_btn: Button        # P9-1：俯視／45 度視角切換
 var _upgrade_btn: Button
 var _win_panel: Panel
 var _win_label: Label
@@ -362,13 +363,21 @@ func _layout_grid() -> void:
 		v.points = PackedVector2Array([_view.corner(i, 0), _view.corner(i, BOARD)])
 
 
-# 切換正交／等距（供人工過目對照；R 之外的 V 鍵）。
+# 切換俯視（正交）／45 度（等距）視角（HUD「視角」鈕或 V 鍵；即時重排、不影響對局）。
 func _toggle_board_mode() -> void:
 	_view.mode = BoardView.Mode.ORTHO if _view.mode == BoardView.Mode.ISO else BoardView.Mode.ISO
 	_layout_grid()
-	_rebuild_board()
+	if _core != null:
+		_rebuild_board()
 	_persist_layer.queue_redraw()
 	_update_preview()
+	_update_view_toggle_text()
+
+
+# 視角鈕文字反映當前模式（沿用 提示/動畫 鈕的「當前狀態」慣例）。
+func _update_view_toggle_text() -> void:
+	if _view_toggle_btn != null:
+		_view_toggle_btn.text = "視角：俯視" if _view.mode == BoardView.Mode.ORTHO else "視角：45度"
 
 
 func _view_at(cell: Vector2i) -> Object:
@@ -558,6 +567,9 @@ func _bind_nodes() -> void:
 	_toggle_hint_btn.pressed.connect(_on_toggle_hints)
 	_toggle_anim_btn = %AnimToggle
 	_toggle_anim_btn.pressed.connect(func() -> void: set_animation_enabled(_instant))
+	_view_toggle_btn = %ViewToggle
+	_view_toggle_btn.pressed.connect(_toggle_board_mode)
+	_update_view_toggle_text()
 	(%EndTurnBtn as Button).pressed.connect(_do.bind("end_turn", -1, -1, -1))
 
 	# 手牌容器（動態手牌鈕生成於此）。

@@ -15,6 +15,7 @@ func run(t: Object) -> void:
 	_test_all_actions(t, dbs)
 	_test_win_and_restart(t, dbs)
 	_test_range_preview_with_shadow(t, dbs)
+	_test_view_toggle(t, dbs)
 	for db in dbs:
 		db.free()
 
@@ -39,7 +40,7 @@ func _test_node_tree(t: Object, dbs: Array) -> void:
 	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
 			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
-			"EndTurnBtn", "HandBox", "WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
+			"ViewToggle", "EndTurnBtn", "HandBox", "WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
 		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
 	# 格線 10 條預置於 GridLayer。
 	t.eq(b.get_node("%GridLayer").get_child_count(), 10, "tree：GridLayer 預置 10 條格線")
@@ -220,5 +221,33 @@ func _test_range_preview_with_shadow(t: Object, dbs: Array) -> void:
 	var tcells: Array = b._footprint_cells(tank)
 	t.ok(tcells.has(Vector2i(1, 0)) and tcells.has(Vector2i(0, 1)), "range：小十字含正交鄰格")
 	t.ok(not tcells.has(Vector2i(3, 1)), "range：小十字不含遠格")
+
+	b.free()
+
+
+# ---------------- 5. 視角切換（45 度等距 ⇄ 俯視正交）----------------
+func _test_view_toggle(t: Object, dbs: Array) -> void:
+	var b: Node = _mk_battle(dbs, _deck("ADCW", 12), _deck("ADCW", 12), 5)
+
+	# 預設 45 度（ISO）；鈕文字反映當前模式；cell→pixel→cell 恆等。
+	t.eq(b._view.mode, BoardView.Mode.ISO, "view：預設 45 度（等距）")
+	t.eq(b._view_toggle_btn.text, "視角：45度", "view：鈕文字＝45度")
+	var mid := Vector2i(2, 1)
+	t.eq(b._cell_from_global(b._cell_center(mid)), mid, "view：等距下中心反算恆等")
+
+	# 切到俯視（正交）：模式、鈕文字、格線端點都改；換算仍恆等。
+	b._toggle_board_mode()
+	t.eq(b._view.mode, BoardView.Mode.ORTHO, "view：切為俯視（正交）")
+	t.eq(b._view_toggle_btn.text, "視角：俯視", "view：鈕文字＝俯視")
+	t.eq(b._cell_from_global(b._cell_center(mid)), mid, "view：正交下中心反算恆等")
+	# 正交下水平格線 H0 應為水平（兩端 y 相同）；等距則否。
+	var h0: Line2D = b._grid_layer.get_node("H0")
+	t.ok(is_equal_approx(h0.points[0].y, h0.points[1].y), "view：正交 H0 為水平線")
+
+	# 切回 45 度：格線 H0 兩端 y 不同（菱形斜線）。
+	b._toggle_board_mode()
+	t.eq(b._view.mode, BoardView.Mode.ISO, "view：切回 45 度")
+	var h0b: Line2D = b._grid_layer.get_node("H0")
+	t.ok(not is_equal_approx(h0b.points[0].y, h0b.points[1].y), "view：等距 H0 為斜線")
 
 	b.free()
