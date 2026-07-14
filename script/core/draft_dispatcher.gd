@@ -66,3 +66,25 @@ func _advanced_result(state: DraftState) -> DraftResult:
 	r.phase_advanced = true
 	r.ready_to_start = state.phase == "done"
 	return r
+
+
+# P11-1 逾時自動補牌並進下一階段：把當前可編輯玩家的牌組補到「可進階」的最低張數，
+# 再 advance_phase。補牌從 pool 依序挑第一張「合法（過 add_card 規則）」的卡，直到 can_advance。
+# 純邏輯（零 Node），供 draft 計時逾時呼叫與 headless 測。回傳 advance 後的 DraftResult
+# （若已無可編輯玩家＝done，回傳 phase_advanced=false 的成功結果）。
+func auto_fill_and_advance(state: DraftState, pool: Array) -> DraftResult:
+	var editor: String = state.current_editor()
+	if editor == "":
+		return DraftResult.new(true)
+	var guard: int = 0
+	while not state.can_advance() and guard < DraftDispatcher.MAX_DECK * 4:
+		guard += 1
+		var added: bool = false
+		for cid: String in pool:
+			var a := DraftAction.new(editor, "add_card", cid)
+			if _execute(a, state).success:
+				added = true
+				break
+		if not added:
+			break   # pool 無合法可補（理論上不會發生）→ 停止補牌，仍嘗試 advance
+	return _execute(DraftAction.new(editor, "advance_phase"), state)

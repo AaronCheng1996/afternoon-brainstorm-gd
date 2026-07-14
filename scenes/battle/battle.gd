@@ -50,6 +50,10 @@ var _ai_stage: String = ""
 var _ai: AIController = null
 var _ai_focus_key: String = ""      # AI 目標圈狀態指紋（變動才重繪 persist 層）
 
+# P11-1：對戰回合計時（可選）。逾時自動結束當前（人類）玩家回合；AI 回合不計時、動畫忙碌時暫停。
+var _turn_timer := CountdownTimer.new()
+var _turn_for_timer: int = -1       # 已為哪個 turn_number 啟動過計時（偵測換手重啟）
+
 # 座標換算器（P9-1）：正交/等距雙模式，統一 cell↔pixel。預設等距。
 var _view := BoardView.new()
 
@@ -121,6 +125,7 @@ func _apply_settings() -> void:
 	if _toggle_hint_btn != null:
 		_toggle_hint_btn.text = "提示：開" if _hints_on else "提示：關"
 	set_animation_enabled(bool(s.get("animations_on", true)))
+	_turn_timer.configure(bool(s.get("turn_timer_on", false)), float(s.get("turn_seconds", 60)))
 
 
 func set_animation_enabled(on: bool) -> void:
@@ -153,7 +158,9 @@ func _setup_ai() -> void:
 	_ai_focus_key = ""
 	if _ai_stage != "" and AIController.is_known_stage(_ai_stage):
 		_ai = AIController.new(_ai_stage, _db, "player2")
-	set_process(_ai != null)
+	_turn_for_timer = -1
+	# 有 AI 或有回合計時任一為真就開 _process。
+	set_process(_ai != null or _turn_timer.enabled)
 
 
 # 依雙方牌組決定要顯示哪些色資源列（G=運氣 / B=藍球 / DKG=圖騰 / C=金幣）。
@@ -206,8 +213,12 @@ func _on_anim_finished() -> void:
 # 只在 AI 回合且非動畫忙碌時，把 AIController 吐出的 GameAction（0/1 個）經既有 _do 分派。
 # 節奏（回合開始停頓、行動間隔）與合法性由 AIController 負責（A §1，`is_busy`＝renderer_busy）。
 # 本機雙人（_ai 為 null）時 set_process(false)，本函式不運作。
-func _process(_delta: float) -> void:
-	if _ai == null or _core == null or _busy or _core.is_over():
+func _process(delta: float) -> void:
+	if _core == null:
+		return
+	_tick_turn_timer(delta)
+	# 單人對戰 AI 驅動（見上）。
+	if _ai == null or _busy or _core.is_over():
 		return
 	if _core.current_player() != _ai.player_name:
 		return
@@ -215,6 +226,26 @@ func _process(_delta: float) -> void:
 	for a: GameAction in actions:
 		_do(a.action_type, a.board_x, a.board_y, a.hand_index)
 	_refresh_ai_focus()
+
+
+# P11-1：對戰回合計時。只在「人類回合、非動畫忙碌、未結束」時倒數；換手重啟；逾時自動 end_turn。
+# AI 回合（單人對戰的 player2）不計時。瞬時模式仍計時（以真實時間倒數）。
+func _tick_turn_timer(delta: float) -> void:
+	if not _turn_timer.enabled or _core.is_over():
+		return
+	# AI 控制的回合不計時。
+	if _ai != null and _core.current_player() == _ai.player_name:
+		_turn_timer.stop()
+		return
+	if _busy:
+		return   # 動畫播放中暫停倒數（不扣時、不逾時）
+	if _turn_for_timer != _core.turn_number:
+		_turn_for_timer = _core.turn_number
+		_turn_timer.start()
+	if _turn_timer.advance(delta):
+		_do("end_turn", -1, -1)
+	elif _counts_label != null:
+		_counts_label.text = _counts_text(_core.current_player())   # 每幀更新剩餘秒
 
 
 # AI 目標圈（focus_position）狀態變動時重繪 persist 層（黃圈畫在 _persist_draw）。
@@ -781,6 +812,8 @@ func _counts_text(cur: String) -> String:
 	]
 	if _placing_index >= 0 and _placing_index < p.hand.size():
 		lines.append("放置中：%s（點空格放置）" % p.hand[_placing_index])
+	if _turn_timer.running:
+		lines.append("⏳ 回合剩餘：%d 秒" % _turn_timer.remaining_seconds())
 	return "\n".join(lines)
 
 

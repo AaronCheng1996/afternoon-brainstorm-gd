@@ -34,6 +34,16 @@ var _anim_btn: Button
 var _hints_on: bool = true
 var _animations_on: bool = true
 
+# P11-1 計時設定。單一鈕循環：關 → 各秒數 → 關（0＝關）。
+const TURN_SECONDS_CYCLE := [0, 30, 45, 60, 90]
+const DRAFT_SECONDS_CYCLE := [0, 30, 45, 60]
+var _turn_timer_on: bool = false
+var _turn_seconds: int = 60
+var _draft_timer_on: bool = false
+var _draft_seconds: int = 45
+var _turn_timer_btn: Button
+var _draft_timer_btn: Button
+
 
 func _ready() -> void:
 	_bind_nodes()
@@ -47,6 +57,10 @@ func _bind_nodes() -> void:
 	var s := SettingsStore.load_settings()
 	_hints_on = bool(s.get("hints_on", true))
 	_animations_on = bool(s.get("animations_on", true))
+	_turn_timer_on = bool(s.get("turn_timer_on", false))
+	_turn_seconds = int(s.get("turn_seconds", 60))
+	_draft_timer_on = bool(s.get("draft_timer_on", false))
+	_draft_seconds = int(s.get("draft_seconds", 45))
 
 	_hud = %HUD
 	_msg_label = %MsgLabel
@@ -74,6 +88,10 @@ func _bind_nodes() -> void:
 	_hint_btn.pressed.connect(_on_toggle_hint)
 	_anim_btn = %AnimBtn
 	_anim_btn.pressed.connect(_on_toggle_anim)
+	_turn_timer_btn = %TurnTimerBtn
+	_turn_timer_btn.pressed.connect(_on_cycle_turn_timer)
+	_draft_timer_btn = %DraftTimerBtn
+	_draft_timer_btn.pressed.connect(_on_cycle_draft_timer)
 	(%BackBtn as Button).pressed.connect(_on_close_settings)
 
 	_refresh_settings_labels()
@@ -82,6 +100,8 @@ func _bind_nodes() -> void:
 func _refresh_settings_labels() -> void:
 	_hint_btn.text = "戰鬥提示（card_hints）：%s" % ("開" if _hints_on else "關")
 	_anim_btn.text = "戰鬥動畫：%s" % ("開" if _animations_on else "關（瞬時）")
+	_turn_timer_btn.text = "回合計時：%s" % ("關" if not _turn_timer_on else "%d 秒" % _turn_seconds)
+	_draft_timer_btn.text = "選秀計時：%s" % ("關" if not _draft_timer_on else "%d 秒" % _draft_seconds)
 
 
 # ---------------- 回呼 ----------------
@@ -144,6 +164,35 @@ func _on_toggle_anim() -> void:
 	_refresh_settings_labels()
 
 
+# 回合計時循環：關 → 30 → 45 → 60 → 90 → 關。0＝關。
+func _on_cycle_turn_timer() -> void:
+	var cur: int = _turn_seconds if _turn_timer_on else 0
+	var nxt: int = _next_in_cycle(TURN_SECONDS_CYCLE, cur)
+	_turn_timer_on = nxt != 0
+	if nxt != 0:
+		_turn_seconds = nxt
+	_persist()
+	_refresh_settings_labels()
+
+
+# 選秀計時循環：關 → 30 → 45 → 60 → 關。
+func _on_cycle_draft_timer() -> void:
+	var cur: int = _draft_seconds if _draft_timer_on else 0
+	var nxt: int = _next_in_cycle(DRAFT_SECONDS_CYCLE, cur)
+	_draft_timer_on = nxt != 0
+	if nxt != 0:
+		_draft_seconds = nxt
+	_persist()
+	_refresh_settings_labels()
+
+
+func _next_in_cycle(cycle: Array, current: int) -> int:
+	var idx: int = cycle.find(current)
+	if idx < 0:
+		idx = 0
+	return int(cycle[(idx + 1) % cycle.size()])
+
+
 func _on_quit() -> void:
 	var tree := get_tree()
 	if tree != null:
@@ -151,7 +200,14 @@ func _on_quit() -> void:
 
 
 func _persist() -> void:
-	SettingsStore.save_settings(_hints_on, _animations_on)
+	SettingsStore.save_settings({
+		"hints_on": _hints_on,
+		"animations_on": _animations_on,
+		"turn_timer_on": _turn_timer_on,
+		"turn_seconds": _turn_seconds,
+		"draft_timer_on": _draft_timer_on,
+		"draft_seconds": _draft_seconds,
+	})
 
 
 func _change_scene(path: String) -> void:

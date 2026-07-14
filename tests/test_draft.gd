@@ -12,6 +12,7 @@ func run(t: Object) -> void:
 	_test_limits(t)
 	_test_remove(t)
 	_test_toggles(t)
+	_test_auto_fill_timeout(t)
 	_test_scene(t)
 
 
@@ -38,6 +39,51 @@ func _adv(disp: DraftDispatcher, st: DraftState, who: String) -> DraftResult:
 func _fill(disp: DraftDispatcher, st: DraftState, who: String, units: Array) -> void:
 	for u: String in units:
 		_add(disp, st, who, u)
+
+
+# ---------------- P11-1 逾時自動補牌並進下一階段 ----------------
+func _test_auto_fill_timeout(t: Object) -> void:
+	const POOL := ["ADCW", "APW", "TANKW", "HFW", "LFW", "ASSW", "APTW", "SPW",
+			"ADCR", "APR", "TANKR", "HFR", "CUBES", "HEAL", "MOVE"]
+	var disp := DraftDispatcher.new()
+	var st := DraftState.new()
+
+	# 階段 1（空牌組）逾時 → 補到 ≥6 並進 p2_pick12。
+	var r1 := disp.auto_fill_and_advance(st, POOL)
+	t.ok(st.player1_deck.size() >= 6, "逾時：P1 補到 ≥6 張（實際 %d）" % st.player1_deck.size())
+	t.eq(st.phase, "p2_pick12", "逾時：P1 前段後進入 p2_pick12")
+	t.ok(r1.phase_advanced, "逾時：回報 phase_advanced")
+
+	# 階段 2 逾時 → 補到 ≥12 並進 p1_last6。
+	disp.auto_fill_and_advance(st, POOL)
+	t.ok(st.player2_deck.size() >= 12, "逾時：P2 補到 ≥12 張（實際 %d）" % st.player2_deck.size())
+	t.eq(st.phase, "p1_last6", "逾時：P2 後進入 p1_last6")
+
+	# 階段 3 逾時 → P1 補到 ≥12 並進 done、ready_to_start。
+	var r3 := disp.auto_fill_and_advance(st, POOL)
+	t.ok(st.player1_deck.size() >= 12, "逾時：P1 補到 ≥12 張（實際 %d）" % st.player1_deck.size())
+	t.eq(st.phase, "done", "逾時：補滿後 done")
+	t.ok(r3.ready_to_start, "逾時：done 時 ready_to_start")
+
+	# 補牌不違反同名上限（單位 ≤2）。
+	var st2 := DraftState.new()
+	disp.auto_fill_and_advance(st2, POOL)
+	var counts: Dictionary = {}
+	for c: String in st2.player1_deck:
+		counts[c] = int(counts.get(c, 0)) + 1
+	var ok_limit := true
+	for c: String in counts:
+		var lim: int = DraftDispatcher.MAX_MAGIC if DraftDispatcher.MAGIC_CARDS.has(c) else DraftDispatcher.MAX_UNIT
+		if counts[c] > lim:
+			ok_limit = false
+	t.ok(ok_limit, "逾時補牌不超過同名上限")
+
+	# 已達門檻時只前進、不過量補牌。
+	var st3 := DraftState.new()
+	_fill(disp, st3, "player1", ["ADCW", "APW", "TANKW", "HFW", "LFW", "ASSW"])
+	disp.auto_fill_and_advance(st3, POOL)
+	t.eq(st3.player1_deck.size(), 6, "已達門檻：不過量補牌（維持 6）")
+	t.eq(st3.phase, "p2_pick12", "已達門檻：仍前進階段")
 
 
 # ---------------- 1. 三階段流程 ----------------

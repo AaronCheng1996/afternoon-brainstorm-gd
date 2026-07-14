@@ -21,7 +21,8 @@ func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
 			"SinglePlayerBtn", "EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
-			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn", "BackBtn",
+			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn",
+			"TurnTimerBtn", "DraftTimerBtn", "BackBtn",
 			"AIPanel", "WhiteAIBtn", "RedAIBtn", "BlueAIBtn", "GreenAIBtn", "OrangeAIBtn",
 			"BossAIBtn", "AIBackBtn"]:
 		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
@@ -39,19 +40,29 @@ func _test_settings_roundtrip(t: Object) -> void:
 	var existed: bool = FileAccess.file_exists(SettingsStore.PATH)
 	var orig: Dictionary = SettingsStore.load_settings()
 
-	SettingsStore.save_settings(false, false)
+	SettingsStore.save_settings({"hints_on": false, "animations_on": false})
 	var r: Dictionary = SettingsStore.load_settings()
 	t.eq(r["hints_on"], false, "settings：hints 存 false 後讀回 false")
 	t.eq(r["animations_on"], false, "settings：animations 存 false 後讀回 false")
+	# 未提供的鍵沿用預設（P11-1 計時預設關）。
+	t.eq(r["turn_timer_on"], false, "settings：turn_timer 預設關")
+	t.eq(r["draft_timer_on"], false, "settings：draft_timer 預設關")
 
-	SettingsStore.save_settings(true, false)
+	# P11-1：計時開關＋秒數 round-trip。
+	SettingsStore.save_settings({"hints_on": true, "animations_on": false,
+		"turn_timer_on": true, "turn_seconds": 45,
+		"draft_timer_on": true, "draft_seconds": 30})
 	var r2: Dictionary = SettingsStore.load_settings()
 	t.eq(r2["hints_on"], true, "settings：hints 改 true")
 	t.eq(r2["animations_on"], false, "settings：animations 維持 false")
+	t.eq(r2["turn_timer_on"], true, "settings：turn_timer 存 true 讀回 true")
+	t.eq(r2["turn_seconds"], 45, "settings：turn_seconds 存 45 讀回 45")
+	t.eq(r2["draft_timer_on"], true, "settings：draft_timer 存 true 讀回 true")
+	t.eq(r2["draft_seconds"], 30, "settings：draft_seconds 存 30 讀回 30")
 
 	# 還原（不留測試痕跡）。
 	if existed:
-		SettingsStore.save_settings(bool(orig["hints_on"]), bool(orig["animations_on"]))
+		SettingsStore.save_settings(orig)
 	else:
 		var d := DirAccess.open("user://")
 		if d != null:
@@ -118,6 +129,17 @@ func _test_main_menu_build(t: Object) -> void:
 	m._on_toggle_hint()
 	t.eq(m._hints_on, not before, "menu：切換提示開關")
 	m._on_toggle_hint()   # 切回
+	# P11-1：計時循環鈕：關 → 首個秒數（開）；鈕文字反映狀態。
+	t.ok(not m._turn_timer_on, "menu：回合計時預設關")
+	m._on_cycle_turn_timer()
+	t.ok(m._turn_timer_on and m._turn_seconds == m.TURN_SECONDS_CYCLE[1], "menu：回合計時循環到首個秒數（開）")
+	t.ok("秒" in (m.get_node("%TurnTimerBtn") as Button).text, "menu：回合計時鈕顯示秒數")
+	m._on_cycle_draft_timer()
+	t.ok(m._draft_timer_on and m._draft_seconds == m.DRAFT_SECONDS_CYCLE[1], "menu：選秀計時循環到首個秒數（開）")
+	# 循環回關（把 turn 循環一整圈回到 0）。
+	for _i in m.TURN_SECONDS_CYCLE.size() - 1:
+		m._on_cycle_turn_timer()
+	t.ok(not m._turn_timer_on, "menu：回合計時循環一圈回到關")
 	m._on_close_settings()
 	t.ok(not m._settings_panel.visible, "menu：關閉設定面板")
 	# P10-5：單人對戰 CPU 選擇面板預設隱藏，開啟/返回切換可見性；對手鈕文字已套標籤。

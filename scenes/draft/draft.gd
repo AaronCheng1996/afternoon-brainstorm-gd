@@ -33,6 +33,10 @@ var _selected_color: int = 0
 var _message: String = ""
 var _ready_to_start: bool = false
 
+# P11-1 每階段倒數計時：逾時自動補牌並進下一階段。開關/秒數讀 user://settings.json。
+var _phase_timer := CountdownTimer.new()
+var _pool: Array = []   # 自動補牌候選（全色 units＋魔法）
+
 # UI（皆綁定自 draft.tscn 內宣告的 `%` 唯一名稱節點）
 var _hud: CanvasLayer
 var _ui_built: bool = false          # 節點綁定完成旗標（沿用舊名，供測試斷言）
@@ -63,7 +67,54 @@ func boot(seed_value: int, db: Object = null) -> void:
 	_selected_color = 0
 	_message = ""
 	_ready_to_start = false
+	_pool = _build_pool()
+	var s := SettingsStore.load_settings()
+	_phase_timer.configure(bool(s.get("draft_timer_on", false)), float(s.get("draft_seconds", 45)))
 	_bind_nodes()
+	_restart_phase_timer()
+	set_process(_phase_timer.enabled)
+	_refresh()
+
+
+# 自動補牌候選＝各色 units（魅紫僅 4 職）＋魔法（對齊展示館可選項）。
+func _build_pool() -> Array:
+	var pool: Array = []
+	for c: Array in COLORS:
+		var code: String = c[0]
+		var jobs: Array = PURPLE_JOBS if code == "P" else JOBS
+		for job: String in jobs:
+			pool.append(job + code)
+	pool.append_array(EXHIBIT_MAGIC)
+	return pool
+
+
+# 依當前階段（有可編輯玩家）重啟倒數；計時關閉或已 done 則停。
+func _restart_phase_timer() -> void:
+	if _phase_timer.enabled and _state.current_editor() != "":
+		_phase_timer.start()
+	else:
+		_phase_timer.stop()
+
+
+# 每幀推進倒數；到點＝逾時自動補牌並進下一階段。只在計時開啟時運作（set_process 控管）。
+func _process(delta: float) -> void:
+	if not _phase_timer.running:
+		return
+	if _phase_timer.advance(delta):
+		_on_phase_timeout()
+	else:
+		_update_phase_label()   # 只更新標籤剩餘秒數（不重建展示，省成本）
+
+
+# 逾時：補牌到可進階最低張數並前進；若補到 done 則開戰，否則重啟下一階段倒數。
+func _on_phase_timeout() -> void:
+	var r: DraftResult = _dispatcher.auto_fill_and_advance(_state, _pool)
+	if r.ready_to_start or _state.phase == "done":
+		_ready_to_start = true
+		_start_battle()
+		return
+	_restart_phase_timer()
+	_message = "（逾時：自動補牌並進入下一階段）"
 	_refresh()
 
 
@@ -105,6 +156,8 @@ func _on_advance() -> void:
 		_ready_to_start = true
 		_start_battle()
 		return
+	if r.success:
+		_restart_phase_timer()   # 進入下一階段 → 重啟該階段倒數
 	_message = "" if r.success else _localize_msg(r.message)
 	_refresh()
 
@@ -180,12 +233,27 @@ func _bind_nodes() -> void:
 func _refresh() -> void:
 	if not _ui_built:
 		return
+	_update_phase_label()
+	_msg_label.text = _message
+
+	_refresh_body()
+
+
+# 更新階段標籤（含倒數剩餘秒）。供 _refresh 與 _process 每幀輕量更新共用。
+func _update_phase_label() -> void:
+	if _phase_label == null:
+		return
 	var editor: String = _state.current_editor()
 	var editor_txt: String = "先手 P1" if editor == "player1" else ("後手 P2" if editor == "player2" else "—")
-	_phase_label.text = "%s　｜　當前選手：%s　｜　P1 %d/12　P2 %d/12" % [
+	var base: String = "%s　｜　當前選手：%s　｜　P1 %d/12　P2 %d/12" % [
 		PHASE_TEXT.get(_state.phase, _state.phase), editor_txt,
 		_state.player1_deck.size(), _state.player2_deck.size()]
-	_msg_label.text = _message
+	if _phase_timer.running:
+		base += "　｜　⏳ %d 秒" % _phase_timer.remaining_seconds()
+	_phase_label.text = base
+
+
+func _refresh_body() -> void:
 
 	# 色頁高亮。
 	for i in _color_tabs.size():
