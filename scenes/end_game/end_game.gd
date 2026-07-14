@@ -12,6 +12,7 @@ extends Node2D
 
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
+const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
 
 # 卡牌層級（key＝owner_cardid）且已被 core 追蹤的統計欄位。治療（HEALING）未被 core 追蹤
 # （只有 per-player 的 HEAL_USE），故不列入 per-卡表格，見進度日誌 P8-6 說明。
@@ -29,6 +30,8 @@ var _win_threshold: int = 10
 var _score_history: Array = []
 var _stats: Dictionary = {}       # {stat_name: {owner_cardid: int}}（export_for_charts 格式）
 var _show_table: bool = false
+var _replay_path: String = ""     # P11-2：本局紀錄路徑（非空才顯示「回放本局」）
+var _replay_btn: Button
 
 var _hud: CanvasLayer
 var _chart_frame: ColorRect
@@ -56,13 +59,17 @@ func _ready() -> void:
 
 
 # winner: -1 平 / 0 P1 / 1 P2。stats：Statistics.export_for_charts() 格式 {stat_name: {key: int}}。
-func configure(winner: int, score: int, win_threshold: int, score_history: Array, stats: Dictionary) -> void:
+func configure(winner: int, score: int, win_threshold: int, score_history: Array, stats: Dictionary,
+		replay_path: String = "") -> void:
 	_winner = winner
 	_score = score
 	_win_threshold = maxi(1, win_threshold)
 	_score_history = score_history
 	_stats = stats
+	_replay_path = replay_path
 	_bind_nodes()
+	if _replay_btn != null:
+		_replay_btn.visible = _replay_path != ""
 	_rebuild()
 
 
@@ -81,6 +88,8 @@ func _bind_nodes() -> void:
 	_view_toggle.pressed.connect(toggle_view)
 	(%AgainBtn as Button).pressed.connect(_change_scene.bind(DRAFT_SCENE))
 	(%MenuBtn as Button).pressed.connect(_change_scene.bind(MENU_SCENE))
+	_replay_btn = %ReplayBtn
+	_replay_btn.pressed.connect(_on_replay)
 
 
 # 依 configure() 傳入的資料重繪動態內容（可重複呼叫）。
@@ -278,6 +287,21 @@ func _change_scene(path: String) -> void:
 	var tree := get_tree()
 	if tree != null:
 		tree.change_scene_to_file(path)
+
+
+# P11-2：回放本局——載入紀錄檔並以回放模式開 battle。
+func _on_replay() -> void:
+	var tree := get_tree()
+	if tree == null or _replay_path == "":
+		return
+	var log: ReplayLog = ReplayLog.load_from_file(_replay_path)
+	if log == null:
+		return
+	var battle: Node = load(BATTLE_SCENE).instantiate()
+	battle.boot_replay(log, Balance)
+	tree.root.add_child(battle)
+	tree.current_scene = battle
+	queue_free()
 
 
 # ---------------- 小工具（動態長條/標籤仍程式生成）----------------

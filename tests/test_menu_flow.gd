@@ -20,17 +20,17 @@ func run(t: Object) -> void:
 func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
-			"SinglePlayerBtn", "EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
+			"SinglePlayerBtn", "EncyclopediaBtn", "ReplayBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
 			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn",
 			"TurnTimerBtn", "DraftTimerBtn", "BackBtn",
 			"AIPanel", "WhiteAIBtn", "RedAIBtn", "BlueAIBtn", "GreenAIBtn", "OrangeAIBtn",
-			"BossAIBtn", "AIBackBtn"]:
+			"BossAIBtn", "AIBackBtn", "ReplayPanel", "ReplayList", "ReplayBackBtn"]:
 		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
 	m.free()
 
 	var e: Node = EndGameScene.instantiate()
 	for name in ["Background", "ChartLayer", "HUD", "TitleLabel", "ChartCaption",
-			"BarsRoot", "AgainBtn", "MenuBtn"]:
+			"BarsRoot", "AgainBtn", "MenuBtn", "ReplayBtn"]:
 		t.ok(e.get_node_or_null("%" + name) != null, "end tree：%s 節點存在" % name)
 	e.free()
 
@@ -81,6 +81,8 @@ func _test_end_game_build(t: Object) -> void:
 	t.ok(e._built, "end：configure 後已建構")
 	t.eq(e._winner, 0, "end：勝者為 P1")
 	t.eq(e._win_threshold, 10, "end：門檻 10")
+	# P11-2：未帶 replay_path → 「回放本局」鈕隱藏。
+	t.ok(not e.get_node("%ReplayBtn").visible, "end：無紀錄路徑時回放鈕隱藏")
 	t.ok(e.get_node("%ChartLayer").get_child_count() > 0, "end：折線圖層繪出內容")
 	t.ok(e.get_node("%BarsRoot").get_child_count() > 0, "end：統計長條繪出內容")
 
@@ -112,6 +114,11 @@ func _test_end_game_build(t: Object) -> void:
 	e2.configure(-1, 0, 8, [], {})
 	t.ok(e2._built, "end：空資料也可建構")
 	t.eq(e2.table_data().size(), 0, "end：空統計 table_data 為空")
+
+	# P11-2：帶 replay_path 重新 configure → 「回放本局」鈕顯示（放最後，避免影響上面統計斷言）。
+	e.configure(0, -10, 10, [0, -1], {"KILLED": {"player1_ADCW": 1}}, "user://replays/x.jsonl")
+	t.ok(e.get_node("%ReplayBtn").visible, "end：帶紀錄路徑時回放鈕顯示")
+
 	e.free()
 	e2.free()
 
@@ -149,6 +156,13 @@ func _test_main_menu_build(t: Object) -> void:
 	t.ok((m.get_node("%WhiteAIBtn") as Button).text != "", "menu：對手鈕已套顯示標籤")
 	m._on_close_ai()
 	t.ok(not m._ai_panel.visible, "menu：返回關閉 CPU 面板")
+	# P11-2：回放紀錄面板開啟（填充列表不崩潰，無紀錄時顯示提示）／返回關閉。
+	t.ok(m._replay_panel != null and not m._replay_panel.visible, "menu：回放面板預設隱藏")
+	m._on_open_replays()
+	t.ok(m._replay_panel.visible, "menu：開啟回放面板")
+	t.ok(m._replay_list.get_child_count() >= 1, "menu：回放列表已填充（含無紀錄提示）")
+	m._on_close_replays()
+	t.ok(not m._replay_panel.visible, "menu：返回關閉回放面板")
 	m.free()
 	# 清掉切換寫入的檔（保持乾淨）。
 	var d := DirAccess.open("user://")

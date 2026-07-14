@@ -74,7 +74,7 @@ offset_bottom = 416.0
 theme_override_font_sizes/font_size = 16
 text = "百科圖鑑"
 
-[node name="EndlessBtn" type="Button" parent="HUD"]
+[node name="ReplayBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
@@ -83,6 +83,18 @@ offset_left = -120.0
 offset_top = 428.0
 offset_right = 120.0
 offset_bottom = 480.0
+theme_override_font_sizes/font_size = 16
+text = "回放紀錄"
+
+[node name="EndlessBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 492.0
+offset_right = 120.0
+offset_bottom = 544.0
 disabled = true
 theme_override_font_sizes/font_size = 16
 text = "爬塔模式（尚未開放）"
@@ -93,9 +105,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 492.0
+offset_top = 556.0
 offset_right = 120.0
-offset_bottom = 544.0
+offset_bottom = 608.0
 theme_override_font_sizes/font_size = 16
 text = "設定"
 
@@ -105,17 +117,17 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 556.0
+offset_top = 620.0
 offset_right = 120.0
-offset_bottom = 608.0
+offset_bottom = 672.0
 theme_override_font_sizes/font_size = 16
 text = "離開"
 
 [node name="MsgLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
 anchor_right = 1.0
-offset_top = 628.0
-offset_bottom = 628.0
+offset_top = 692.0
+offset_bottom = 692.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.7, 0.5, 1)
 horizontal_alignment = 1
@@ -297,5 +309,60 @@ offset_left = 24.0
 offset_top = 400.0
 offset_right = 416.0
 offset_bottom = 442.0
+theme_override_font_sizes/font_size = 15
+text = "返回"
+
+[node name="ReplayPanel" type="Panel" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -240.0
+offset_right = 280.0
+offset_bottom = 240.0
+
+[node name="ReplayTitle" type="Label" parent="HUD/ReplayPanel"]
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 536.0
+offset_bottom = 18.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "載入回放紀錄"
+autowrap_mode = 0
+
+[node name="ReplayHint" type="Label" parent="HUD/ReplayPanel"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 52.0
+offset_right = 536.0
+offset_bottom = 52.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.82, 1)
+theme_override_font_sizes/font_size = 13
+text = "選擇最近的對局紀錄回放（新到舊）。"
+autowrap_mode = 0
+
+[node name="ReplayScroll" type="ScrollContainer" parent="HUD/ReplayPanel"]
+offset_left = 24.0
+offset_top = 80.0
+offset_right = 536.0
+offset_bottom = 400.0
+
+[node name="ReplayList" type="VBoxContainer" parent="HUD/ReplayPanel/ReplayScroll"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(512, 0)
+theme_override_constants/separation = 6
+
+[node name="ReplayBackBtn" type="Button" parent="HUD/ReplayPanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(512, 42)
+offset_left = 24.0
+offset_top = 414.0
+offset_right = 536.0
+offset_bottom = 456.0
 theme_override_font_sizes/font_size = 15
 text = "返回"

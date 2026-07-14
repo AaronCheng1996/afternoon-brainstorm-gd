@@ -54,6 +54,17 @@ var _ai_focus_key: String = ""      # AI 目標圈狀態指紋（變動才重繪
 var _turn_timer := CountdownTimer.new()
 var _turn_for_timer: int = -1       # 已為哪個 turn_number 啟動過計時（偵測換手重啟）
 
+# P11-2：對戰紀錄與回放。
+var _recorder: ReplayLog = null     # 對局中：記錄 seed＋牌組＋action 流（回放模式為 null＝不錄）
+var _saved_replay_path: String = "" # 本局存檔路徑（終局時寫入，傳給 end_game 供「回放本局」）
+var _replay: ReplayLog = null       # 非 null＝回放模式（禁玩家輸入，依 action 流自動/單步重播）
+var _replay_idx: int = 0
+var _replay_playing: bool = true
+var _replay_speed: float = 1.0
+var _replay_accum: float = 0.0
+const REPLAY_STEP_INTERVAL := 0.55  # 連續播放時兩步之間的基礎間隔（秒，再除以速度）
+const REPLAY_SPEEDS := [0.5, 1.0, 2.0, 4.0]
+
 # 座標換算器（P9-1）：正交/等距雙模式，統一 cell↔pixel。預設等距。
 var _view := BoardView.new()
 
@@ -112,9 +123,28 @@ func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null, ai
 	_seed = seed_value
 	_db = db if db != null else Balance
 	_ai_stage = ai_stage
+	_replay = null
 	_bind_nodes()
 	_apply_settings()
 	_new_game()
+
+
+# P11-2：以錄影紀錄開啟回放模式（禁玩家輸入，依 action 流自動/單步重播）。
+func boot_replay(log: ReplayLog, db: Object = null) -> void:
+	_p1_deck = log.p1_deck.duplicate()
+	_p2_deck = log.p2_deck.duplicate()
+	_seed = log.seed
+	_db = db if db != null else Balance
+	_ai_stage = ""
+	_replay = log
+	_replay_idx = 0
+	_replay_playing = true
+	_replay_speed = 1.0
+	_replay_accum = 0.0
+	_bind_nodes()
+	_apply_settings()
+	_new_game()
+	set_process(true)
 
 
 # 套用 user://settings.json（提示/動畫開關）。戰鬥中自身的切換為 session 內；
@@ -147,6 +177,11 @@ func _new_game() -> void:
 	_hover_cell = Vector2i(-1, -1)
 	_compute_resource_visibility()
 	_setup_ai()
+	# P11-2：非回放模式才錄影（記 seed＋牌組，action 於 _do 累積）。
+	_recorder = null
+	_saved_replay_path = ""
+	if _replay == null:
+		_recorder = ReplayLog.new(_seed, _p1_deck, _p2_deck)
 	_hide_win()
 	_resync()
 
@@ -159,8 +194,8 @@ func _setup_ai() -> void:
 	if _ai_stage != "" and AIController.is_known_stage(_ai_stage):
 		_ai = AIController.new(_ai_stage, _db, "player2")
 	_turn_for_timer = -1
-	# 有 AI 或有回合計時任一為真就開 _process。
-	set_process(_ai != null or _turn_timer.enabled)
+	# 有 AI、回合計時、或回放模式任一為真就開 _process。
+	set_process(_ai != null or _turn_timer.enabled or _replay != null)
 
 
 # 依雙方牌組決定要顯示哪些色資源列（G=運氣 / B=藍球 / DKG=圖騰 / C=金幣）。
@@ -186,6 +221,8 @@ func _do(action_type: String, x: int, y: int, idx: int = -1) -> void:
 	a.board_x = x
 	a.board_y = y
 	a.hand_index = idx
+	if _recorder != null:
+		_recorder.record(a)   # P11-2：錄影（回放模式 _recorder 為 null，不錄）
 	_res_snapshot = _snapshot_resources()   # P9-3：記錄行動前資源，_resync 時比對變化飄字
 	_core.dispatch(a)
 	_post_dispatch()
@@ -215,6 +252,9 @@ func _on_anim_finished() -> void:
 # 本機雙人（_ai 為 null）時 set_process(false)，本函式不運作。
 func _process(delta: float) -> void:
 	if _core == null:
+		return
+	if _replay != null:
+		_tick_replay(delta)
 		return
 	_tick_turn_timer(delta)
 	# 單人對戰 AI 驅動（見上）。
@@ -257,6 +297,56 @@ func _refresh_ai_focus() -> void:
 		_ai_focus_key = key
 		if _persist_layer != null:
 			_persist_layer.queue_redraw()
+
+
+# ---------------- 回放播放（P11-2）----------------
+
+# 連續播放：等動畫播完（非 _busy）後，依間隔（除以速度）自動推進下一步。
+func _tick_replay(delta: float) -> void:
+	if _busy or _core.is_over() or _replay_idx >= _replay.actions.size():
+		if _replay_idx >= _replay.actions.size():
+			_replay_playing = false
+		_update_replay_hud()
+		return
+	if not _replay_playing:
+		_update_replay_hud()
+		return
+	_replay_accum += delta * _replay_speed
+	if _replay_accum >= REPLAY_STEP_INTERVAL:
+		_replay_accum = 0.0
+		_replay_step()
+	_update_replay_hud()
+
+
+# 推進一步：把第 _replay_idx 筆錄影 action 走既有 _do 管線（事件→動畫→重建）。
+func _replay_step() -> void:
+	if _busy or _core.is_over() or _replay_idx >= _replay.actions.size():
+		return
+	var a: GameAction = _replay.action_at(_replay_idx)
+	_replay_idx += 1
+	_do(a.action_type, a.board_x, a.board_y, a.hand_index)
+
+
+func _replay_toggle_play() -> void:
+	_replay_playing = not _replay_playing
+	_replay_accum = 0.0
+	_update_replay_hud()
+
+
+func _replay_cycle_speed() -> void:
+	var i: int = REPLAY_SPEEDS.find(_replay_speed)
+	_replay_speed = REPLAY_SPEEDS[(i + 1) % REPLAY_SPEEDS.size()] if i >= 0 else 1.0
+	_update_replay_hud()
+
+
+func _update_replay_hud() -> void:
+	if _counts_label == null:
+		return
+	var state: String = "▶ 播放中" if _replay_playing else "⏸ 暫停"
+	if _replay_idx >= _replay.actions.size():
+		state = "⏹ 結束"
+	_counts_label.text = "── 回放 ──\n%s　%d/%d 步　速度 x%s\n[空白]播放/暫停　[→]單步　[S]速度" % [
+		state, _replay_idx, _replay.actions.size(), str(_replay_speed)]
 
 
 # 為 SPAWN 事件先建立視圖（動畫連續性：deploy 引發的傷害可解析到新棋子/既有棋子）。
@@ -345,7 +435,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _board_click(cell: Vector2i) -> void:
-	if _busy or _core.is_over():
+	if _replay != null or _busy or _core.is_over():
 		return
 	if _placing_index >= 0:
 		_do("play_card", cell.x, cell.y, _placing_index)
@@ -359,6 +449,16 @@ func _board_click(cell: Vector2i) -> void:
 
 
 func _handle_key(keycode: int) -> void:
+	if _replay != null:
+		# 回放模式：鍵盤只控播放（空白＝播放/暫停、→/.＝單步、S＝速度），保留 I/V/T 觀看選項。
+		match keycode:
+			KEY_SPACE: _replay_toggle_play()
+			KEY_RIGHT, KEY_PERIOD: _replay_step()
+			KEY_S: _replay_cycle_speed()
+			KEY_I: set_animation_enabled(_instant)
+			KEY_T: _on_toggle_hints()
+			KEY_V: _toggle_board_mode()
+		return
 	match keycode:
 		KEY_A: _set_mode("attack")
 		KEY_M: _set_mode("move")
@@ -374,7 +474,7 @@ func _handle_key(keycode: int) -> void:
 # ---------------- HUD 回呼 ----------------
 
 func _on_hand_pressed(index: int) -> void:
-	if _busy or _core.is_over():
+	if _replay != null or _busy or _core.is_over():
 		return
 	var hand: Array = _core.get_player(_core.current_player()).hand
 	if index < 0 or index >= hand.size():
@@ -390,7 +490,7 @@ func _on_hand_pressed(index: int) -> void:
 
 
 func _on_toggle_upgrade() -> void:
-	if _busy or _core.is_over() or _placing_index < 0:
+	if _replay != null or _busy or _core.is_over() or _placing_index < 0:
 		return
 	_do("toggle_upgrade", -1, -1, _placing_index)   # 只改手牌名（無事件）→ _resync 重繪
 
@@ -410,6 +510,11 @@ func _on_toggle_hints() -> void:
 
 
 func _on_win_restart() -> void:
+	if _replay != null:
+		# 回放模式：從頭重播（保留同一份紀錄）。
+		_replay_idx = 0
+		_replay_playing = true
+		_replay_accum = 0.0
 	_new_game()
 
 
@@ -426,8 +531,9 @@ func _open_end_game() -> void:
 		return
 	var end_scene: Node = load("res://scenes/end_game/end_game.tscn").instantiate()
 	# P8-6：傳完整統計 export（{stat_name: {owner_cardid: int}}）；摘要長條與表格由 end_game 派生。
+	# P11-2：附本局紀錄路徑（非回放時才有），供終局畫面「回放本局」。
 	end_scene.configure(_core.winner(), _core.score, _core.config.win_threshold,
-		_core.stats.score_history.duplicate(), _core.stats.export_for_charts())
+		_core.stats.score_history.duplicate(), _core.stats.export_for_charts(), _saved_replay_path)
 	tree.root.add_child(end_scene)
 	tree.current_scene = end_scene
 	queue_free()
@@ -846,6 +952,11 @@ func _show_win() -> void:
 	var w: int = _core.winner()
 	var who: String = "先手 P1" if w == 0 else ("後手 P2" if w == 1 else "平手")
 	_win_label.text = "%s 獲勝！\n最終分數 %d" % [who, _core.score]
+	# P11-2：非回放的對局結束時，把紀錄存到 user://replays/（供終局畫面「回放本局」與主選單載入）。
+	# is_inside_tree 守：headless 場景測試 instantiate 但不進場景樹，不落檔（避免測試污染 user://）。
+	if is_inside_tree() and _replay == null and _recorder != null and _saved_replay_path == "":
+		_saved_replay_path = ReplayLog.new_path()
+		ReplayLog.save_to_file(_recorder, _saved_replay_path)
 	_win_panel.visible = true
 
 
