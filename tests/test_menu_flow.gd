@@ -20,8 +20,10 @@ func run(t: Object) -> void:
 func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
-			"EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn", "MsgLabel", "VersionLabel",
-			"SettingsPanel", "HintBtn", "AnimBtn", "BackBtn"]:
+			"SinglePlayerBtn", "EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
+			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn", "BackBtn",
+			"AIPanel", "WhiteAIBtn", "RedAIBtn", "BlueAIBtn", "GreenAIBtn", "OrangeAIBtn",
+			"BossAIBtn", "AIBackBtn"]:
 		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
 	m.free()
 
@@ -118,6 +120,13 @@ func _test_main_menu_build(t: Object) -> void:
 	m._on_toggle_hint()   # 切回
 	m._on_close_settings()
 	t.ok(not m._settings_panel.visible, "menu：關閉設定面板")
+	# P10-5：單人對戰 CPU 選擇面板預設隱藏，開啟/返回切換可見性；對手鈕文字已套標籤。
+	t.ok(m._ai_panel != null and not m._ai_panel.visible, "menu：CPU 面板預設隱藏")
+	m._on_single_player()
+	t.ok(m._ai_panel.visible, "menu：開啟 CPU 選擇面板")
+	t.ok((m.get_node("%WhiteAIBtn") as Button).text != "", "menu：對手鈕已套顯示標籤")
+	m._on_close_ai()
+	t.ok(not m._ai_panel.visible, "menu：返回關閉 CPU 面板")
 	m.free()
 	# 清掉切換寫入的檔（保持乾淨）。
 	var d := DirAccess.open("user://")

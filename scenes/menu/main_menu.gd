@@ -7,11 +7,27 @@ extends Node2D
 
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 const ENCYCLOPEDIA_SCENE := "res://scenes/encyclopedia/encyclopedia.tscn"
+const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
+
+# P10-5 單人對戰（vs CPU）。v1：雙方用固定預設牌組（含 B/G/C/DKG 以顯示四種資源列），
+# AI 關卡色只決定「策略/難度」不決定牌組；玩家執先手 P1，CPU 執後手 P2。
+# 每個 AI 對手＝AIController 的一個關卡（見 AIController.KNOWN_STAGES）＋顯示標籤。
+const AI_OPPONENTS := [
+	{"stage": "white", "node": "WhiteAIBtn", "label": "白 · 新手（基礎評分）"},
+	{"stage": "red", "node": "RedAIBtn", "label": "紅 · 攻擊滾雪球"},
+	{"stage": "blue", "node": "BlueAIBtn", "label": "藍 · 藍球經濟"},
+	{"stage": "green", "node": "GreenAIBtn", "label": "綠 · 運氣（起手好運）"},
+	{"stage": "orange", "node": "OrangeAIBtn", "label": "橙 · 機動壓制"},
+	{"stage": "boss", "node": "BossAIBtn", "label": "Boss · 最強（起手優勢）"},
+]
+const SP_DECK_P1 := ["ADCW", "TANKW", "APW", "HFW", "LFW", "ASSW", "HEAL", "MOVE", "CUBES", "ADCB", "ADCG", "ADCC"]
+const SP_DECK_P2 := ["ADCW", "TANKW", "APW", "HFW", "LFW", "ASSW", "HEAL", "MOVE", "CUBES", "ADCB", "ADCDKG", "ADCC"]
 
 var _hud: CanvasLayer
 var _ui_built: bool = false          # 節點綁定完成旗標（沿用舊名，供測試斷言）
 var _msg_label: Label
 var _settings_panel: Panel
+var _ai_panel: Panel
 var _hint_btn: Button
 var _anim_btn: Button
 
@@ -36,12 +52,21 @@ func _bind_nodes() -> void:
 	_msg_label = %MsgLabel
 	(%VersionLabel as Label).text = "平衡資料：" + Balance.data_version()
 
-	# 選單鈕（戰役/爬塔於 .tscn 已 disabled）。
+	# 選單鈕（爬塔於 .tscn 已 disabled）。
 	(%LocalBattleBtn as Button).pressed.connect(_on_local_battle)
+	(%SinglePlayerBtn as Button).pressed.connect(_on_single_player)
 	(%EncyclopediaBtn as Button).pressed.connect(_on_encyclopedia)
 	(%EndlessBtn as Button).pressed.connect(_on_not_ready)
 	(%SettingsBtn as Button).pressed.connect(_on_open_settings)
 	(%QuitBtn as Button).pressed.connect(_on_quit)
+
+	# 單人對戰：CPU 對手選擇面板（每鈕＝一個 AI 關卡）。
+	_ai_panel = %AIPanel
+	for opp: Dictionary in AI_OPPONENTS:
+		var b := get_node("%" + String(opp["node"])) as Button
+		b.text = String(opp["label"])
+		b.pressed.connect(_on_pick_ai.bind(String(opp["stage"])))
+	(%AIBackBtn as Button).pressed.connect(_on_close_ai)
 
 	# 設定面板。
 	_settings_panel = %SettingsPanel
@@ -63,6 +88,32 @@ func _refresh_settings_labels() -> void:
 
 func _on_local_battle() -> void:
 	_change_scene(DRAFT_SCENE)
+
+
+# 單人對戰入口：開 CPU 對手選擇面板。
+func _on_single_player() -> void:
+	if _ai_panel != null:
+		_ai_panel.visible = true
+
+
+func _on_close_ai() -> void:
+	if _ai_panel != null:
+		_ai_panel.visible = false
+
+
+# 選定 CPU 對手 → 用固定預設牌組開一局（玩家 P1、CPU（stage）控制 P2）。
+# 仿 draft._start_battle：手動 instantiate battle 以帶入 boot 參數（含 ai_stage）。
+func _on_pick_ai(stage: String) -> void:
+	if _ai_panel != null:
+		_ai_panel.visible = false
+	var tree := get_tree()
+	if tree == null:
+		return   # headless：不做場景切換
+	var battle: Node = load(BATTLE_SCENE).instantiate()
+	battle.boot(SP_DECK_P1.duplicate(), SP_DECK_P2.duplicate(), randi(), Balance, stage)
+	tree.root.add_child(battle)
+	tree.current_scene = battle
+	queue_free()
 
 
 func _on_encyclopedia() -> void:

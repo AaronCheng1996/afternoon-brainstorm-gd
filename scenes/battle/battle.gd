@@ -21,6 +21,7 @@ const COL_HOVER := Color(1.0, 1.0, 1.0, 0.10)
 const COL_RANGE := Color(0.95, 0.35, 0.30, 0.28)
 const COL_SELECTED := Color(1.0, 0.9, 0.3, 0.30)
 const COL_MOVING := Color(0.4, 0.9, 1.0, 0.22)
+const COL_AI_FOCUS := Color(1.0, 0.85, 0.2, 0.95)   # P10-5：單人對戰 AI 目標圈（黃）
 const P1_COL := Color(0.95, 0.4, 0.4)
 const P2_COL := Color(0.45, 0.6, 1.0)
 
@@ -43,6 +44,11 @@ var _busy: bool = false             # 動畫播放中：鎖輸入
 var _instant: bool = false          # 動畫開關（true=瞬時）
 var _hints_on: bool = true
 var _hover_cell: Vector2i = Vector2i(-1, -1)
+
+# P10-5：單人對戰。ai_stage=""＝本機雙人（無 AI）；非空＝該關卡 CPU 控制 player2。
+var _ai_stage: String = ""
+var _ai: AIController = null
+var _ai_focus_key: String = ""      # AI 目標圈狀態指紋（變動才重繪 persist 層）
 
 # 座標換算器（P9-1）：正交/等距雙模式，統一 cell↔pixel。預設等距。
 var _view := BoardView.new()
@@ -95,11 +101,13 @@ func _ready() -> void:
 
 
 # 對外啟動：設定牌組並開一局（供主選單/BP 之後呼叫，或 headless 測試直接呼叫）。
-func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null) -> void:
+# ai_stage 非空（見 AIController.KNOWN_STAGES）＝單人對戰：CPU 以該關卡策略控制 player2。
+func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null, ai_stage: String = "") -> void:
 	_p1_deck = p1_deck
 	_p2_deck = p2_deck
 	_seed = seed_value
 	_db = db if db != null else Balance
+	_ai_stage = ai_stage
 	_bind_nodes()
 	_apply_settings()
 	_new_game()
@@ -133,8 +141,19 @@ func _new_game() -> void:
 	_busy = false
 	_hover_cell = Vector2i(-1, -1)
 	_compute_resource_visibility()
+	_setup_ai()
 	_hide_win()
 	_resync()
+
+
+# P10-5：單人對戰時建立控制 player2 的 AIController，並開啟 _process 逐幀驅動。
+# 本機雙人（_ai_stage 空）則清空 AI、關閉 process。KEY_R 重開局亦沿用同一關卡。
+func _setup_ai() -> void:
+	_ai = null
+	_ai_focus_key = ""
+	if _ai_stage != "" and AIController.is_known_stage(_ai_stage):
+		_ai = AIController.new(_ai_stage, _db, "player2")
+	set_process(_ai != null)
 
 
 # 依雙方牌組決定要顯示哪些色資源列（G=運氣 / B=藍球 / DKG=圖騰 / C=金幣）。
@@ -180,6 +199,33 @@ func _post_dispatch() -> void:
 func _on_anim_finished() -> void:
 	_busy = false
 	_resync()
+
+
+# ---------------- 單人對戰 AI 驅動（P10-5）----------------
+
+# 只在 AI 回合且非動畫忙碌時，把 AIController 吐出的 GameAction（0/1 個）經既有 _do 分派。
+# 節奏（回合開始停頓、行動間隔）與合法性由 AIController 負責（A §1，`is_busy`＝renderer_busy）。
+# 本機雙人（_ai 為 null）時 set_process(false)，本函式不運作。
+func _process(_delta: float) -> void:
+	if _ai == null or _core == null or _busy or _core.is_over():
+		return
+	if _core.current_player() != _ai.player_name:
+		return
+	var actions: Array = _ai.tick(_core, Time.get_ticks_msec(), _busy)
+	for a: GameAction in actions:
+		_do(a.action_type, a.board_x, a.board_y, a.hand_index)
+	_refresh_ai_focus()
+
+
+# AI 目標圈（focus_position）狀態變動時重繪 persist 層（黃圈畫在 _persist_draw）。
+func _refresh_ai_focus() -> void:
+	if _ai == null:
+		return
+	var key: String = "%s:%d,%d" % [_ai.has_focus, _ai.focus_position.x, _ai.focus_position.y]
+	if key != _ai_focus_key:
+		_ai_focus_key = key
+		if _persist_layer != null:
+			_persist_layer.queue_redraw()
 
 
 # 為 SPAWN 事件先建立視圖（動畫連續性：deploy 引發的傷害可解析到新棋子/既有棋子）。
@@ -468,6 +514,9 @@ func _persist_draw() -> void:
 			_fill_cell(_persist_layer, piece.pos(), COL_SELECTED)
 		elif piece.is_moving():
 			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
+	# P10-5：單人對戰時，AI 決策鎖定的格畫黃色目標圈。
+	if _ai != null and _ai.has_focus and _in_board(_ai.focus_position):
+		_outline_cell(_persist_layer, _ai.focus_position, COL_AI_FOCUS, 3.0)
 
 
 # 格填色 / 格外框（統一走 BoardView.cell_polygon，正交＝方形、等距＝菱形）。
