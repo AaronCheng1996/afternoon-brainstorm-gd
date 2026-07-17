@@ -18,6 +18,9 @@ const DEV_P2_DECK := ["ADCW", "TANKW", "APW", "HFW", "LFW", "ASSW", "HEAL", "MOV
 
 var core: GameCore = null
 var turn_timer: CountdownTimer = CountdownTimer.new()
+# P12-11 server 端對局紀錄（沿用 P11-2 ReplayLog 格式）：seed＋雙方牌組＋成功 action 流。
+# 終局／掉線判勝時由伺服器存檔（save_replays 開時）；決定性重播免費（ReplayLog.simulate）。
+var replay: ReplayLog = null
 var _db: Object = null
 
 
@@ -28,6 +31,7 @@ func start(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null,
 	_db = db
 	core = GameCore.new()
 	core.setup(p1_deck.duplicate(), p2_deck.duplicate(), seed_value, db)
+	replay = ReplayLog.new(seed_value, p1_deck, p2_deck)   # P12-11：起錄（seed 只存此，不下發）
 	turn_timer.configure(turn_on, turn_seconds)
 	var events := _collect()
 	_arm_timer()
@@ -47,6 +51,8 @@ func apply_action(player: String, action: GameAction) -> Dictionary:
 	if not res.success:
 		return {"ok": false, "message": res.message, "events": [],
 			"turn_changed": false, "over": core.is_over()}
+	if replay != null:
+		replay.record(action)   # P12-11：只錄成功 action（＝可重播的權威流，對齊 battle 錄影）
 	var events := _collect()
 	var turn_changed := core.turn_number != turn_before
 	if turn_changed:

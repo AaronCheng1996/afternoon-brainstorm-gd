@@ -7,26 +7,49 @@ extends SceneTree
 # 設定檔（部署時可編輯，命令列參數可再覆蓋；路徑細節見 P12-11）。
 const CONFIG_PATH := "user://server_config.json"
 
-var _server: NetGameServer = null
+# 型別以 Node（非 NetGameServer）宣告：以 `-s` 進入點執行時，若在編譯期具名 NetGameServer，
+# 會連鎖編譯 net_server.gd（引用 autoload Balance）——而 autoload 尚未註冊 → 編譯失敗。
+# 改於 _initialize（autoload 已就緒）用 load().new() 動態載入，讓依賴鏈於執行期才編譯。
+var _server: Node = null
+var _cfg: Dictionary = {}
 
 
 func _initialize() -> void:
-	var cfg := parse_config(OS.get_cmdline_user_args(), _read_text(CONFIG_PATH))
-	_server = NetGameServer.new()
+	_cfg = parse_config(OS.get_cmdline_user_args(), _read_text(CONFIG_PATH))
+	# 動態載入（見上方型別註解）：此時 SceneTree 已註冊 autoload，net_server 的 Balance 可解析。
+	_server = load("res://script/net/net_game_server.gd").new()
 	_server.name = NetPeerBase.PEER_NODE_NAME   # 兩端同名，@rpc 路徑一致（見 NetPeerBase）
-	_server.rooms.max_rooms = int(cfg["max_rooms"])
-	_server.seat_hold_seconds = float(cfg["seat_hold_seconds"])   # P12-10 席位保留秒數
-	root.add_child(_server)                       # 先入樹再開埠（multiplayer 需在樹上）
-	var res := _server.start(int(cfg["port"]), int(cfg["max_clients"]))
+	_server.rooms.max_rooms = int(_cfg["max_rooms"])
+	_server.seat_hold_seconds = float(_cfg["seat_hold_seconds"])   # P12-10 席位保留秒數
+	_server.save_replays = bool(_cfg["save_replays"])              # P12-11 對局結束存紀錄
+	root.add_child(_server)
+	# _initialize 期間新加入的節點尚未完整入樹（is_inside_tree 為 false，get_path/multiplayer 未就緒）
+	# ——延到入樹後（下一 idle）再掛 MultiplayerAPI 與開埠。
+	_boot.call_deferred()
+
+
+# 節點入樹後開伺服器：`-s` SceneTree 主迴圈不會自動為節點建立 MultiplayerAPI（正式 boot 才有）
+# ——手動掛一個到伺服器節點路徑，否則 net_server 設 multiplayer.multiplayer_peer 時 multiplayer 為 null。
+func _boot() -> void:
+	set_multiplayer(SceneMultiplayer.new(), _server.get_path())
+	var res: Dictionary = _server.start(int(_cfg["port"]), int(_cfg["max_clients"]))
 	if not res["ok"]:
 		push_error("[server] 開埠失敗：%s" % res["error"])
 		quit(1)
 		return
 	print("[server] 午後激盪 專用伺服器啟動：埠 %d（UDP）／最大房間 %d／每房觀戰上限 %d"
-		% [int(cfg["port"]), int(cfg["max_rooms"]), int(cfg["spectator_limit"])])
+		% [int(_cfg["port"]), int(_cfg["max_rooms"]), int(_cfg["spectator_limit"])])
 	print("[server] 遊戲版本 %s／資料版本 %s。Ctrl-C 或 SIGTERM 結束。"
-		% [NetMessage.GAME_VERSION, Balance.data_version()])
+		% [NetMessage.GAME_VERSION, _data_version()])
 	# 不 quit：SceneTree 主迴圈持續運行、每幀 poll ENet，直到收到終止訊號。
+
+
+# 取資料版本。以 `-s` 進入點執行時，autoload 全域識別字（Balance）不進本主腳本的編譯期
+# 符號表——改以執行期查 /root/Balance（SceneTree 已把 autoload 掛上 root）。net_server 等
+# 依賴類仍於執行期用 Balance 全域（握手時，autoload 已就緒）。
+func _data_version() -> String:
+	var bal := root.get_node_or_null(^"Balance")
+	return String(bal.data_version()) if bal != null else "unavailable"
 
 
 func _finalize() -> void:

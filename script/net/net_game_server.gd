@@ -16,6 +16,8 @@ var _draft_timer_on: bool = false
 var _draft_seconds: float = 45.0
 # P12-10 席位保留秒數（掉線等待重連；server_config 可覆蓋，見 server_main）。
 var seat_hold_seconds: float = 60.0
+# P12-11 對局結束時 server 端存 ReplayLog（server_config.save_replays；測試預設關避免寫檔）。
+var save_replays: bool = false
 
 
 # 開伺服器：沿用 NetServer.start，另接斷線→離房清理。
@@ -322,11 +324,21 @@ func _broadcast_room_result(room_id: String, session: NetGameSession, res: Dicti
 
 
 # 終局：廣播 game_over（含完整統計於快照）＋房間 battling→ended（可重開或解散）。
-# 保留 session 至房間重開／解散（供終局統計檢視）。
+# 保留 session 至房間重開／解散（供終局統計檢視）。P12-11：存 server 端 ReplayLog。
 func _finish_battle(room_id: String, session: NetGameSession) -> void:
 	_broadcast_to_room(room_id, NetMessage.T_GAME_OVER,
 		{"snapshot": session.snapshot(), "winner": session.core.winner_name()})
 	rooms.end_battle(room_id)
+	_save_replay(session)
+
+
+# P12-11：對局結束存 ReplayLog（沿用 P11-2 格式；seed 只存於此、檔案在 server user://replays/）。
+# save_replays 關（測試預設）或無 action 則略過。
+func _save_replay(session: NetGameSession) -> void:
+	if not save_replays or session == null or session.replay == null \
+			or (session.replay.actions as Array).is_empty():
+		return
+	ReplayLog.save_to_file(session.replay, ReplayLog.new_path())
 
 
 # 伺服器主迴圈每幀推進所有房間的回合計時（權威）；逾時由 session 自行 end_turn，本函式廣播結果。
@@ -381,6 +393,7 @@ func _on_hold_expired(room_id: String, seat: String) -> void:
 			{"snapshot": session.snapshot(), "winner": other_seat,
 			"reason": NetMessage.REASON_OPPONENT_FORFEIT})
 		rooms.end_battle(room_id)   # battling → ended（session 保留供統計，可重開／解散）
+		_save_replay(session)   # P12-11：判勝終局也存紀錄（含掉線前的完整 action 流）
 	else:
 		# 選秀中掉線逾時／其他：中止暫態對局，回到 waiting 供同成員重開。
 		_sessions.erase(room_id)

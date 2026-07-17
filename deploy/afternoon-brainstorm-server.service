@@ -1,0 +1,37 @@
+# P12-11 午後激盪 專用伺服器 systemd unit 範本（見 deploy/README.md）。
+# 安裝：
+#   1. 依實機修改 User / GODOT / PROJECT 三處路徑（下方 Environment 與 ExecStart）。
+#   2. sudo cp deploy/afternoon-brainstorm-server.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now afternoon-brainstorm-server
+#   5. journalctl -u afternoon-brainstorm-server -f      # 看 log（journald）
+#
+# 特性：崩潰／SIGTERM 後自動重啟（Restart=always）、開機自啟（WantedBy=multi-user.target）、
+# stdout/stderr 收進 journald。埠與房間數由 server_config.json 或此處 ExecStart 的 key=value 決定。
+
+[Unit]
+Description=午後激盪 專用連線伺服器（Afternoon Brainstorm dedicated server）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 以非 root 帳號執行（請先建立或改成既有帳號）。
+User=abrainstorm
+Group=abrainstorm
+
+# 依實機修改這兩個路徑（GODOT＝Godot 4.7 執行檔、PROJECT＝專案根含 project.godot）。
+Environment=GODOT=/opt/godot/Godot_v4.7-stable_linux.x86_64
+Environment=PROJECT=/opt/afternoon-brainstorm
+
+# 直接呼叫 Godot（也可改用 deploy/run_server.sh）。埠等參數在 `--` 之後覆蓋 server_config.json。
+ExecStart=/opt/godot/Godot_v4.7-stable_linux.x86_64 --headless --path /opt/afternoon-brainstorm -s script/net/server_main.gd -- port=24242 max_rooms=16
+
+Restart=always
+RestartSec=3
+# 溫和關閉：server_main 收 SIGTERM → _finalize 停伺服器。
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
