@@ -44,9 +44,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 236.0
+offset_top = 232.0
 offset_right = 120.0
-offset_bottom = 288.0
+offset_bottom = 284.0
 theme_override_font_sizes/font_size = 16
 text = "本機對戰"
 
@@ -56,11 +56,23 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 300.0
+offset_top = 292.0
 offset_right = 120.0
-offset_bottom = 352.0
+offset_bottom = 344.0
 theme_override_font_sizes/font_size = 16
 text = "單人對戰（vs CPU）"
+
+[node name="OnlineBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 52)
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -120.0
+offset_top = 352.0
+offset_right = 120.0
+offset_bottom = 404.0
+theme_override_font_sizes/font_size = 16
+text = "線上對戰"
 
 [node name="EncyclopediaBtn" type="Button" parent="HUD"]
 unique_name_in_owner = true
@@ -68,9 +80,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 364.0
+offset_top = 412.0
 offset_right = 120.0
-offset_bottom = 416.0
+offset_bottom = 464.0
 theme_override_font_sizes/font_size = 16
 text = "百科圖鑑"
 
@@ -80,9 +92,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 428.0
+offset_top = 472.0
 offset_right = 120.0
-offset_bottom = 480.0
+offset_bottom = 524.0
 theme_override_font_sizes/font_size = 16
 text = "回放紀錄"
 
@@ -92,9 +104,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 492.0
+offset_top = 532.0
 offset_right = 120.0
-offset_bottom = 544.0
+offset_bottom = 584.0
 disabled = true
 theme_override_font_sizes/font_size = 16
 text = "爬塔模式（尚未開放）"
@@ -105,9 +117,9 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 556.0
+offset_top = 592.0
 offset_right = 120.0
-offset_bottom = 608.0
+offset_bottom = 644.0
 theme_override_font_sizes/font_size = 16
 text = "設定"
 
@@ -117,17 +129,17 @@ custom_minimum_size = Vector2(240, 52)
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -120.0
-offset_top = 620.0
+offset_top = 652.0
 offset_right = 120.0
-offset_bottom = 672.0
+offset_bottom = 704.0
 theme_override_font_sizes/font_size = 16
 text = "離開"
 
 [node name="MsgLabel" type="Label" parent="HUD"]
 unique_name_in_owner = true
 anchor_right = 1.0
-offset_top = 692.0
-offset_bottom = 692.0
+offset_top = 716.0
+offset_bottom = 716.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.7, 0.5, 1)
 horizontal_alignment = 1

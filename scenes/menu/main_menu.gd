@@ -8,6 +8,7 @@ extends Node2D
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 const ENCYCLOPEDIA_SCENE := "res://scenes/encyclopedia/encyclopedia.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
+const ONLINE_SCENE := "res://scenes/online/online_lobby.tscn"   # P12-7 線上對戰大廳
 
 # P10-5 單人對戰（vs CPU）。v1：雙方用固定預設牌組（含 B/G/C/DKG 以顯示四種資源列），
 # AI 關卡色只決定「策略/難度」不決定牌組；玩家執先手 P1，CPU 執後手 P2。
@@ -71,6 +72,7 @@ func _bind_nodes() -> void:
 	# 選單鈕（爬塔於 .tscn 已 disabled）。
 	(%LocalBattleBtn as Button).pressed.connect(_on_local_battle)
 	(%SinglePlayerBtn as Button).pressed.connect(_on_single_player)
+	(%OnlineBtn as Button).pressed.connect(_on_online)
 	(%EncyclopediaBtn as Button).pressed.connect(_on_encyclopedia)
 	(%ReplayBtn as Button).pressed.connect(_on_open_replays)
 	(%EndlessBtn as Button).pressed.connect(_on_not_ready)
@@ -142,6 +144,10 @@ func _on_pick_ai(stage: String) -> void:
 	tree.root.add_child(battle)
 	tree.current_scene = battle
 	queue_free()
+
+
+func _on_online() -> void:
+	_change_scene(ONLINE_SCENE)
 
 
 func _on_encyclopedia() -> void:

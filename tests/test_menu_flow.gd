@@ -20,7 +20,7 @@ func run(t: Object) -> void:
 func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
-			"SinglePlayerBtn", "EncyclopediaBtn", "ReplayBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
+			"SinglePlayerBtn", "OnlineBtn", "EncyclopediaBtn", "ReplayBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
 			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn",
 			"TurnTimerBtn", "DraftTimerBtn", "BackBtn",
 			"AIPanel", "WhiteAIBtn", "RedAIBtn", "BlueAIBtn", "GreenAIBtn", "OrangeAIBtn",
