@@ -136,6 +136,8 @@ func _make_client(_nickname: String) -> NetClient:
 	c.room_closed.connect(_on_room_closed)
 	c.lobby_error.connect(_on_lobby_error)
 	c.rtt_measured.connect(_on_rtt_measured)
+	c.draft_updated.connect(_on_draft_updated)
+	c.draft_rejected.connect(_on_draft_rejected)
 	c.snapshot_received.connect(_on_snapshot_received)
 	c.game_over.connect(_on_game_over)
 	return c
@@ -216,6 +218,21 @@ func _on_lobby_error(reason: String) -> void:
 func _on_rtt_measured(_peer_id: int, rtt_ms: int) -> void:
 	if _ui_state == UI_ROOM:
 		(%LatencyLabel as Label).text = "延遲：%d ms" % rtt_ms
+
+
+# P12-8 選秀狀態：以房內狀態列即時反映階段/當前選手/雙方張數（BP 全公開）。
+# 連線選秀畫面（可點選牌、非編輯方鎖定「對方選牌中」）於後續任務把 draft.tscn 接上 NetClient。
+func _on_draft_updated(draft: Dictionary) -> void:
+	if _ui_state != UI_ROOM:
+		_show_state(UI_ROOM)
+	var editor := String(draft.get("editor", ""))
+	var picking := "你" if (editor != "" and editor == _my_seat()) else "對手"
+	(%RoomStatus as Label).text = "選秀中：目前 %s 選牌 · P1 %d/12　P2 %d/12（連線選秀畫面將於後續任務接入）" % [
+		picking, int(draft.get("player1_count", 0)), int(draft.get("player2_count", 0))]
+
+
+func _on_draft_rejected(reason: String, _message: String) -> void:
+	set_message(reason_text(reason))
 
 
 func _on_snapshot_received(_snapshot: Dictionary) -> void:
@@ -433,6 +450,10 @@ static func reason_text(reason: String) -> String:
 			return "目前狀態無法執行此操作。"
 		NetMessage.REASON_NOT_READY:
 			return "雙方尚未就緒，無法開始。"
+		NetMessage.REASON_NOT_DRAFTING:
+			return "房間目前未在選秀中。"
+		NetMessage.REASON_BAD_DRAFT_ACTION:
+			return "選秀行動非法。"
 		NetMessage.REASON_NOT_BATTLING:
 			return "房間目前未在對戰中。"
 		NetMessage.REASON_NOT_YOUR_TURN:

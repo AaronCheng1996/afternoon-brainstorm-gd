@@ -9,6 +9,11 @@ extends NetServer
 var rooms: RoomManager = RoomManager.new()
 # room_id -> NetGameSession（每房一顆權威 GameCore；於「對戰起」建立，P12-6）。
 var _sessions: Dictionary = {}
+# room_id -> NetDraftSession（每房一顆權威選秀狀態；於「選秀起」建立、完成後移除，P12-8）。
+var _draft_sessions: Dictionary = {}
+# 選秀計時（server 權威；預設關，正式部署由 server_config 開啟，P12-11）。
+var _draft_timer_on: bool = false
+var _draft_seconds: float = 45.0
 
 
 # 開伺服器：沿用 NetServer.start，另接斷線→離房清理。
@@ -43,12 +48,16 @@ func _handle_lobby(sender_id: int, type: String, payload: Dictionary) -> void:
 			_do_set_ready(sender_id, payload)
 		NetMessage.T_LIST_ROOMS:
 			send_to(sender_id, NetMessage.T_ROOM_LIST, {"rooms": rooms.list_public()})
+		NetMessage.T_START_DRAFT:
+			_do_start_draft(sender_id)
+		NetMessage.T_DRAFT_ACTION:
+			_do_draft_action(sender_id, payload)
 		NetMessage.T_START_BATTLE:
 			_do_start_battle(sender_id, payload)
 		NetMessage.T_GAME_ACTION:
 			_do_game_action(sender_id, payload)
 		_:
-			pass   # BP 訊息在 P12-8 於此擴充
+			pass
 
 
 func _do_create(sender_id: int, payload: Dictionary) -> void:
@@ -93,9 +102,82 @@ func _do_set_ready(sender_id: int, payload: Dictionary) -> void:
 	_broadcast_room_state(res["room_id"])
 
 
+# --- 選秀 BP（P12-8，§6）---
+
+# 兩席就緒 → 房間 waiting → drafting，建權威 NetDraftSession，廣播房態＋開局選秀狀態。
+# 前提：請求者為房內玩家、兩席就緒。seed 於此產生（只存伺服器，D19），完成後傳給對戰 GameCore。
+func _do_start_draft(sender_id: int) -> void:
+	var room_id := rooms.room_of(sender_id)
+	if room_id == "":
+		_lobby_error(sender_id, NetMessage.REASON_NOT_IN_ROOM)
+		return
+	if rooms.player_seat(sender_id) == "":
+		_lobby_error(sender_id, NetMessage.REASON_NOT_A_PLAYER)
+		return
+	if rooms.state_of(room_id) != RoomManager.STATE_WAITING or not rooms.both_ready(room_id):
+		_lobby_error(sender_id, NetMessage.REASON_NOT_READY)
+		return
+	rooms.begin_draft(room_id)   # waiting → drafting
+	var draft := NetDraftSession.new()
+	draft.start(int(Time.get_unix_time_from_system()) ^ randi(), _draft_timer_on, _draft_seconds)
+	_draft_sessions[room_id] = draft
+	_broadcast_room_state(room_id)   # 房態 → drafting（UI 更新）
+	_broadcast_to_room(room_id, NetMessage.T_DRAFT_STATE, {"draft": draft.view()})
+
+
+# 席位玩家的選秀行動：席位由 server 認定（不採 client 宣稱值）；旁觀者一律拒。
+# 成功→廣播選秀狀態（全房同一份，BP 全公開）；完成→建 GameCore 進對戰；
+# 失敗→只回行動者 draft_rejected（不斷線）。
+func _do_draft_action(sender_id: int, payload: Dictionary) -> void:
+	var room_id := rooms.room_of(sender_id)
+	if room_id == "" or not _draft_sessions.has(room_id) \
+			or rooms.state_of(room_id) != RoomManager.STATE_DRAFTING:
+		_draft_rejected(sender_id, NetMessage.REASON_NOT_DRAFTING)
+		return
+	var seat := rooms.player_seat(sender_id)
+	if seat == "":
+		_draft_rejected(sender_id, NetMessage.REASON_SPECTATOR_ACTION)
+		return
+	var action := NetCodec.decode_draft_action(payload.get("action", null), seat)
+	if action == null:
+		_draft_rejected(sender_id, NetMessage.REASON_BAD_DRAFT_ACTION)
+		return
+	var draft: NetDraftSession = _draft_sessions[room_id]
+	var res := draft.apply(seat, action)
+	if not res["ok"]:
+		_draft_rejected(sender_id, _draft_reason(String(res["message"])), String(res["message"]))
+		return
+	_broadcast_to_room(room_id, NetMessage.T_DRAFT_STATE, {"draft": draft.view()})
+	if bool(res["done"]):
+		_complete_draft(room_id, draft)
+
+
+# 選秀完成：以雙方牌組建權威 GameCore（seed 沿用選秀階段 server 產生者）→ 房間 drafting→battling
+# → 廣播開局快照＋事件（§6：完成後 server 建 GameCore 發首份快照進對戰）。
+func _complete_draft(room_id: String, draft: NetDraftSession) -> void:
+	var decks := draft.decks()
+	var seed_value := draft.seed_value
+	_draft_sessions.erase(room_id)
+	rooms.begin_battle(room_id)   # drafting → battling
+	_launch_battle(room_id, decks[0], decks[1], seed_value)
+
+
+# 選秀行動拒絕原因對映（dispatcher 內部英文訊息 → 穩定 reason 常數；回合閘尤其明確）。
+func _draft_reason(message: String) -> String:
+	match message:
+		"Not your turn":
+			return NetMessage.REASON_NOT_YOUR_TURN
+		_:
+			return NetMessage.REASON_BAD_DRAFT_ACTION
+
+
+func _draft_rejected(sender_id: int, reason: String, message: String = "") -> void:
+	send_to(sender_id, NetMessage.T_DRAFT_REJECTED, {"reason": reason, "message": message})
+
+
 # --- 對戰（P12-6，§4/§6）---
 
-# 開發旗標：跳過 BP、以預設牌組開戰，先驗證對戰鏈路（正式流程走 P12-8 的連線 BP，見 §6）。
+# 開發旗標：跳過 BP、以預設牌組開戰，先驗證對戰鏈路（正式流程走上方連線 BP，見 §6）。
 # 前提：請求者為房內玩家、兩席就緒。seed 可由 payload 指定（測試決定性用），否則隨機。
 # 房間 waiting →（begin_draft）→ drafting →（begin_battle）→ battling（跳過 BP 的行動）。
 func _do_start_battle(sender_id: int, payload: Dictionary) -> void:
@@ -114,11 +196,17 @@ func _do_start_battle(sender_id: int, payload: Dictionary) -> void:
 	var seed_value := int(payload.get("seed", 0))
 	if seed_value == 0:
 		seed_value = int(Time.get_unix_time_from_system()) ^ randi()
+	_launch_battle(room_id, NetGameSession.DEV_P1_DECK, NetGameSession.DEV_P2_DECK, seed_value)
+
+
+# 以指定牌組建權威 GameCore、存 session、廣播開局快照＋事件（開發旗標與選秀完成共用）。
+# 前提：房間已轉入 battling（呼叫端負責 begin_battle）。db=null → GameCore.setup 用 autoload Balance。
+func _launch_battle(room_id: String, p1_deck: Array, p2_deck: Array, seed_value: int) -> void:
 	var session := NetGameSession.new()
-	# db=null → GameCore.setup 用 autoload Balance；回合計時預設關（§6 對戰計時本任務只到權威骨幹）。
-	var events: Array = session.start(NetGameSession.DEV_P1_DECK, NetGameSession.DEV_P2_DECK,
-		seed_value, null)
+	# 回合計時預設關（§6 對戰計時本任務只到權威骨幹）。
+	var events: Array = session.start(p1_deck, p2_deck, seed_value, null)
 	_sessions[room_id] = session
+	_broadcast_room_state(room_id)   # 房態 → battling（UI 更新）
 	# 開局快照（全房同一份，D19）＋開局事件流。
 	_broadcast_to_room(room_id, NetMessage.T_SNAPSHOT, {"snapshot": session.snapshot()})
 	if not events.is_empty():
@@ -183,6 +271,15 @@ func tick_sessions(delta: float) -> void:
 		var res := session.tick(delta)
 		if res["ok"]:
 			_broadcast_room_result(room_id, session, res)
+	# 選秀計時（P12-8）：逾時＝server 權威 auto_fill_and_advance→廣播狀態；完成→建 GameCore 進對戰。
+	# keys 複本：_complete_draft 會於迴圈內移除該房的選秀 session。
+	for room_id in _draft_sessions.keys().duplicate():
+		var draft: NetDraftSession = _draft_sessions[room_id]
+		var dres := draft.tick(delta)
+		if bool(dres["ok"]):
+			_broadcast_to_room(room_id, NetMessage.T_DRAFT_STATE, {"draft": draft.view()})
+			if bool(dres["done"]):
+				_complete_draft(room_id, draft)
 
 
 func _process(delta: float) -> void:
@@ -212,6 +309,7 @@ func _after_leave(res: Dictionary) -> void:
 	var room_id: String = res["room_id"]
 	if bool(res["dissolved"]):
 		_sessions.erase(room_id)   # 房解散 → 丟棄權威 session
+		_draft_sessions.erase(room_id)   # 一併丟棄選秀 session（P12-8）
 		for pid in res["members_before"]:
 			send_to(int(pid), NetMessage.T_ROOM_CLOSED, {"room_id": room_id, "reason": "empty"})
 	else:
@@ -240,4 +338,5 @@ func _intent_is_spectate(peer_id: int) -> bool:
 func stop() -> void:
 	rooms = RoomManager.new()
 	_sessions.clear()
+	_draft_sessions.clear()
 	super()

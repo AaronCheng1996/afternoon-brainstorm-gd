@@ -23,6 +23,12 @@ signal room_closed(room_id: String, reason: String)
 # 大廳請求失敗（不斷線）。
 signal lobby_error(reason: String)
 
+# --- 選秀 BP（P12-8，§6）---
+# 收到公開選秀狀態（開局／每次行動後／逾時補牌後；payload＝NetDraftSession view）。
+signal draft_updated(draft: Dictionary)
+# 己方選秀行動被伺服器拒絕（回合閘／上限…，不斷線）。
+signal draft_rejected(reason: String, message: String)
+
 # --- 對戰（P12-6，§4/§6）---
 # 收到一批 GameEvent（已解碼；照本機管線播動畫）。
 signal battle_events(events: Array)
@@ -112,9 +118,22 @@ func list_rooms() -> void:
 	send_to(SERVER_ID, NetMessage.T_LIST_ROOMS, {})
 
 
+# --- 選秀 BP 請求（送往伺服器，P12-8）---
+
+# 兩席就緒後由玩家（房主）請求開始選秀（server 進 drafting、發首份選秀狀態）。
+func start_draft() -> void:
+	send_to(SERVER_ID, NetMessage.T_START_DRAFT, {})
+
+
+# 送一個選秀行動（player 由伺服器依席位指派）。type∈add_card/remove_card/remove_last_card/
+# advance_phase/confirm_start；card 僅 add_card/remove_card 用。
+func send_draft_action(type: String, card: String = "") -> void:
+	send_to(SERVER_ID, NetMessage.T_DRAFT_ACTION, {"action": {"type": type, "card": card}})
+
+
 # --- 對戰請求（送往伺服器）---
 
-# 開發旗標：跳過 BP、預設牌組開戰（正式流程走 P12-8 的連線 BP）。seed 0＝伺服器隨機。
+# 開發旗標：跳過 BP、預設牌組開戰（正式流程走連線 BP：start_draft）。seed 0＝伺服器隨機。
 func start_battle(seed_value: int = 0) -> void:
 	var p := {}
 	if seed_value != 0:
@@ -142,6 +161,10 @@ func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 			room_closed.emit(String(payload.get("room_id", "")), String(payload.get("reason", "")))
 		NetMessage.T_LOBBY_ERROR:
 			lobby_error.emit(String(payload.get("reason", "")))
+		NetMessage.T_DRAFT_STATE:
+			draft_updated.emit(payload.get("draft", {}))
+		NetMessage.T_DRAFT_REJECTED:
+			draft_rejected.emit(String(payload.get("reason", "")), String(payload.get("message", "")))
 		NetMessage.T_GAME_EVENTS:
 			battle_events.emit(NetCodec.decode_events(payload.get("events", [])))
 		NetMessage.T_SNAPSHOT:

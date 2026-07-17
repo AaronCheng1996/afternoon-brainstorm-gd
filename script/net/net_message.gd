@@ -30,6 +30,14 @@ const T_ROOM_STATE := "room_state"    # {room: member_view}（廣播給房內成
 const T_ROOM_CLOSED := "room_closed"  # {room_id, reason}（房解散：通知原成員）
 const T_LOBBY_ERROR := "lobby_error"  # {reason}（大廳請求失敗，不斷線，有別於握手 T_REJECTED）
 
+# --- 選秀 BP 訊息（P12-8，§6）---
+# client→server
+const T_START_DRAFT := "start_draft"    # {}（房內玩家、兩席就緒 → server 進 drafting、建 DraftState）
+const T_DRAFT_ACTION := "draft_action"  # {action:{type,card}}（席位玩家的選秀行動；player 由 server 依席位指派）
+# server→client（廣播全房，BP 全公開）
+const T_DRAFT_STATE := "draft_state"    # {draft: view}（選秀狀態：階段/當前選手/雙方牌組，關鍵點/每次行動後廣播）
+const T_DRAFT_REJECTED := "draft_rejected"  # {reason, message}（只回行動者：回合閘／上限…，不斷線）
+
 # --- 對戰訊息（P12-6，§4/§6）---
 # client→server
 const T_START_BATTLE := "start_battle"  # {seed?}（開發旗標：跳過 BP、預設牌組先驗對戰鏈路，見 §6）
@@ -60,6 +68,10 @@ const REASON_NO_SPECTATE := "spectate_disabled"
 const REASON_NOT_IN_ROOM := "not_in_room"
 const REASON_NOT_A_PLAYER := "not_a_player"
 const REASON_BAD_STATE := "bad_state"
+
+# --- 選秀錯誤原因（P12-8，§6）---
+const REASON_NOT_DRAFTING := "not_drafting"           # 房間未在選秀中
+const REASON_BAD_DRAFT_ACTION := "bad_draft_action"   # 選秀行動格式非法（codec 拒收）
 
 # --- 對戰錯誤原因（P12-6，§6）---
 const REASON_NOT_BATTLING := "not_battling"           # 房間未在對戰中

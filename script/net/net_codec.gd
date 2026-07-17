@@ -10,6 +10,9 @@ extends RefCounted
 
 # dispatch 可執行的行動白名單（"quit" 不可經網路觸發；player 由 server 指派）。
 const ALLOWED_ACTIONS := ["attack", "play_card", "move_to", "heal", "spawn_cube", "toggle_upgrade", "end_turn"]
+# 選秀 BP 可經網路的行動白名單（P12-8）：僅牌組編輯與階段前進；本機專用的 toggle_timer／
+# toggle_file_save 不上網（計時由 server 權威、存檔為 server 端事）。
+const ALLOWED_DRAFT_ACTIONS := ["add_card", "remove_card", "remove_last_card", "advance_phase", "confirm_start"]
 # GameEvent.data 中屬 Vector2i 的鍵（JSON 無此型別 → 序列化為 [x, y]，還原時依鍵重建）。
 const V2_KEYS := ["from", "to", "at"]
 
@@ -33,6 +36,24 @@ static func decode_action(d: Variant, player: String) -> GameAction:
 	a.board_y = int(dict.get("y", -1))
 	a.hand_index = int(dict.get("i", -1))
 	return a
+
+
+# --- DraftAction（P12-8）---
+
+static func encode_draft_action(a: DraftAction) -> Dictionary:
+	return {"type": a.action_type, "card": a.card_name}
+
+
+# 還原一則選秀行動；player 由呼叫端（server）依席位指派。非字典／未白名單型別 → null。
+# card_name 一律轉字串（不可信輸入）；add_card 的空/非法卡名由 DraftDispatcher 規則層再擋。
+static func decode_draft_action(d: Variant, player: String) -> DraftAction:
+	if typeof(d) != TYPE_DICTIONARY:
+		return null
+	var dict: Dictionary = d
+	var type := String(dict.get("type", ""))
+	if not ALLOWED_DRAFT_ACTIONS.has(type):
+		return null
+	return DraftAction.new(player, type, String(dict.get("card", "")))
 
 
 # --- GameEvent ---
