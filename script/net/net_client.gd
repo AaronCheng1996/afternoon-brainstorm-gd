@@ -23,6 +23,16 @@ signal room_closed(room_id: String, reason: String)
 # 大廳請求失敗（不斷線）。
 signal lobby_error(reason: String)
 
+# --- 對戰（P12-6，§4/§6）---
+# 收到一批 GameEvent（已解碼；照本機管線播動畫）。
+signal battle_events(events: Array)
+# 收到公開快照（開局／回合交接／校正；payload＝GameSnapshot Dictionary）。
+signal snapshot_received(snapshot: Dictionary)
+# 終局（payload＝{snapshot, winner}）。
+signal game_over(info: Dictionary)
+# 己方行動被伺服器拒絕（回合閘／次數不足…，不斷線）。
+signal action_rejected(reason: String, message: String)
+
 var _intent := NetMessage.INTENT_PLAY
 var _nickname := ""
 var _token := ""
@@ -102,6 +112,21 @@ func list_rooms() -> void:
 	send_to(SERVER_ID, NetMessage.T_LIST_ROOMS, {})
 
 
+# --- 對戰請求（送往伺服器）---
+
+# 開發旗標：跳過 BP、預設牌組開戰（正式流程走 P12-8 的連線 BP）。seed 0＝伺服器隨機。
+func start_battle(seed_value: int = 0) -> void:
+	var p := {}
+	if seed_value != 0:
+		p["seed"] = seed_value
+	send_to(SERVER_ID, NetMessage.T_START_BATTLE, p)
+
+
+# 送出一個行動（player 由伺服器依席位指派，此處只送型別／座標／索引）。
+func send_action(action: GameAction) -> void:
+	send_to(SERVER_ID, NetMessage.T_GAME_ACTION, {"action": NetCodec.encode_action(action)})
+
+
 func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 	match type:
 		NetMessage.T_WELCOME:
@@ -117,6 +142,14 @@ func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 			room_closed.emit(String(payload.get("room_id", "")), String(payload.get("reason", "")))
 		NetMessage.T_LOBBY_ERROR:
 			lobby_error.emit(String(payload.get("reason", "")))
+		NetMessage.T_GAME_EVENTS:
+			battle_events.emit(NetCodec.decode_events(payload.get("events", [])))
+		NetMessage.T_SNAPSHOT:
+			snapshot_received.emit(payload.get("snapshot", {}))
+		NetMessage.T_GAME_OVER:
+			game_over.emit(payload)
+		NetMessage.T_ACTION_REJECTED:
+			action_rejected.emit(String(payload.get("reason", "")), String(payload.get("message", "")))
 
 
 func _on_conn_failed() -> void:

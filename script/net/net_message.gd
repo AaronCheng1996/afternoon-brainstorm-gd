@@ -30,6 +30,16 @@ const T_ROOM_STATE := "room_state"    # {room: member_view}（廣播給房內成
 const T_ROOM_CLOSED := "room_closed"  # {room_id, reason}（房解散：通知原成員）
 const T_LOBBY_ERROR := "lobby_error"  # {reason}（大廳請求失敗，不斷線，有別於握手 T_REJECTED）
 
+# --- 對戰訊息（P12-6，§4/§6）---
+# client→server
+const T_START_BATTLE := "start_battle"  # {seed?}（開發旗標：跳過 BP、預設牌組先驗對戰鏈路，見 §6）
+const T_GAME_ACTION := "game_action"    # {action:{type,x,y,i}}（席位玩家的行動；player 由 server 依席位指派）
+# server→client（廣播全房，玩家＋旁觀者同一份，D19）
+const T_GAME_EVENTS := "game_events"    # {events:[{k,d}…]}（GameEvent 流，客端照本機管線播動畫）
+const T_SNAPSHOT := "snapshot"          # {snapshot: GameSnapshot}（開局／回合交接／校正）
+const T_GAME_OVER := "game_over"        # {snapshot, winner}（終局＋完整統計，在 snapshot 內）
+const T_ACTION_REJECTED := "action_rejected"  # {reason, message}（只回行動者，不斷線）
+
 # --- 握手意圖（見 §5.3 角色）---
 const INTENT_PLAY := "play"
 const INTENT_SPECTATE := "spectate"
@@ -50,6 +60,13 @@ const REASON_NO_SPECTATE := "spectate_disabled"
 const REASON_NOT_IN_ROOM := "not_in_room"
 const REASON_NOT_A_PLAYER := "not_a_player"
 const REASON_BAD_STATE := "bad_state"
+
+# --- 對戰錯誤原因（P12-6，§6）---
+const REASON_NOT_BATTLING := "not_battling"           # 房間未在對戰中
+const REASON_NOT_YOUR_TURN := "not_your_turn"         # 非當前回合玩家
+const REASON_SPECTATOR_ACTION := "spectator_cannot_act"  # 旁觀者不得行動（唯讀由 server 保證）
+const REASON_BAD_ACTION := "bad_action"               # 行動格式非法（codec 拒收）
+const REASON_NOT_READY := "not_ready"                 # 開戰前雙方尚未就緒
 
 # --- 信封鍵 ---
 const K_PROTOCOL := "v"

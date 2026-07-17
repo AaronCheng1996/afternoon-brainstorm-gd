@@ -196,6 +196,20 @@ func room_of(peer_id: int) -> String:
 	return String(_peer_room.get(peer_id, ""))
 
 
+# peer_id 若為某房玩家，回其席位名（player1/player2）；旁觀者或未入房回 ""。
+# 供 NetGameServer 依席位指派行動歸屬（不採用 client 宣稱值，§6/§9）。
+func player_seat(peer_id: int) -> String:
+	var room_id := room_of(peer_id)
+	if room_id == "":
+		return ""
+	return _seat_of(_rooms[room_id], peer_id)
+
+
+# 房間目前生命週期狀態（waiting/drafting/battling/ended）；無此房回 ""。
+func state_of(room_id: String) -> String:
+	return String(_rooms[room_id]["state"]) if _rooms.has(room_id) else ""
+
+
 # 房內全部成員 id（玩家＋旁觀者），供廣播。
 func room_members(room_id: String) -> Array:
 	if not _rooms.has(room_id):
