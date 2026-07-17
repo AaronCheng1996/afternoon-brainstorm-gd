@@ -84,6 +84,30 @@ func _do_join(sender_id: int, payload: Dictionary) -> void:
 		_lobby_error(sender_id, res["error"])
 		return
 	_broadcast_room_state(res["room_id"])
+	_send_catchup(sender_id, res["room_id"])   # P12-9：中途加入者補送當前對局狀態，此後事件自然續播
+
+
+# P12-9 旁觀中途加入補送（見 10_連線版本.md §7，D18/D19）。
+# 新加入者（對戰/選秀中座位已滿→實務上為旁觀者）除房態外，另補送「當前對局公開狀態」以重建畫面；
+# 此後事件流自然續播（已是房內成員，`_broadcast_to_room` 涵蓋，無需重放整局）。
+#   drafting → 當前公開選秀 view；battling → 當前公開快照；ended → 終局快照＋勝方。
+# **只送給該新加入者**（非全房廣播）；waiting 無對局狀態，房態已足夠、不補送。
+# 全為 D19 公開資訊（含雙方手牌，不含 seed／牌庫序，見 GameSnapshot／NetDraftSession.view）。
+func _send_catchup(sender_id: int, room_id: String) -> void:
+	match rooms.state_of(room_id):
+		RoomManager.STATE_DRAFTING:
+			if _draft_sessions.has(room_id):
+				send_to(sender_id, NetMessage.T_DRAFT_STATE,
+					{"draft": (_draft_sessions[room_id] as NetDraftSession).view()})
+		RoomManager.STATE_BATTLING:
+			if _sessions.has(room_id):
+				send_to(sender_id, NetMessage.T_SNAPSHOT,
+					{"snapshot": (_sessions[room_id] as NetGameSession).snapshot()})
+		RoomManager.STATE_ENDED:
+			if _sessions.has(room_id):
+				var session: NetGameSession = _sessions[room_id]
+				send_to(sender_id, NetMessage.T_GAME_OVER,
+					{"snapshot": session.snapshot(), "winner": session.core.winner_name()})
 
 
 func _do_leave(sender_id: int) -> void:
