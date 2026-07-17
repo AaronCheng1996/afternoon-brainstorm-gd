@@ -13,6 +13,16 @@ signal connection_failed()
 # 與伺服器的連線中斷。
 signal server_disconnected()
 
+# --- 大廳／房間（P12-5，§5）---
+# 房態更新（自己所在房，payload＝member_view）。
+signal room_updated(room: Dictionary)
+# 大廳房間列表回覆。
+signal room_list_received(list: Array)
+# 所在房解散。
+signal room_closed(room_id: String, reason: String)
+# 大廳請求失敗（不斷線）。
+signal lobby_error(reason: String)
+
 var _intent := NetMessage.INTENT_PLAY
 var _nickname := ""
 var _token := ""
@@ -65,6 +75,33 @@ func _on_connected() -> void:
 	send_to(SERVER_ID, NetMessage.T_HELLO, hello)
 
 
+# --- 大廳／房間請求（送往伺服器）---
+
+func create_room(name: String, locked: bool = false, password: String = "",
+		allow_spectators: bool = true, spectator_limit: int = 8) -> void:
+	send_to(SERVER_ID, NetMessage.T_CREATE_ROOM, {
+		"name": name, "locked": locked, "password": password,
+		"allow_spectators": allow_spectators, "spectator_limit": spectator_limit,
+	})
+
+
+func join_room(room_id: String, password: String = "", spectate: bool = false) -> void:
+	send_to(SERVER_ID, NetMessage.T_JOIN_ROOM,
+		{"room_id": room_id, "password": password, "spectate": spectate})
+
+
+func leave_room() -> void:
+	send_to(SERVER_ID, NetMessage.T_LEAVE_ROOM, {})
+
+
+func set_ready(ready: bool) -> void:
+	send_to(SERVER_ID, NetMessage.T_SET_READY, {"ready": ready})
+
+
+func list_rooms() -> void:
+	send_to(SERVER_ID, NetMessage.T_LIST_ROOMS, {})
+
+
 func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 	match type:
 		NetMessage.T_WELCOME:
@@ -72,6 +109,14 @@ func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 			welcomed.emit(payload)
 		NetMessage.T_REJECTED:
 			rejected.emit(String(payload.get("reason", "")))
+		NetMessage.T_ROOM_STATE:
+			room_updated.emit(payload.get("room", {}))
+		NetMessage.T_ROOM_LIST:
+			room_list_received.emit(payload.get("rooms", []))
+		NetMessage.T_ROOM_CLOSED:
+			room_closed.emit(String(payload.get("room_id", "")), String(payload.get("reason", "")))
+		NetMessage.T_LOBBY_ERROR:
+			lobby_error.emit(String(payload.get("reason", "")))
 
 
 func _on_conn_failed() -> void:

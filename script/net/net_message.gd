@@ -13,9 +13,22 @@ const PROTOCOL_VERSION := 1
 # --- 訊息型別常數 ---
 const T_HELLO := "hello"       # client→server：握手（見 _payload 需求）
 const T_WELCOME := "welcome"   # server→client：握手通過
-const T_REJECTED := "rejected" # server→client：握手/請求被拒（帶 reason）
+const T_REJECTED := "rejected" # server→client：握手層被拒（帶 reason，隨後斷線）
 const T_PING := "ping"         # 心跳：帶送出時間戳 {t}
 const T_PONG := "pong"         # 心跳回覆：原樣回送 {t} 供對方算 RTT
+
+# --- 大廳／房間訊息（P12-5，§5）---
+# client→server
+const T_CREATE_ROOM := "create_room"  # {name, locked, password, allow_spectators, spectator_limit}
+const T_JOIN_ROOM := "join_room"      # {room_id, password, spectate}
+const T_LEAVE_ROOM := "leave_room"    # {}
+const T_SET_READY := "set_ready"      # {ready}
+const T_LIST_ROOMS := "list_rooms"    # {}
+# server→client
+const T_ROOM_LIST := "room_list"      # {rooms:[public_room…]}（回應 list_rooms）
+const T_ROOM_STATE := "room_state"    # {room: member_view}（廣播給房內成員）
+const T_ROOM_CLOSED := "room_closed"  # {room_id, reason}（房解散：通知原成員）
+const T_LOBBY_ERROR := "lobby_error"  # {reason}（大廳請求失敗，不斷線，有別於握手 T_REJECTED）
 
 # --- 握手意圖（見 §5.3 角色）---
 const INTENT_PLAY := "play"
@@ -26,6 +39,17 @@ const REASON_GAME_VERSION := "game_version_mismatch"
 const REASON_DATA_VERSION := "data_version_mismatch"
 const REASON_BAD_INTENT := "bad_intent"
 const REASON_BAD_MESSAGE := "bad_message"
+
+# --- 大廳／房間錯誤原因（P12-5，§5）---
+const REASON_ALREADY_IN_ROOM := "already_in_room"
+const REASON_TOO_MANY_ROOMS := "too_many_rooms"
+const REASON_ROOM_NOT_FOUND := "room_not_found"
+const REASON_BAD_PASSWORD := "bad_password"
+const REASON_ROOM_FULL := "room_full"
+const REASON_NO_SPECTATE := "spectate_disabled"
+const REASON_NOT_IN_ROOM := "not_in_room"
+const REASON_NOT_A_PLAYER := "not_a_player"
+const REASON_BAD_STATE := "bad_state"
 
 # --- 信封鍵 ---
 const K_PROTOCOL := "v"
