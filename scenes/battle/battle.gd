@@ -86,6 +86,7 @@ var _counts_label: Label
 var _hint_label: KeywordLabel   # P8-3：RichTextLabel 子類，機制詞高亮＋懸停備註
 var _mode_buttons: Dictionary = {}  # mode -> Button
 var _hand_box: HBoxContainer
+var _opponent_hand_box: Container   # D19：對手手牌唯讀公開列（P12-2）
 var _toggle_hint_btn: Button
 var _toggle_anim_btn: Button
 var _view_toggle_btn: Button        # P9-1：俯視／45 度視角切換
@@ -801,8 +802,9 @@ func _bind_nodes() -> void:
 	_update_view_toggle_text()
 	(%EndTurnBtn as Button).pressed.connect(_do.bind("end_turn", -1, -1, -1))
 
-	# 手牌容器（動態手牌鈕生成於此）。
+	# 手牌容器（動態手牌鈕生成於此）。己方＝可點手牌列；對手＝唯讀公開列（D19，P12-2）。
 	_hand_box = %HandBox
+	_opponent_hand_box = %OpponentHandBox
 
 	# 勝負面板。
 	_win_panel = %WinPanel
@@ -923,12 +925,26 @@ func _counts_text(cur: String) -> String:
 	return "\n".join(lines)
 
 
+# D19 手牌公開（P12-2）：己方（當前操作方）渲染為可點手牌列、對手渲染為唯讀公開列。
+# hot-seat 換手時因每次 _refresh_hud 都以 cur/對手重建，兩列內容自然互換；
+# 單人對戰對手＝AI（其手牌亦公開）；回放模式兩列同時顯示（bottom 為當前 replay 玩家）。
 func _rebuild_hand(cur: String) -> void:
+	_rebuild_hand_into(_hand_box, cur, true)
+	var opp: String = "player2" if cur == "player1" else "player1"
+	_rebuild_hand_into(_opponent_hand_box, opp, false)
+
+
+# 把指定玩家手牌渲染到指定容器。
+# interactive=true：可點列（放置/出牌/升級高亮，pressed → _on_hand_pressed）。
+# interactive=false：唯讀列（disabled 鈕＝點擊無作用；派別色標示；懸停 tooltip 顯示名稱＋提示）。
+func _rebuild_hand_into(container: Container, player_name: String, interactive: bool) -> void:
+	if container == null:
+		return
 	# 用 queue_free（非 free）：手牌按鈕的 pressed 信號會觸發本重建，emit 期間該按鈕被鎖定，
 	# 立即 free 會報「Object is locked」。queue_free 延到本幀 idle 釋放（繪製前已清，無殘影）。
-	for c in _hand_box.get_children():
+	for c in container.get_children():
 		c.queue_free()
-	var hand: Array = _core.get_player(cur).hand
+	var hand: Array = _core.get_player(player_name).hand
 	for i in hand.size():
 		var card: String = hand[i]
 		var base_name: String = card.trim_suffix(" (+)")
@@ -937,13 +953,24 @@ func _rebuild_hand(cur: String) -> void:
 		if card.ends_with(" (+)"):
 			label_text += "＋"
 		var b := Button.new()
-		b.text = "%s\n%s" % [label_text, card]
-		b.custom_minimum_size = Vector2(96, 64)
-		b.add_theme_font_size_override("font_size", 12)
-		if i == _placing_index:
-			b.modulate = Color(1, 1, 0.5)
-		b.pressed.connect(_on_hand_pressed.bind(i))
-		_hand_box.add_child(b)
+		if interactive:
+			b.text = "%s\n%s" % [label_text, card]
+			b.custom_minimum_size = Vector2(96, 64)
+			b.add_theme_font_size_override("font_size", 12)
+			if i == _placing_index:
+				b.modulate = Color(1, 1, 0.5)
+			b.pressed.connect(_on_hand_pressed.bind(i))
+		else:
+			# 唯讀公開列：只顯示名稱＋派別色；disabled 保證點擊無作用（樣式亦與可點列區別）。
+			b.text = label_text
+			b.custom_minimum_size = Vector2(78, 48)
+			b.add_theme_font_size_override("font_size", 11)
+			b.disabled = true
+			var code: String = _db.color_code_of(base_name)
+			if code != "":
+				b.add_theme_color_override("font_disabled_color", _db.color_rgb(code))
+			b.tooltip_text = "%s\n%s" % [String(info.get("name", base_name)), String(info.get("hint", ""))]
+		container.add_child(b)
 
 
 # ---------------- 勝負畫面 ----------------

@@ -207,6 +207,25 @@ offset_left = 40.0
 offset_top = 662.0
 theme_override_constants/separation = 6
 
+[node name="OpponentHandTitle" type="Label" parent="HUD" unique_id=1145017600]
+unique_name_in_owner = true
+offset_left = 520.0
+offset_top = 6.0
+offset_right = 1012.0
+offset_bottom = 26.0
+theme_override_colors/font_color = Color(0.72, 0.77, 0.84, 1)
+theme_override_font_sizes/font_size = 13
+text = "對手手牌（唯讀・公開）"
+
+[node name="OpponentHandBox" type="HFlowContainer" parent="HUD" unique_id=1145017601]
+unique_name_in_owner = true
+offset_left = 520.0
+offset_top = 28.0
+offset_right = 1012.0
+offset_bottom = 134.0
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
 [node name="WinPanel" type="Panel" parent="HUD" unique_id=925805844]
 unique_name_in_owner = true
 visible = false
