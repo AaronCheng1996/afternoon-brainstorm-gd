@@ -952,11 +952,18 @@ func _rebuild_hand_into(container: Container, player_name: String, interactive: 
 		var label_text: String = String(info.get("name", base_name))
 		if card.ends_with(" (+)"):
 			label_text += "＋"
+		# 派別色（兩列共用）：手牌全為公開資訊，己方與對手皆以派別色標示卡名。
+		var code: String = _db.color_code_of(base_name)
+		var col: Color = _db.color_rgb(code) if code != "" else Color.WHITE
 		var b := Button.new()
 		if interactive:
 			b.text = "%s\n%s" % [label_text, card]
 			b.custom_minimum_size = Vector2(96, 64)
 			b.add_theme_font_size_override("font_size", 12)
+			if code != "":
+				# 各互動態都套派別色，避免 hover/pressed 時字色跳回預設。
+				for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+					b.add_theme_color_override(state, col)
 			if i == _placing_index:
 				b.modulate = Color(1, 1, 0.5)
 			b.pressed.connect(_on_hand_pressed.bind(i))
@@ -966,9 +973,8 @@ func _rebuild_hand_into(container: Container, player_name: String, interactive: 
 			b.custom_minimum_size = Vector2(78, 48)
 			b.add_theme_font_size_override("font_size", 11)
 			b.disabled = true
-			var code: String = _db.color_code_of(base_name)
 			if code != "":
-				b.add_theme_color_override("font_disabled_color", _db.color_rgb(code))
+				b.add_theme_color_override("font_disabled_color", col)
 			b.tooltip_text = "%s\n%s" % [String(info.get("name", base_name)), String(info.get("hint", ""))]
 		container.add_child(b)
 
