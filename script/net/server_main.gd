@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_server = NetGameServer.new()
 	_server.name = NetPeerBase.PEER_NODE_NAME   # 兩端同名，@rpc 路徑一致（見 NetPeerBase）
 	_server.rooms.max_rooms = int(cfg["max_rooms"])
+	_server.seat_hold_seconds = float(cfg["seat_hold_seconds"])   # P12-10 席位保留秒數
 	root.add_child(_server)                       # 先入樹再開埠（multiplayer 需在樹上）
 	var res := _server.start(int(cfg["port"]), int(cfg["max_clients"]))
 	if not res["ok"]:

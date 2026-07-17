@@ -39,6 +39,10 @@ signal game_over(info: Dictionary)
 # 己方行動被伺服器拒絕（回合閘／次數不足…，不斷線）。
 signal action_rejected(reason: String, message: String)
 
+# --- 斷線重連（P12-10，§8）---
+# 收到席位 token（入座／重連後；已存於 _token 供斷線後重連，UI 可據此顯示可重連）。
+signal seat_token_received(token: String, room_id: String, seat: String)
+
 var _intent := NetMessage.INTENT_PLAY
 var _nickname := ""
 var _token := ""
@@ -75,6 +79,11 @@ func start(host: String, port: int = NetTransport.DEFAULT_PORT,
 
 func is_welcomed() -> bool:
 	return _welcomed
+
+
+# 目前持有的席位 token（斷線後重連用；空＝尚未入座或不可重連）。
+func seat_token() -> String:
+	return _token
 
 
 # 連上後立刻送握手。
@@ -173,6 +182,9 @@ func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 			game_over.emit(payload)
 		NetMessage.T_ACTION_REJECTED:
 			action_rejected.emit(String(payload.get("reason", "")), String(payload.get("message", "")))
+		NetMessage.T_SEAT_TOKEN:
+			_token = String(payload.get("token", ""))   # 存 token（斷線後重連帶回，§8）
+			seat_token_received.emit(_token, String(payload.get("room_id", "")), String(payload.get("seat", "")))
 
 
 func _on_conn_failed() -> void:

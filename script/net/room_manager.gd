@@ -49,6 +49,7 @@ func create_room(host_id: int, opts: Dictionary = {}) -> Dictionary:
 	var room_id := _gen_room_id()
 	var locked := bool(opts.get("locked", false))
 	var password := String(opts.get("password", ""))
+	var host_token := _gen_token()
 	var room := {
 		"room_id": room_id,
 		"name": _clean_name(String(opts.get("name", ""))),
@@ -60,11 +61,16 @@ func create_room(host_id: int, opts: Dictionary = {}) -> Dictionary:
 		"state": STATE_WAITING,
 		"seats": {SEAT_P1: host_id, SEAT_P2: 0},
 		"ready": {SEAT_P1: false, SEAT_P2: false},
+		# P12-10 席位 token（入座時發，供斷線重連收復席位，§8）；server-only，不進成員視圖。
+		"tokens": {SEAT_P1: host_token, SEAT_P2: ""},
+		# P12-10 席位保留狀態：held＝掉線等待重連（席位不外放）、hold_remaining＝倒數秒數。
+		"held": {SEAT_P1: false, SEAT_P2: false},
+		"hold_remaining": {SEAT_P1: 0.0, SEAT_P2: 0.0},
 		"spectators": [],
 	}
 	_rooms[room_id] = room
 	_peer_room[host_id] = room_id
-	return {"ok": true, "room_id": room_id, "error": ""}
+	return {"ok": true, "room_id": room_id, "token": host_token, "error": ""}
 
 
 # ---------------- 加入 ----------------
@@ -85,19 +91,21 @@ func join(peer_id: int, room_id: String, password: String = "", want_spectate: b
 			return _err(NetMessage.REASON_NO_SPECTATE if not bool(room["allow_spectators"]) else NetMessage.REASON_ROOM_FULL)
 		(room["spectators"] as Array).append(peer_id)
 		_peer_room[peer_id] = room_id
-		return {"ok": true, "room_id": room_id, "role": "spectator", "error": ""}
+		return {"ok": true, "room_id": room_id, "role": "spectator", "token": "", "error": ""}
 
-	# 想當玩家：找空位。
+	# 想當玩家：找空位（held 席位為重連保留，不算空位）。
 	var seat := _free_seat(room)
 	if seat != "":
 		room["seats"][seat] = peer_id
+		room["tokens"][seat] = _gen_token()   # 入座即發席位 token（重連用，§8）
 		_peer_room[peer_id] = room_id
-		return {"ok": true, "room_id": room_id, "role": "player", "error": ""}
+		return {"ok": true, "room_id": room_id, "role": "player",
+			"token": String(room["tokens"][seat]), "error": ""}
 	# 滿座：依觀戰開關退為旁觀，否則拒絕。
 	if _can_spectate(room):
 		(room["spectators"] as Array).append(peer_id)
 		_peer_room[peer_id] = room_id
-		return {"ok": true, "room_id": room_id, "role": "spectator", "error": ""}
+		return {"ok": true, "room_id": room_id, "role": "spectator", "token": "", "error": ""}
 	return _err(NetMessage.REASON_ROOM_FULL)
 
 
@@ -117,6 +125,7 @@ func leave(peer_id: int) -> Dictionary:
 	if seat != "":
 		room["seats"][seat] = 0
 		room["ready"][seat] = false
+		_clear_seat_hold(room, seat)   # 正式離席＝放棄席位（清 token／held，P12-10）
 	else:
 		(room["spectators"] as Array).erase(peer_id)
 	# 房主離開 → 轉給留下的玩家（其一），無玩家則交給旁觀者充當名義房主。
@@ -130,6 +139,115 @@ func leave(peer_id: int) -> Dictionary:
 		_rooms.erase(room_id)
 	return {"ok": true, "room_id": room_id, "dissolved": dissolved,
 		"members_before": members_before, "error": ""}
+
+
+# ---------------- 斷線重連（P12-10，§8）----------------
+
+# 傳輸層斷線的處理：對戰／選秀中的玩家＝席位保留等待重連（held），其餘＝直接離開。
+# 旁觀者一律直接移除（§7：旁觀者無重連機制）。hold_seconds ≤ 0 或非對局中→退回 leave 語義。
+# 回傳（held 時）{ok, room_id, held:true, seat, dissolved:false}；否則同 leave 的回傳。
+func handle_disconnect(peer_id: int, hold_seconds: float = 60.0) -> Dictionary:
+	if not _peer_room.has(peer_id):
+		return _err(NetMessage.REASON_NOT_IN_ROOM)
+	var room_id: String = _peer_room[peer_id]
+	var room: Dictionary = _rooms[room_id]
+	var seat := _seat_of(room, peer_id)
+	if seat == "":
+		return leave(peer_id)   # 旁觀者：直接移除
+	var active := String(room["state"]) == STATE_DRAFTING or String(room["state"]) == STATE_BATTLING
+	if hold_seconds <= 0.0 or not active:
+		return leave(peer_id)   # 非對局中：無需保留，走一般離席
+	# 對局中：保留席位＋token，起倒數；席位視為「有人（held）」——不放給新人、不解散。
+	_peer_room.erase(peer_id)
+	room["seats"][seat] = 0
+	room["ready"][seat] = false
+	room["held"][seat] = true
+	room["hold_remaining"][seat] = float(hold_seconds)
+	if int(room["host_id"]) == peer_id:
+		room["host_id"] = _pick_new_host(room)   # 房主掉線→暫交留下者（held 席位不接任）
+	return {"ok": true, "room_id": room_id, "held": true, "seat": seat,
+		"dissolved": false, "error": ""}
+
+
+# 帶 token 重連：找出 token 對應的席位（held 或殘留舊連線皆可），收復給 new_peer_id。
+# 回傳 {ok, room_id, seat, old_peer_id, error}；old_peer_id≠0 表示有殘留舊連線待逐出。
+func reconnect(new_peer_id: int, token: String) -> Dictionary:
+	if token.strip_edges().is_empty():
+		return _err(NetMessage.REASON_BAD_TOKEN)
+	if _peer_room.has(new_peer_id):
+		return _err(NetMessage.REASON_ALREADY_IN_ROOM)
+	for room_id in _rooms.keys():
+		var room: Dictionary = _rooms[room_id]
+		for s in SEATS:
+			if String(room["tokens"][s]) == token:
+				var old_peer := int(room["seats"][s])
+				if old_peer != 0 and old_peer != new_peer_id:
+					_peer_room.erase(old_peer)   # 逐出殘留舊連線的成員索引
+				room["seats"][s] = new_peer_id
+				room["held"][s] = false
+				room["hold_remaining"][s] = 0.0
+				_peer_room[new_peer_id] = room_id
+				return {"ok": true, "room_id": room_id, "seat": s,
+					"old_peer_id": old_peer, "error": ""}
+	return _err(NetMessage.REASON_BAD_TOKEN)
+
+
+# 伺服器每幀推進所有 held 席位倒數；回傳逾時席位清單 [{room_id, seat}…]（本函式不改結構，
+# 逾時處理＝NetGameServer 呼叫 vacate_held_seat 並判定）。
+func tick_holds(delta: float) -> Array:
+	var expired: Array = []
+	for room_id in _rooms.keys():
+		var room: Dictionary = _rooms[room_id]
+		for s in SEATS:
+			if bool(room["held"][s]):
+				room["hold_remaining"][s] = float(room["hold_remaining"][s]) - delta
+				if float(room["hold_remaining"][s]) <= 0.0:
+					expired.append({"room_id": room_id, "seat": s})
+	return expired
+
+
+# 放棄一個 held 席位（重連逾時判定後）：清 held／token；無玩家則解散。
+# 回傳 {ok, room_id, dissolved, members_before, error}（同 leave 供廣播）。
+func vacate_held_seat(room_id: String, seat: String) -> Dictionary:
+	if not _rooms.has(room_id):
+		return _err(NetMessage.REASON_ROOM_NOT_FOUND)
+	var room: Dictionary = _rooms[room_id]
+	if not bool(room["held"][seat]):
+		return _err(NetMessage.REASON_BAD_STATE)
+	_clear_seat_hold(room, seat)
+	var members_before := room_members(room_id)
+	var dissolved := _player_count(room) == 0
+	if dissolved:
+		for sp in room["spectators"]:
+			_peer_room.erase(sp)
+		_rooms.erase(room_id)
+	return {"ok": true, "room_id": room_id, "dissolved": dissolved,
+		"members_before": members_before, "error": ""}
+
+
+# 房內是否有 held（等待重連）席位——供伺服器暫停對局計時（§8：不懲罰掉線方）。
+func has_held_seat(room_id: String) -> bool:
+	if not _rooms.has(room_id):
+		return false
+	var room: Dictionary = _rooms[room_id]
+	return bool(room["held"][SEAT_P1]) or bool(room["held"][SEAT_P2])
+
+
+# 席位目前的 live peer id（0＝空或 held）。
+func seat_peer(room_id: String, seat: String) -> int:
+	if not _rooms.has(room_id):
+		return 0
+	return int(_rooms[room_id]["seats"][seat])
+
+
+# 強制回到 waiting（清就緒）——重連逾時中止對局後同成員重開用。
+func force_waiting(room_id: String) -> bool:
+	if not _rooms.has(room_id):
+		return false
+	var room: Dictionary = _rooms[room_id]
+	room["state"] = STATE_WAITING
+	room["ready"] = {SEAT_P1: false, SEAT_P2: false}
+	return true
 
 
 # ---------------- 座位就緒 ----------------
@@ -258,6 +376,8 @@ func member_view(room_id: String) -> Dictionary:
 		"state": room["state"],
 		"seats": (room["seats"] as Dictionary).duplicate(),
 		"ready": (room["ready"] as Dictionary).duplicate(),
+		# P12-10 席位保留狀態（掉線等待重連）——UI 顯示「等待重連」；不含 token（server-only）。
+		"held": (room["held"] as Dictionary).duplicate(),
 		"spectators": (room["spectators"] as Array).duplicate(),
 		"player_count": _player_count(room),
 	}
@@ -275,9 +395,10 @@ func _transition(room_id: String, from_state: String, to_state: String) -> bool:
 	return true
 
 
+# 空位＝無 live peer 且非 held（held 為重連保留，不放給新人，P12-10）。
 func _free_seat(room: Dictionary) -> String:
 	for s in SEATS:
-		if int(room["seats"][s]) == 0:
+		if not _seat_taken(room, s):
 			return s
 	return ""
 
@@ -289,12 +410,32 @@ func _seat_of(room: Dictionary, peer_id: int) -> String:
 	return ""
 
 
+# 席位是否被佔（live peer 或 held 保留）——決定空位與是否解散。
+func _seat_taken(room: Dictionary, seat: String) -> bool:
+	return int(room["seats"][seat]) != 0 or bool(room["held"][seat])
+
+
 func _player_count(room: Dictionary) -> int:
 	var n := 0
 	for s in SEATS:
-		if int(room["seats"][s]) != 0:
+		if _seat_taken(room, s):   # held 席位仍計入（掉線等待重連不使房間解散）
 			n += 1
 	return n
+
+
+# 清席位的重連保留狀態（token／held／倒數）——正式離席或逾時放棄時呼叫。
+func _clear_seat_hold(room: Dictionary, seat: String) -> void:
+	room["tokens"][seat] = ""
+	room["held"][seat] = false
+	room["hold_remaining"][seat] = 0.0
+
+
+# 席位 token：16 碼去混淆字母表（單局有效、只存伺服器、不落盤，§8）。
+func _gen_token() -> String:
+	var s := ""
+	for _i in 16:
+		s += CODE_ALPHABET[_rng.randi() % CODE_ALPHABET.length()]
+	return s
 
 
 func _can_spectate(room: Dictionary) -> bool:

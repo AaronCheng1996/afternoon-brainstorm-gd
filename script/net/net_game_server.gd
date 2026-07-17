@@ -14,6 +14,8 @@ var _draft_sessions: Dictionary = {}
 # 選秀計時（server 權威；預設關，正式部署由 server_config 開啟，P12-11）。
 var _draft_timer_on: bool = false
 var _draft_seconds: float = 45.0
+# P12-10 席位保留秒數（掉線等待重連；server_config 可覆蓋，見 server_main）。
+var seat_hold_seconds: float = 60.0
 
 
 # 開伺服器：沿用 NetServer.start，另接斷線→離房清理。
@@ -23,6 +25,45 @@ func start(port: int = NetTransport.DEFAULT_PORT,
 	if r["ok"] and not transport_peer_disconnected.is_connected(_on_peer_left):
 		transport_peer_disconnected.connect(_on_peer_left)
 	return r
+
+
+# --- 握手：先版本閘＋認證（父類），通過後若帶 token 則走重連（P12-10，§8）---
+
+func _handle_hello(sender_id: int, payload: Dictionary) -> void:
+	super(sender_id, payload)   # 版本閘＋意圖檢查＋welcome（失敗則已 reject＋斷線）
+	if not is_authenticated(sender_id):
+		return
+	var token := String(payload.get("token", ""))
+	if not token.is_empty():
+		_handle_reconnect(sender_id, token)
+
+
+# 帶 token 重連：驗證→逐出殘留舊連線→收復席位→補送快照＋此後事件自然續播（§8）。
+# token 無效（席位已逾時放棄或亂填）→ lobby_error(bad_token)，客端留在大廳（可重新開/加房）。
+func _handle_reconnect(sender_id: int, token: String) -> void:
+	var res := rooms.reconnect(sender_id, token)
+	if not res["ok"]:
+		_lobby_error(sender_id, res["error"])
+		return
+	var room_id: String = res["room_id"]
+	var old_peer := int(res["old_peer_id"])
+	if old_peer != 0 and old_peer != sender_id:
+		_clients.erase(old_peer)   # 清舊連線的認證追蹤
+		_evict_peer(old_peer)      # 逐出殘留舊連線（傳輸層斷線）
+	_broadcast_room_state(room_id)   # 對手看到席位恢復（held 清除）、計時恢復（has_held_seat 轉 false）
+	_send_seat_token(sender_id, room_id, String(res["seat"]), token)   # 重發 token（供再次斷線重連）
+	_send_catchup(sender_id, room_id)   # 補送當前對局公開狀態（同旁觀中途加入），此後事件續播
+
+
+# 逐出一個 peer（僅實機 ENet 有意義；同程序測試 _peer 為 null 時 no-op）。
+func _evict_peer(peer_id: int) -> void:
+	if _peer is ENetMultiplayerPeer:
+		(_peer as ENetMultiplayerPeer).disconnect_peer(peer_id)
+
+
+# 私下下發席位 token（只給該玩家；server-only 資訊，不進廣播房態）。
+func _send_seat_token(peer_id: int, room_id: String, seat: String, token: String) -> void:
+	send_to(peer_id, NetMessage.T_SEAT_TOKEN, {"token": token, "room_id": room_id, "seat": seat})
 
 
 # --- 訊息路由（握手層沿用父類；認證後才進大廳）---
@@ -73,6 +114,7 @@ func _do_create(sender_id: int, payload: Dictionary) -> void:
 		_lobby_error(sender_id, res["error"])
 		return
 	_broadcast_room_state(res["room_id"])
+	_send_seat_token(sender_id, res["room_id"], RoomManager.SEAT_P1, String(res["token"]))
 
 
 func _do_join(sender_id: int, payload: Dictionary) -> void:
@@ -84,6 +126,8 @@ func _do_join(sender_id: int, payload: Dictionary) -> void:
 		_lobby_error(sender_id, res["error"])
 		return
 	_broadcast_room_state(res["room_id"])
+	if String(res.get("role", "")) == "player":
+		_send_seat_token(sender_id, res["room_id"], rooms.player_seat(sender_id), String(res["token"]))
 	_send_catchup(sender_id, res["room_id"])   # P12-9：中途加入者補送當前對局狀態，此後事件自然續播
 
 
@@ -288,22 +332,61 @@ func _finish_battle(room_id: String, session: NetGameSession) -> void:
 # 伺服器主迴圈每幀推進所有房間的回合計時（權威）；逾時由 session 自行 end_turn，本函式廣播結果。
 # server_main 於運行樹呼叫（_process）；測試以 RefCounted 手動呼叫驗證。
 func tick_sessions(delta: float) -> void:
+	# P12-10：先推進重連保留倒數；逾時席位交給 _on_hold_expired 判定（可能解散房／erase session）。
+	for exp in rooms.tick_holds(delta):
+		_on_hold_expired(String(exp["room_id"]), String(exp["seat"]))
 	for room_id in _sessions.keys():
 		var session: NetGameSession = _sessions[room_id]
 		if session.is_over():
 			continue
+		if rooms.has_held_seat(room_id):
+			continue   # 等待重連期間暫停回合計時（不懲罰掉線方，§8）
 		var res := session.tick(delta)
 		if res["ok"]:
 			_broadcast_room_result(room_id, session, res)
 	# 選秀計時（P12-8）：逾時＝server 權威 auto_fill_and_advance→廣播狀態；完成→建 GameCore 進對戰。
 	# keys 複本：_complete_draft 會於迴圈內移除該房的選秀 session。
 	for room_id in _draft_sessions.keys().duplicate():
+		if rooms.has_held_seat(room_id):
+			continue   # 選秀中掉線等待重連→暫停選秀計時
 		var draft: NetDraftSession = _draft_sessions[room_id]
 		var dres := draft.tick(delta)
 		if bool(dres["ok"]):
 			_broadcast_to_room(room_id, NetMessage.T_DRAFT_STATE, {"draft": draft.view()})
 			if bool(dres["done"]):
 				_complete_draft(room_id, draft)
+
+
+# 重連逾時判定（P12-10，§8）：放棄 held 席位後——
+#   對戰中且對手仍在 → 判掉線方落敗（對手判勝）：廣播 game_over(winner=對手, reason=forfeit)、房 ended；
+#   選秀中或無對局 session 但仍有玩家 → 中止對局回到 waiting（同成員重開），丟棄暫態 session；
+#   無玩家 → 房解散，通知留下成員 room_closed(reconnect_timeout)。
+func _on_hold_expired(room_id: String, seat: String) -> void:
+	var state := rooms.state_of(room_id)
+	var other_seat := RoomManager.SEAT_P2 if seat == RoomManager.SEAT_P1 else RoomManager.SEAT_P1
+	var other_live := rooms.seat_peer(room_id, other_seat) != 0
+	var res := rooms.vacate_held_seat(room_id, seat)
+	if not res["ok"]:
+		return
+	if bool(res["dissolved"]):
+		_sessions.erase(room_id)
+		_draft_sessions.erase(room_id)
+		for pid in res["members_before"]:
+			send_to(int(pid), NetMessage.T_ROOM_CLOSED,
+				{"room_id": room_id, "reason": NetMessage.REASON_RECONNECT_TIMEOUT})
+		return
+	if state == RoomManager.STATE_BATTLING and _sessions.has(room_id) and other_live:
+		var session: NetGameSession = _sessions[room_id]
+		_broadcast_to_room(room_id, NetMessage.T_GAME_OVER,
+			{"snapshot": session.snapshot(), "winner": other_seat,
+			"reason": NetMessage.REASON_OPPONENT_FORFEIT})
+		rooms.end_battle(room_id)   # battling → ended（session 保留供統計，可重開／解散）
+	else:
+		# 選秀中掉線逾時／其他：中止暫態對局，回到 waiting 供同成員重開。
+		_sessions.erase(room_id)
+		_draft_sessions.erase(room_id)
+		rooms.force_waiting(room_id)
+		_broadcast_room_state(room_id)
 
 
 func _process(delta: float) -> void:
@@ -319,12 +402,17 @@ func _action_rejected(sender_id: int, reason: String, message: String = "") -> v
 	send_to(sender_id, NetMessage.T_ACTION_REJECTED, {"reason": reason, "message": message})
 
 
-# 斷線＝自動離房（玩家全走則解散）。
+# 斷線處理（P12-10，§8）：對局中的玩家＝席位保留等待重連（held），其餘＝自動離房。
+# held 時只廣播新房態（對手顯示「等待重連」；計時暫停由 tick_sessions 的 has_held_seat 守）。
 func _on_peer_left(peer_id: int) -> void:
 	if rooms.room_of(peer_id) == "":
 		return
-	var res := rooms.leave(peer_id)
-	if res["ok"]:
+	var res := rooms.handle_disconnect(peer_id, seat_hold_seconds)
+	if not res["ok"]:
+		return
+	if bool(res.get("held", false)):
+		_broadcast_room_state(res["room_id"])
+	else:
 		_after_leave(res)
 
 
