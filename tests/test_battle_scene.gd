@@ -227,6 +227,21 @@ func _test_all_actions(t: Object, dbs: Array) -> void:
 	b._do("end_turn", -1, -1)
 	t.eq(b._core.current_player(), "player2", "all：結束回合換 p2")
 
+	# P12-4：從公開快照重建盤面（把 _rebuild_board 的資料源一般化為「core 或快照」）。
+	# 複用本場景避免新增場景實例（維持洩漏基準）；附一個鏡像以覆蓋快照的 Fuchsia 重建路徑。
+	var host: PieceState = b._core.player1.on_board[0]
+	var sh: PieceState = PieceState.make_shadow(host, "player1", 3, 3, false)
+	host.shadows.append(sh)
+	var n: int = b._core.get_all_pieces().size()
+	var snap: Dictionary = GameSnapshot.encode(b._core)
+	# 經 JSON 往返後套用，證明序列化產物足以重建盤面（連線客端/旁觀/重連路徑）。
+	b.apply_snapshot(JSON.parse_string(JSON.stringify(snap)))
+	t.eq(b._views.size(), n, "snap：從快照重建盤面視圖數＝棋子數（%d）" % n)
+	t.eq(b._shadow_views.size(), 1, "snap：從快照重建 Fuchsia 鏡像視圖 1")
+	# 還原為 core 資料源後盤面一致（apply_snapshot({}) 回歸即時編碼）。
+	b.apply_snapshot({})
+	t.eq(b._views.size(), n, "snap：還原 core 資料源後盤面視圖數一致（%d）" % n)
+
 	b.free()
 
 

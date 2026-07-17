@@ -76,6 +76,8 @@ var _preview_layer: BattleDrawLayer  # 滑鼠懸停/攻擊範圍預覽
 var _fx_layer: Node2D                # 投射物 / 飄字容器
 var _views: Dictionary = {}         # Vector2i -> PieceView（真實棋子+neutral）
 var _shadow_views: Array = []       # Fuchsia 鏡像視圖（僅顯示）
+# P12-4：盤面資料源。空＝即時由 core 編碼；非空＝以公開快照重建（連線客端/旁觀/重連）。
+var _snapshot: Dictionary = {}
 
 # HUD
 var _hud: CanvasLayer
@@ -172,6 +174,7 @@ func set_animation_enabled(on: bool) -> void:
 func _new_game() -> void:
 	_core = GameCore.new()
 	_core.setup(_p1_deck, _p2_deck, _seed, _db)
+	_snapshot = {}                     # P12-4：本機/重開一律以 core 為盤面資料源
 	_placing_index = -1
 	_mode = "attack"
 	_busy = false
@@ -383,6 +386,25 @@ func _drain_logic() -> void:
 		_core.logic_step()
 
 
+# P12-4：盤面資料源一般化——快照非空時取快照 pieces，否則即時由 core 編碼；
+# 兩路皆回傳 GameSnapshot 的棋子欄位 Dictionary，_rebuild_board 統一消費。
+func _board_pieces() -> Array:
+	if not _snapshot.is_empty():
+		return _snapshot.get("pieces", [])
+	var out: Array = []
+	for p: PieceState in _core.get_all_pieces():
+		out.append(GameSnapshot.encode_piece(p))
+	return out
+
+
+# P12-4：以公開快照為盤面資料源並重畫（連線客端/旁觀/重連用；本機不呼叫）。
+# 傳空 Dictionary 還原為 core 資料源。
+func apply_snapshot(snap: Dictionary) -> void:
+	_snapshot = snap
+	if _ui_built:
+		_rebuild_board()
+
+
 func _rebuild_board() -> void:
 	for c in _board_layer.get_children():
 		c.free()
@@ -390,24 +412,33 @@ func _rebuild_board() -> void:
 	_shadow_views.clear()
 	_persist_layer.queue_redraw()
 
-	for piece: PieceState in _core.get_all_pieces():
-		var v: Node2D = _make_piece_view(piece.card_id, _owner_int(piece.owner), piece.pos())
-		v.update_stats(piece.health, piece.damage, piece.armor, piece.extra_damage)
-		v.set_status("numbness", piece.is_numb())
-		v.set_status("moving", piece.is_moving())
-		v.set_status("anger", piece.is_angry())
-		_views[piece.pos()] = v
+	for pd: Dictionary in _board_pieces():
+		var cell := Vector2i(int(pd["board_x"]), int(pd["board_y"]))
+		var v: Node2D = _make_piece_view(String(pd["card_id"]), _owner_int(String(pd["owner"])), cell)
+		v.update_stats(int(pd["health"]), int(pd["damage"]), int(pd["armor"]), int(pd["extra_damage"]))
+		var st: Dictionary = pd["statuses"]
+		v.set_status("numbness", _status_on(st, "numbness"))
+		v.set_status("moving", _status_on(st, "moving"))
+		v.set_status("anger", _status_on(st, "anger"))
+		_views[cell] = v
 		# Fuchsia 鏡像（僅顯示，不進 _views）。
-		for sh: PieceState in piece.shadows:
-			var linker: PieceState = sh.get_linker()
-			var job: String = linker.job if linker != null else "ADC"
+		for shd: Dictionary in pd.get("shadows", []):
+			var scell := Vector2i(int(shd["board_x"]), int(shd["board_y"]))
+			var job: String = String(shd.get("linker_job", ""))
+			if job == "":
+				job = "ADC"
 			var sv: Node2D = PieceViewScene.instantiate()
-			sv.position = _cell_topleft(sh.pos())
-			sv.z_index = _view.depth(sh.pos())
+			sv.position = _cell_topleft(scell)
+			sv.z_index = _view.depth(scell)
 			sv.fx_layer = _fx_layer
 			_board_layer.add_child(sv)
-			sv.configure("SHADOW", _owner_int(sh.owner), _db, true, job)
+			sv.configure("SHADOW", _owner_int(String(shd["owner"])), _db, true, job)
 			_shadow_views.append(sv)
+
+
+# 快照 statuses（{id:{value,duration}}）某狀態是否為真。
+func _status_on(statuses: Dictionary, id: String) -> bool:
+	return statuses.has(id) and bool(statuses[id].get("value", false))
 
 
 func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D:
