@@ -12,6 +12,10 @@
 | `afternoon-brainstorm-server.service` | systemd unit 範本（常駐：自動重啟/開機自啟/journald） |
 | `server_config.json` | 伺服器設定範本（埠/房間數/觀戰上限/席位保留秒數/存紀錄） |
 
+> **已部署過、要更新版本或只是想連線測試？** 看
+> [`重新部署與連線步驟.md`](重新部署與連線步驟.md)——記錄實際主機路徑的操作速查表，
+> 本檔（README）是首次從零架設用的完整說明。
+
 ---
 
 ## 1. 前置
