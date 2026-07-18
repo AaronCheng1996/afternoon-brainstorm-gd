@@ -94,3 +94,16 @@ offset_right = 472.0
 offset_bottom = -26.0
 theme_override_font_sizes/font_size = 16
 text = "回主選單"
+
+[node name="ReplayBtn" type="Button" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(200, 52)
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 488.0
+offset_top = -78.0
+offset_right = 688.0
+offset_bottom = -26.0
+theme_override_font_sizes/font_size = 16
+text = "回放本局"

@@ -1,0 +1,9 @@
+{
+	"_comment": "P12-11 午後激盪 專用伺服器設定範本。部署時複製到 Godot 的 user:// 目錄（Linux＝~/.local/share/godot/app_userdata/<專案名>/server_config.json）。命令列 key=value 可再覆蓋（見 server_main.parse_config）。",
+	"port": 24242,
+	"max_rooms": 16,
+	"max_clients": 64,
+	"spectator_limit": 8,
+	"seat_hold_seconds": 60,
+	"save_replays": true
+}

@@ -20,14 +20,17 @@ func run(t: Object) -> void:
 func _test_node_tree(t: Object) -> void:
 	var m: Node = MenuScene.instantiate()
 	for name in ["Background", "HUD", "TitleLabel", "SubtitleLabel", "LocalBattleBtn",
-			"EncyclopediaBtn", "EndlessBtn", "SettingsBtn", "QuitBtn", "MsgLabel", "VersionLabel",
-			"SettingsPanel", "HintBtn", "AnimBtn", "BackBtn"]:
+			"SinglePlayerBtn", "OnlineBtn", "EncyclopediaBtn", "ReplayBtn", "EndlessBtn", "SettingsBtn", "QuitBtn",
+			"MsgLabel", "VersionLabel", "SettingsPanel", "HintBtn", "AnimBtn",
+			"TurnTimerBtn", "DraftTimerBtn", "BackBtn",
+			"AIPanel", "WhiteAIBtn", "RedAIBtn", "BlueAIBtn", "GreenAIBtn", "OrangeAIBtn",
+			"BossAIBtn", "AIBackBtn", "ReplayPanel", "ReplayList", "ReplayBackBtn"]:
 		t.ok(m.get_node_or_null("%" + name) != null, "menu tree：%s 節點存在" % name)
 	m.free()
 
 	var e: Node = EndGameScene.instantiate()
 	for name in ["Background", "ChartLayer", "HUD", "TitleLabel", "ChartCaption",
-			"BarsRoot", "AgainBtn", "MenuBtn"]:
+			"BarsRoot", "AgainBtn", "MenuBtn", "ReplayBtn"]:
 		t.ok(e.get_node_or_null("%" + name) != null, "end tree：%s 節點存在" % name)
 	e.free()
 
@@ -37,19 +40,29 @@ func _test_settings_roundtrip(t: Object) -> void:
 	var existed: bool = FileAccess.file_exists(SettingsStore.PATH)
 	var orig: Dictionary = SettingsStore.load_settings()
 
-	SettingsStore.save_settings(false, false)
+	SettingsStore.save_settings({"hints_on": false, "animations_on": false})
 	var r: Dictionary = SettingsStore.load_settings()
 	t.eq(r["hints_on"], false, "settings：hints 存 false 後讀回 false")
 	t.eq(r["animations_on"], false, "settings：animations 存 false 後讀回 false")
+	# 未提供的鍵沿用預設（P11-1 計時預設關）。
+	t.eq(r["turn_timer_on"], false, "settings：turn_timer 預設關")
+	t.eq(r["draft_timer_on"], false, "settings：draft_timer 預設關")
 
-	SettingsStore.save_settings(true, false)
+	# P11-1：計時開關＋秒數 round-trip。
+	SettingsStore.save_settings({"hints_on": true, "animations_on": false,
+		"turn_timer_on": true, "turn_seconds": 45,
+		"draft_timer_on": true, "draft_seconds": 30})
 	var r2: Dictionary = SettingsStore.load_settings()
 	t.eq(r2["hints_on"], true, "settings：hints 改 true")
 	t.eq(r2["animations_on"], false, "settings：animations 維持 false")
+	t.eq(r2["turn_timer_on"], true, "settings：turn_timer 存 true 讀回 true")
+	t.eq(r2["turn_seconds"], 45, "settings：turn_seconds 存 45 讀回 45")
+	t.eq(r2["draft_timer_on"], true, "settings：draft_timer 存 true 讀回 true")
+	t.eq(r2["draft_seconds"], 30, "settings：draft_seconds 存 30 讀回 30")
 
 	# 還原（不留測試痕跡）。
 	if existed:
-		SettingsStore.save_settings(bool(orig["hints_on"]), bool(orig["animations_on"]))
+		SettingsStore.save_settings(orig)
 	else:
 		var d := DirAccess.open("user://")
 		if d != null:
@@ -68,6 +81,8 @@ func _test_end_game_build(t: Object) -> void:
 	t.ok(e._built, "end：configure 後已建構")
 	t.eq(e._winner, 0, "end：勝者為 P1")
 	t.eq(e._win_threshold, 10, "end：門檻 10")
+	# P11-2：未帶 replay_path → 「回放本局」鈕隱藏。
+	t.ok(not e.get_node("%ReplayBtn").visible, "end：無紀錄路徑時回放鈕隱藏")
 	t.ok(e.get_node("%ChartLayer").get_child_count() > 0, "end：折線圖層繪出內容")
 	t.ok(e.get_node("%BarsRoot").get_child_count() > 0, "end：統計長條繪出內容")
 
@@ -99,6 +114,11 @@ func _test_end_game_build(t: Object) -> void:
 	e2.configure(-1, 0, 8, [], {})
 	t.ok(e2._built, "end：空資料也可建構")
 	t.eq(e2.table_data().size(), 0, "end：空統計 table_data 為空")
+
+	# P11-2：帶 replay_path 重新 configure → 「回放本局」鈕顯示（放最後，避免影響上面統計斷言）。
+	e.configure(0, -10, 10, [0, -1], {"KILLED": {"player1_ADCW": 1}}, "user://replays/x.jsonl")
+	t.ok(e.get_node("%ReplayBtn").visible, "end：帶紀錄路徑時回放鈕顯示")
+
 	e.free()
 	e2.free()
 
@@ -116,8 +136,33 @@ func _test_main_menu_build(t: Object) -> void:
 	m._on_toggle_hint()
 	t.eq(m._hints_on, not before, "menu：切換提示開關")
 	m._on_toggle_hint()   # 切回
+	# P11-1：計時循環鈕：關 → 首個秒數（開）；鈕文字反映狀態。
+	t.ok(not m._turn_timer_on, "menu：回合計時預設關")
+	m._on_cycle_turn_timer()
+	t.ok(m._turn_timer_on and m._turn_seconds == m.TURN_SECONDS_CYCLE[1], "menu：回合計時循環到首個秒數（開）")
+	t.ok("秒" in (m.get_node("%TurnTimerBtn") as Button).text, "menu：回合計時鈕顯示秒數")
+	m._on_cycle_draft_timer()
+	t.ok(m._draft_timer_on and m._draft_seconds == m.DRAFT_SECONDS_CYCLE[1], "menu：選秀計時循環到首個秒數（開）")
+	# 循環回關（把 turn 循環一整圈回到 0）。
+	for _i in m.TURN_SECONDS_CYCLE.size() - 1:
+		m._on_cycle_turn_timer()
+	t.ok(not m._turn_timer_on, "menu：回合計時循環一圈回到關")
 	m._on_close_settings()
 	t.ok(not m._settings_panel.visible, "menu：關閉設定面板")
+	# P10-5：單人對戰 CPU 選擇面板預設隱藏，開啟/返回切換可見性；對手鈕文字已套標籤。
+	t.ok(m._ai_panel != null and not m._ai_panel.visible, "menu：CPU 面板預設隱藏")
+	m._on_single_player()
+	t.ok(m._ai_panel.visible, "menu：開啟 CPU 選擇面板")
+	t.ok((m.get_node("%WhiteAIBtn") as Button).text != "", "menu：對手鈕已套顯示標籤")
+	m._on_close_ai()
+	t.ok(not m._ai_panel.visible, "menu：返回關閉 CPU 面板")
+	# P11-2：回放紀錄面板開啟（填充列表不崩潰，無紀錄時顯示提示）／返回關閉。
+	t.ok(m._replay_panel != null and not m._replay_panel.visible, "menu：回放面板預設隱藏")
+	m._on_open_replays()
+	t.ok(m._replay_panel.visible, "menu：開啟回放面板")
+	t.ok(m._replay_list.get_child_count() >= 1, "menu：回放列表已填充（含無紀錄提示）")
+	m._on_close_replays()
+	t.ok(not m._replay_panel.visible, "menu：返回關閉回放面板")
 	m.free()
 	# 清掉切換寫入的檔（保持乾淨）。
 	var d := DirAccess.open("user://")

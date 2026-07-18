@@ -39,6 +39,35 @@ func _test_resource_feedback(t: Object, _dbs: Array) -> void:
 	t.eq(BattleScript.resource_deltas(b2, a2).size(), 2, "res：多類正向變化各記一筆")
 
 
+# 斷言兩手牌列「存活」子節點數與 core 雙方 hand 同步（己方＝當前玩家、對手＝另一方）。
+# 用存活數（排除 queue_free 待刪）：headless 場景不在樹上，queue_free 不會即時處理，
+# 每次重建的舊鈕會殘留為待刪節點，故以 is_queued_for_deletion 過濾。
+func _assert_hands_synced(t: Object, b: Node, tag: String) -> void:
+	var cur: String = b._core.current_player()
+	var opp: String = "player2" if cur == "player1" else "player1"
+	t.eq(_live(b._hand_box), b._core.get_player(cur).hand.size(),
+		"%s：己方列＝當前玩家手牌數" % tag)
+	t.eq(_live(b._opponent_hand_box), b._core.get_player(opp).hand.size(),
+		"%s：對手列＝對手手牌數（D19）" % tag)
+
+
+# 容器內尚未待刪（存活）子節點數。
+func _live(container: Node) -> int:
+	var n: int = 0
+	for c in container.get_children():
+		if not c.is_queued_for_deletion():
+			n += 1
+	return n
+
+
+# 容器內第一個存活子節點。
+func _first_live(container: Node) -> Node:
+	for c in container.get_children():
+		if not c.is_queued_for_deletion():
+			return c
+	return null
+
+
 func _new_db() -> Object:
 	return load("res://script/data/balance_db.gd").new()
 
@@ -59,7 +88,8 @@ func _test_node_tree(t: Object, dbs: Array) -> void:
 	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
 			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
-			"ViewToggle", "EndTurnBtn", "HandBox", "WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
+			"ViewToggle", "EndTurnBtn", "HandBox", "OpponentHandTitle", "OpponentHandBox",
+			"WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
 		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
 	# 格線 10 條預置於 GridLayer。
 	t.eq(b.get_node("%GridLayer").get_child_count(), 10, "tree：GridLayer 預置 10 條格線")
@@ -84,6 +114,13 @@ func _test_attack_flow(t: Object, dbs: Array) -> void:
 	t.eq(b._scoreboard.turn_number, b._core.turn_number, "attack：記分板回合同步 core")
 	t.eq(b._views.size(), 0, "attack：初盤無棋子視圖")
 
+	# P12-2：D19 手牌公開——己方可點列＋對手唯讀公開列，兩列與 core 雙方 hand 同步。
+	# （複用本場景避免另建 battle 影響既有洩漏基準；用存活數排除 headless 下 queue_free 待刪的舊鈕。）
+	_assert_hands_synced(t, b, "hands：開局")
+	t.ok(_live(b._hand_box) > 0, "hands：己方列有手牌")
+	t.ok(not _first_live(b._hand_box).disabled, "hands：己方手牌可點")
+	t.ok(_first_live(b._opponent_hand_box).disabled, "hands：對手手牌唯讀（disabled，點擊無作用）")
+
 	# p1 出一子於 (1,1)：選手牌單位 → 點空格放置。
 	b._on_hand_pressed(0)
 	t.eq(b._placing_index, 0, "attack：選單位卡進入放置狀態")
@@ -99,6 +136,8 @@ func _test_attack_flow(t: Object, dbs: Array) -> void:
 
 	b._do("end_turn", -1, -1)
 	t.eq(b._core.current_player(), "player2", "attack：換 p2")
+	# P12-2：換手後現操作方永遠在己方列 → 兩列內容互換，仍與 core 同步。
+	_assert_hands_synced(t, b, "hands：換手後")
 
 	# p2 於同欄 (1,3) 放一子供 p1 大十字攻擊。
 	b._on_hand_pressed(0)
@@ -187,6 +226,21 @@ func _test_all_actions(t: Object, dbs: Array) -> void:
 	# (7) 結束回合換手。
 	b._do("end_turn", -1, -1)
 	t.eq(b._core.current_player(), "player2", "all：結束回合換 p2")
+
+	# P12-4：從公開快照重建盤面（把 _rebuild_board 的資料源一般化為「core 或快照」）。
+	# 複用本場景避免新增場景實例（維持洩漏基準）；附一個鏡像以覆蓋快照的 Fuchsia 重建路徑。
+	var host: PieceState = b._core.player1.on_board[0]
+	var sh: PieceState = PieceState.make_shadow(host, "player1", 3, 3, false)
+	host.shadows.append(sh)
+	var n: int = b._core.get_all_pieces().size()
+	var snap: Dictionary = GameSnapshot.encode(b._core)
+	# 經 JSON 往返後套用，證明序列化產物足以重建盤面（連線客端/旁觀/重連路徑）。
+	b.apply_snapshot(JSON.parse_string(JSON.stringify(snap)))
+	t.eq(b._views.size(), n, "snap：從快照重建盤面視圖數＝棋子數（%d）" % n)
+	t.eq(b._shadow_views.size(), 1, "snap：從快照重建 Fuchsia 鏡像視圖 1")
+	# 還原為 core 資料源後盤面一致（apply_snapshot({}) 回歸即時編碼）。
+	b.apply_snapshot({})
+	t.eq(b._views.size(), n, "snap：還原 core 資料源後盤面視圖數一致（%d）" % n)
 
 	b.free()
 

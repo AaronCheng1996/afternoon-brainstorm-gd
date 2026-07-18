@@ -121,16 +121,16 @@ func _rebuild_meter() -> void:
 		c.free()
 	var half: float = METER_W * 0.5
 	var frac: float = clampf(float(abs(score)) / float(win_threshold), 0.0, 1.0)
-	var fill := ColorRect.new()
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if score < 0:
-		fill.color = P1_COL
-		fill.position = Vector2(half - frac * half, 0.0)
-		fill.size = Vector2(frac * half, METER_H)
-		_meter_fill_root.add_child(fill)
-	elif score > 0:
-		fill.color = P2_COL
-		fill.position = Vector2(half, 0.0)
+	# score==0 時不建填色條——fill 僅於有領先時建立並掛入（否則 ColorRect.new() 未掛樹＝孤兒洩漏）。
+	if score != 0:
+		var fill := ColorRect.new()
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if score < 0:
+			fill.color = P1_COL
+			fill.position = Vector2(half - frac * half, 0.0)
+		else:
+			fill.color = P2_COL
+			fill.position = Vector2(half, 0.0)
 		fill.size = Vector2(frac * half, METER_H)
 		_meter_fill_root.add_child(fill)
 	# 中線（0 分基準）。

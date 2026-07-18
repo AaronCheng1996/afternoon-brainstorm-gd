@@ -8,6 +8,11 @@
 # 換美術：棋子視覺在 PieceView 的 SpriteSlot；本場景不含任何美術資源。
 extends Node2D
 
+# P12-15 連線終局：對局結束（動畫播完）後 emit，交由 online_lobby 釋放本子場景、嵌入終局統計畫面
+# （資料源＝終局快照的 stats/score_history/winner/score；不 change_scene，§11.2-2/7）。
+signal net_game_finished(winner: int, score: int, win_threshold: int, score_history: Array,
+	stats: Dictionary, reason: String)
+
 const PieceViewScript := preload("res://scenes/battle/piece_view.gd")   # 常數（CELL_SIZE）用
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實例化用
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
@@ -21,6 +26,7 @@ const COL_HOVER := Color(1.0, 1.0, 1.0, 0.10)
 const COL_RANGE := Color(0.95, 0.35, 0.30, 0.28)
 const COL_SELECTED := Color(1.0, 0.9, 0.3, 0.30)
 const COL_MOVING := Color(0.4, 0.9, 1.0, 0.22)
+const COL_AI_FOCUS := Color(1.0, 0.85, 0.2, 0.95)   # P10-5：單人對戰 AI 目標圈（黃）
 const P1_COL := Color(0.95, 0.4, 0.4)
 const P2_COL := Color(0.45, 0.6, 1.0)
 
@@ -44,6 +50,26 @@ var _instant: bool = false          # 動畫開關（true=瞬時）
 var _hints_on: bool = true
 var _hover_cell: Vector2i = Vector2i(-1, -1)
 
+# P10-5：單人對戰。ai_stage=""＝本機雙人（無 AI）；非空＝該關卡 CPU 控制 player2。
+var _ai_stage: String = ""
+var _ai: AIController = null
+var _ai_focus_key: String = ""      # AI 目標圈狀態指紋（變動才重繪 persist 層）
+
+# P11-1：對戰回合計時（可選）。逾時自動結束當前（人類）玩家回合；AI 回合不計時、動畫忙碌時暫停。
+var _turn_timer := CountdownTimer.new()
+var _turn_for_timer: int = -1       # 已為哪個 turn_number 啟動過計時（偵測換手重啟）
+
+# P11-2：對戰紀錄與回放。
+var _recorder: ReplayLog = null     # 對局中：記錄 seed＋牌組＋action 流（回放模式為 null＝不錄）
+var _saved_replay_path: String = "" # 本局存檔路徑（終局時寫入，傳給 end_game 供「回放本局」）
+var _replay: ReplayLog = null       # 非 null＝回放模式（禁玩家輸入，依 action 流自動/單步重播）
+var _replay_idx: int = 0
+var _replay_playing: bool = true
+var _replay_speed: float = 1.0
+var _replay_accum: float = 0.0
+const REPLAY_STEP_INTERVAL := 0.55  # 連續播放時兩步之間的基礎間隔（秒，再除以速度）
+const REPLAY_SPEEDS := [0.5, 1.0, 2.0, 4.0]
+
 # 座標換算器（P9-1）：正交/等距雙模式，統一 cell↔pixel。預設等距。
 var _view := BoardView.new()
 
@@ -55,6 +81,30 @@ var _preview_layer: BattleDrawLayer  # 滑鼠懸停/攻擊範圍預覽
 var _fx_layer: Node2D                # 投射物 / 飄字容器
 var _views: Dictionary = {}         # Vector2i -> PieceView（真實棋子+neutral）
 var _shadow_views: Array = []       # Fuchsia 鏡像視圖（僅顯示）
+# P12-4：盤面資料源。空＝即時由 core 編碼；非空＝以公開快照重建（連線客端/旁觀/重連）。
+var _snapshot: Dictionary = {}
+
+# P12-12 連線對戰（第四種模式：本機/AI/回放 之外）。net 模式下 `_core` 為 NetMirror 顯示鏡像
+# （唯讀、嚴禁 dispatch），輸入一律 encode 送 server、絕不本地 dispatch（§11.2-3/5）。
+var _is_net: bool = false
+var _net_client: NetClient = null   # 連線客端（由 online_lobby 常駐持有，此處只引用）
+var _net_seat: String = ""          # 我的席位（player1/player2；旁觀者為空字串）
+var _net_spectator: bool = false    # 旁觀＝永久唯讀（P12-14 專屬變體，本任務先支援 gating）
+var _last_net_snapshot: Dictionary = {}   # 最近一次套用的公開快照（測試斷言「兩端＝server」）
+var _net_message: String = ""       # 最近一次被拒/提示訊息（顯示於 HUD 狀態列）
+var _net_remaining: int = -1        # 回合剩餘秒（server 於快照附 remaining 才顯示；<0＝不顯示）
+var _net_spectator_count: int = 0   # P12-14：房內觀戰人數（lobby 依房態轉入，顯示於狀態列）
+var _net_opp_held: bool = false     # P12-16：對手斷線等待重連（held），對戰畫面顯示等待提示
+var _net_opp_hold_remaining: int = 0   # P12-16：對手 held 剩餘秒（server 權威、客端顯示性）
+var _net_opp_name: String = ""      # P12-17：對手暱稱（lobby 依房態轉入；空＝退回席位標示）
+var _net_rtt: int = -1              # P12-17：連線延遲 ms（<0＝未量測、不顯示）
+var _net_quality: String = ""       # P12-17：連線品質文字（良好/普通/偏高/不穩）
+var _net_event_queue: Array = []    # 待播事件批次佇列（動畫忙碌時暫存，播完依序取出）
+var _net_pending_snapshot: Dictionary = {}  # 動畫忙碌時到達的校正快照（播完再套用）
+var _net_has_pending_snapshot: bool = false
+var _net_pending_game_over: bool = false    # 動畫忙碌時到達的終局（播完再收尾）
+var _net_pending_winner: String = ""
+var _net_pending_reason: String = ""        # P12-15：終局原因（opponent_forfeit 等），隨終局傳給 lobby
 
 # HUD
 var _hud: CanvasLayer
@@ -65,10 +115,12 @@ var _counts_label: Label
 var _hint_label: KeywordLabel   # P8-3：RichTextLabel 子類，機制詞高亮＋懸停備註
 var _mode_buttons: Dictionary = {}  # mode -> Button
 var _hand_box: HBoxContainer
+var _opponent_hand_box: Container   # D19：對手手牌唯讀公開列（P12-2）
 var _toggle_hint_btn: Button
 var _toggle_anim_btn: Button
 var _view_toggle_btn: Button        # P9-1：俯視／45 度視角切換
 var _upgrade_btn: Button
+var _end_turn_btn: Button            # P12-14：旁觀模式隱藏（唯讀）
 var _win_panel: Panel
 var _win_label: Label
 var _show_luck: bool = false
@@ -95,14 +147,73 @@ func _ready() -> void:
 
 
 # 對外啟動：設定牌組並開一局（供主選單/BP 之後呼叫，或 headless 測試直接呼叫）。
-func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null) -> void:
+# ai_stage 非空（見 AIController.KNOWN_STAGES）＝單人對戰：CPU 以該關卡策略控制 player2。
+func boot(p1_deck: Array, p2_deck: Array, seed_value: int, db: Object = null, ai_stage: String = "") -> void:
 	_p1_deck = p1_deck
 	_p2_deck = p2_deck
 	_seed = seed_value
 	_db = db if db != null else Balance
+	_ai_stage = ai_stage
+	_replay = null
 	_bind_nodes()
 	_apply_settings()
 	_new_game()
+
+
+# P11-2：以錄影紀錄開啟回放模式（禁玩家輸入，依 action 流自動/單步重播）。
+func boot_replay(log: ReplayLog, db: Object = null) -> void:
+	_p1_deck = log.p1_deck.duplicate()
+	_p2_deck = log.p2_deck.duplicate()
+	_seed = log.seed
+	_db = db if db != null else Balance
+	_ai_stage = ""
+	_replay = log
+	_replay_idx = 0
+	_replay_playing = true
+	_replay_speed = 1.0
+	_replay_accum = 0.0
+	_bind_nodes()
+	_apply_settings()
+	_new_game()
+	set_process(true)
+
+
+# P12-12：以連線客端開啟「連線對戰」模式（見 10 §11）。不建本地權威 core——盤面/HUD 全由
+# server 的公開快照（NetMirror 顯示鏡像）與事件流驅動；輸入只 encode 送 server（絕不本地 dispatch）。
+#   client：online_lobby 常駐的 NetClient（RPC 路徑鐵則：不得搬移，見 10 §11.2-1）。
+#   my_seat：我的席位（player1/player2；旁觀者為空字串）。
+#   opening_snapshot：開局公開快照（server 於 battling 起下發的首份）。
+func boot_net(client: NetClient, my_seat: String, opening_snapshot: Dictionary,
+		spectator: bool = false) -> void:
+	_is_net = true
+	_net_client = client
+	_net_seat = my_seat
+	_net_spectator = spectator or my_seat == ""
+	_db = Balance
+	_replay = null
+	_ai_stage = ""
+	_recorder = null
+	_core = null
+	_snapshot = {}
+	_bind_nodes()
+	_apply_settings()
+	set_process(false)   # net 模式為信號驅動（client 於運行樹輪詢 ENet）；本地不跑 AI/計時/回放
+	_apply_net_spectator_controls()   # P12-14：旁觀＝隱藏所有行動控制
+	_connect_net_signals()
+	_apply_net_snapshot(opening_snapshot)
+
+
+# P12-14：旁觀者唯讀變體——隱藏行動控制（模式工具列/升級/結束回合）。手牌恆唯讀由 _rebuild_hand
+# 依 _net_spectator 決定（雙列皆 disabled）。輸入本就由 _net_input_allowed() 恆拒（零送信）。
+func _apply_net_spectator_controls() -> void:
+	if not (_is_net and _net_spectator) or not _ui_built:
+		return
+	for m: String in _mode_buttons:
+		(_mode_buttons[m] as Button).visible = false
+	if _upgrade_btn != null:
+		_upgrade_btn.visible = false
+	if _end_turn_btn != null:
+		_end_turn_btn.visible = false
 
 
 # 套用 user://settings.json（提示/動畫開關）。戰鬥中自身的切換為 session 內；
@@ -113,6 +224,7 @@ func _apply_settings() -> void:
 	if _toggle_hint_btn != null:
 		_toggle_hint_btn.text = "提示：開" if _hints_on else "提示：關"
 	set_animation_enabled(bool(s.get("animations_on", true)))
+	_turn_timer.configure(bool(s.get("turn_timer_on", false)), float(s.get("turn_seconds", 60)))
 
 
 func set_animation_enabled(on: bool) -> void:
@@ -126,15 +238,36 @@ func set_animation_enabled(on: bool) -> void:
 # ---------------- 開局 ----------------
 
 func _new_game() -> void:
+	if _is_net:
+		return   # net 模式無本地權威 core；重開由 server（P12-15 再戰閉環）主導
 	_core = GameCore.new()
 	_core.setup(_p1_deck, _p2_deck, _seed, _db)
+	_snapshot = {}                     # P12-4：本機/重開一律以 core 為盤面資料源
 	_placing_index = -1
 	_mode = "attack"
 	_busy = false
 	_hover_cell = Vector2i(-1, -1)
 	_compute_resource_visibility()
+	_setup_ai()
+	# P11-2：非回放模式才錄影（記 seed＋牌組，action 於 _do 累積）。
+	_recorder = null
+	_saved_replay_path = ""
+	if _replay == null:
+		_recorder = ReplayLog.new(_seed, _p1_deck, _p2_deck)
 	_hide_win()
 	_resync()
+
+
+# P10-5：單人對戰時建立控制 player2 的 AIController，並開啟 _process 逐幀驅動。
+# 本機雙人（_ai_stage 空）則清空 AI、關閉 process。KEY_R 重開局亦沿用同一關卡。
+func _setup_ai() -> void:
+	_ai = null
+	_ai_focus_key = ""
+	if _ai_stage != "" and AIController.is_known_stage(_ai_stage):
+		_ai = AIController.new(_ai_stage, _db, "player2")
+	_turn_for_timer = -1
+	# 有 AI、回合計時、或回放模式任一為真就開 _process。
+	set_process(_ai != null or _turn_timer.enabled or _replay != null)
 
 
 # 依雙方牌組決定要顯示哪些色資源列（G=運氣 / B=藍球 / DKG=圖騰 / C=金幣）。
@@ -154,12 +287,17 @@ func _compute_resource_visibility() -> void:
 # ---------------- 行動分派（唯一入口）----------------
 
 func _do(action_type: String, x: int, y: int, idx: int = -1) -> void:
+	if _is_net:
+		_net_do(action_type, x, y, idx)   # net 模式：只 encode 送 server，絕不本地 dispatch（§11.2-3）
+		return
 	if _busy or _core == null or _core.is_over():
 		return
 	var a := GameAction.new(action_type, _core.current_player())
 	a.board_x = x
 	a.board_y = y
 	a.hand_index = idx
+	if _recorder != null:
+		_recorder.record(a)   # P11-2：錄影（回放模式 _recorder 為 null，不錄）
 	_res_snapshot = _snapshot_resources()   # P9-3：記錄行動前資源，_resync 時比對變化飄字
 	_core.dispatch(a)
 	_post_dispatch()
@@ -180,6 +318,378 @@ func _post_dispatch() -> void:
 func _on_anim_finished() -> void:
 	_busy = false
 	_resync()
+
+
+# ---------------- 單人對戰 AI 驅動（P10-5）----------------
+
+# 只在 AI 回合且非動畫忙碌時，把 AIController 吐出的 GameAction（0/1 個）經既有 _do 分派。
+# 節奏（回合開始停頓、行動間隔）與合法性由 AIController 負責（A §1，`is_busy`＝renderer_busy）。
+# 本機雙人（_ai 為 null）時 set_process(false)，本函式不運作。
+func _process(delta: float) -> void:
+	if _core == null:
+		return
+	if _replay != null:
+		_tick_replay(delta)
+		return
+	_tick_turn_timer(delta)
+	# 單人對戰 AI 驅動（見上）。
+	if _ai == null or _busy or _core.is_over():
+		return
+	if _core.current_player() != _ai.player_name:
+		return
+	var actions: Array = _ai.tick(_core, Time.get_ticks_msec(), _busy)
+	for a: GameAction in actions:
+		_do(a.action_type, a.board_x, a.board_y, a.hand_index)
+	_refresh_ai_focus()
+
+
+# P11-1：對戰回合計時。只在「人類回合、非動畫忙碌、未結束」時倒數；換手重啟；逾時自動 end_turn。
+# AI 回合（單人對戰的 player2）不計時。瞬時模式仍計時（以真實時間倒數）。
+func _tick_turn_timer(delta: float) -> void:
+	if not _turn_timer.enabled or _core.is_over():
+		return
+	# AI 控制的回合不計時。
+	if _ai != null and _core.current_player() == _ai.player_name:
+		_turn_timer.stop()
+		return
+	if _busy:
+		return   # 動畫播放中暫停倒數（不扣時、不逾時）
+	if _turn_for_timer != _core.turn_number:
+		_turn_for_timer = _core.turn_number
+		_turn_timer.start()
+	if _turn_timer.advance(delta):
+		_do("end_turn", -1, -1)
+	elif _counts_label != null:
+		_counts_label.text = _counts_text(_core.current_player())   # 每幀更新剩餘秒
+
+
+# AI 目標圈（focus_position）狀態變動時重繪 persist 層（黃圈畫在 _persist_draw）。
+func _refresh_ai_focus() -> void:
+	if _ai == null:
+		return
+	var key: String = "%s:%d,%d" % [_ai.has_focus, _ai.focus_position.x, _ai.focus_position.y]
+	if key != _ai_focus_key:
+		_ai_focus_key = key
+		if _persist_layer != null:
+			_persist_layer.queue_redraw()
+
+
+# ---------------- 回放播放（P11-2）----------------
+
+# 連續播放：等動畫播完（非 _busy）後，依間隔（除以速度）自動推進下一步。
+func _tick_replay(delta: float) -> void:
+	if _busy or _core.is_over() or _replay_idx >= _replay.actions.size():
+		if _replay_idx >= _replay.actions.size():
+			_replay_playing = false
+		_update_replay_hud()
+		return
+	if not _replay_playing:
+		_update_replay_hud()
+		return
+	_replay_accum += delta * _replay_speed
+	if _replay_accum >= REPLAY_STEP_INTERVAL:
+		_replay_accum = 0.0
+		_replay_step()
+	_update_replay_hud()
+
+
+# 推進一步：把第 _replay_idx 筆錄影 action 走既有 _do 管線（事件→動畫→重建）。
+func _replay_step() -> void:
+	if _busy or _core.is_over() or _replay_idx >= _replay.actions.size():
+		return
+	var a: GameAction = _replay.action_at(_replay_idx)
+	_replay_idx += 1
+	_do(a.action_type, a.board_x, a.board_y, a.hand_index)
+
+
+func _replay_toggle_play() -> void:
+	_replay_playing = not _replay_playing
+	_replay_accum = 0.0
+	_update_replay_hud()
+
+
+func _replay_cycle_speed() -> void:
+	var i: int = REPLAY_SPEEDS.find(_replay_speed)
+	_replay_speed = REPLAY_SPEEDS[(i + 1) % REPLAY_SPEEDS.size()] if i >= 0 else 1.0
+	_update_replay_hud()
+
+
+func _update_replay_hud() -> void:
+	if _counts_label == null:
+		return
+	var state: String = "▶ 播放中" if _replay_playing else "⏸ 暫停"
+	if _replay_idx >= _replay.actions.size():
+		state = "⏹ 結束"
+	_counts_label.text = "── 回放 ──\n%s　%d/%d 步　速度 x%s\n[空白]播放/暫停　[→]單步　[S]速度" % [
+		state, _replay_idx, _replay.actions.size(), str(_replay_speed)]
+
+
+# ---------------- 連線對戰（P12-12，見 10 §4/§6/§11）----------------
+
+func _connect_net_signals() -> void:
+	if _net_client == null:
+		return
+	if not _net_client.battle_events.is_connected(_on_net_events):
+		_net_client.battle_events.connect(_on_net_events)
+	if not _net_client.snapshot_received.is_connected(_on_net_snapshot):
+		_net_client.snapshot_received.connect(_on_net_snapshot)
+	if not _net_client.game_over.is_connected(_on_net_game_over):
+		_net_client.game_over.connect(_on_net_game_over)
+	if not _net_client.action_rejected.is_connected(_on_net_action_rejected):
+		_net_client.action_rejected.connect(_on_net_action_rejected)
+
+
+func _disconnect_net_signals() -> void:
+	if _net_client == null:
+		return
+	if _net_client.battle_events.is_connected(_on_net_events):
+		_net_client.battle_events.disconnect(_on_net_events)
+	if _net_client.snapshot_received.is_connected(_on_net_snapshot):
+		_net_client.snapshot_received.disconnect(_on_net_snapshot)
+	if _net_client.game_over.is_connected(_on_net_game_over):
+		_net_client.game_over.disconnect(_on_net_game_over)
+	if _net_client.action_rejected.is_connected(_on_net_action_rejected):
+		_net_client.action_rejected.disconnect(_on_net_action_rejected)
+
+
+# 子場景離樹（online_lobby 釋放連線對戰子場景時）：斷開對 client 的信號連結，
+# 連線本身（NetClient）由 online_lobby 常駐管理，不在此關閉（RPC 路徑鐵則，§11.2-1）。
+func _exit_tree() -> void:
+	if _is_net:
+		_disconnect_net_signals()
+
+
+# 校正快照到達：非忙碌立即套用；動畫忙碌時暫存，待本批事件播完再套用（避免打斷動畫、
+# 且不會被舊快照回捲——事件負責即時演出、快照負責回合邊界的一致性兜底，§4）。
+func _on_net_snapshot(snap: Dictionary) -> void:
+	if _busy:
+		_net_pending_snapshot = snap
+		_net_has_pending_snapshot = true
+	else:
+		_apply_net_snapshot(snap)
+
+
+# 套用公開快照＝重建顯示鏡像 core（NetMirror）＋重畫盤面＋刷新 HUD。net 模式盤面資料源＝鏡像 core
+# （_snapshot 保持空，_board_pieces 走即時 encode_piece 路徑），單一事實來源，讀取碼原樣重用。
+func _apply_net_snapshot(snap: Dictionary) -> void:
+	_last_net_snapshot = snap
+	_net_remaining = int(snap.get("remaining", -1))   # server 未附則 <0＝不顯示（回合計時預設關）
+	_core = NetMirror.build(snap, _db)
+	_snapshot = {}
+	_placing_index = -1
+	if not _ui_built:
+		return
+	_compute_resource_visibility_from_core()
+	_rebuild_board()
+	_refresh_hud()
+	# net 模式的終局不用 battle 內建勝負面板：改由 _finish_net_game emit net_game_finished，
+	# 交 online_lobby 開終局統計畫面（P12-15，§11.2-7）。此處只保持面板隱藏。
+	_hide_win()
+
+
+# net 模式無 _p1_deck/_p2_deck（跳過本地 setup）：依鏡像 core 現有棋子決定要顯示哪些色資源列。
+func _compute_resource_visibility_from_core() -> void:
+	_show_luck = _core.players_luck["player1"] != GameConfig.LUCK_INITIAL \
+		or _core.players_luck["player2"] != GameConfig.LUCK_INITIAL
+	_show_token = _core.players_token["player1"] > 0 or _core.players_token["player2"] > 0
+	_show_totem = _core.players_totem["player1"] > 0 or _core.players_totem["player2"] > 0
+	_show_coin = _core.players_coin["player1"] > 0 or _core.players_coin["player2"] > 0
+	for p: PieceState in _core.get_all_pieces():
+		match p.color_code:
+			"G": _show_luck = true
+			"B": _show_token = true
+			"DKG": _show_totem = true
+			"C": _show_coin = true
+
+
+# 一批事件到達：排入佇列後嘗試播放（忙碌時等當前批播完再取下一批）。
+func _on_net_events(events: Array) -> void:
+	_net_event_queue.append(events)
+	_drain_net_events()
+
+
+func _drain_net_events() -> void:
+	if _busy or _net_event_queue.is_empty():
+		return
+	var events: Array = _net_event_queue.pop_front()
+	if events.is_empty():
+		_drain_net_events()
+		return
+	_prespawn(events)
+	_busy = true
+	_scheduler.instant = _instant
+	_scheduler.finished.connect(_on_net_anim_finished, CONNECT_ONE_SHOT)
+	_scheduler.play_events(events)
+
+
+# 一批事件播完：解鎖 → 若有暫存校正快照先套用（回合邊界一致性）→ 否則只刷新 HUD
+# （net 模式不從鏡像重建盤面：盤面此刻由事件動畫呈現，鏡像要到下一份快照才更新，
+# 若此時 _rebuild_board 會把剛演出的變化回捲）→ 再取下一批事件。
+func _on_net_anim_finished() -> void:
+	_busy = false
+	if _net_pending_game_over:
+		_net_pending_game_over = false
+		var s := _net_pending_snapshot
+		_net_pending_snapshot = {}
+		_net_has_pending_snapshot = false
+		_finish_net_game(s, _net_pending_winner, _net_pending_reason)
+		return
+	if _net_has_pending_snapshot:
+		_net_has_pending_snapshot = false
+		var snap := _net_pending_snapshot
+		_net_pending_snapshot = {}
+		_apply_net_snapshot(snap)
+	elif _ui_built:
+		_refresh_hud()
+	_drain_net_events()
+
+
+# 終局：套最終快照（含勝方/統計）後交由 lobby 開終局統計。動畫忙碌時暫存、播完再收尾。
+func _on_net_game_over(info: Dictionary) -> void:
+	var reason := String(info.get("reason", ""))
+	if reason == NetMessage.REASON_OPPONENT_FORFEIT:
+		_net_message = "對手離線逾時，你獲勝。"
+	var snap: Dictionary = info.get("snapshot", {})
+	var winner_name := String(info.get("winner", ""))
+	if _busy:
+		_net_pending_snapshot = snap
+		_net_has_pending_snapshot = not snap.is_empty()
+		_net_pending_game_over = true
+		_net_pending_winner = winner_name
+		_net_pending_reason = reason
+		return
+	_finish_net_game(snap, winner_name, reason)
+
+
+# 收尾：套最終快照（含統計 export/score_history/勝方）；forfeit 等快照未必 over，以 game_over 的
+# winner 強制標記。完成後 emit net_game_finished 交 online_lobby 開終局統計畫面（P12-15，§11.2-7）。
+func _finish_net_game(snap: Dictionary, winner_name: String, reason: String = "") -> void:
+	if not snap.is_empty():
+		_apply_net_snapshot(snap)
+	if _core != null and not _core.is_over():
+		_core.mark_over(winner_name)
+	if _ui_built:
+		_refresh_hud()
+	var s := _last_net_snapshot
+	net_game_finished.emit(
+		_core.winner() if _core != null else -1,
+		int(s.get("score", _core.score if _core != null else 0)),
+		_core.config.win_threshold if _core != null else GameConfig.WIN_THRESHOLD_DEFAULT,
+		s.get("score_history", []),
+		s.get("stats", {}),
+		reason)
+
+
+# 我方行動被 server 拒（回合閘/次數不足…）：顯示原因於狀態列（不斷線）。
+# server 端 action_rejected 的 reason 有時為穩定常數、有時直接是 dispatch 的訊息（如「攻擊次數不足」）；
+# 有 message 優先顯示 message，否則對常見常數給中文、其餘回顯 reason 原字串。
+func _on_net_action_rejected(reason: String, message: String) -> void:
+	if message != "":
+		_net_message = message
+	else:
+		match reason:
+			NetMessage.REASON_NOT_YOUR_TURN: _net_message = "還沒輪到你行動。"
+			NetMessage.REASON_SPECTATOR_ACTION: _net_message = "旁觀者無法行動。"
+			NetMessage.REASON_NOT_BATTLING: _net_message = "目前不在對戰中。"
+			NetMessage.REASON_BAD_ACTION: _net_message = "行動非法。"
+			_: _net_message = reason
+	if _ui_built:
+		_refresh_hud()
+
+
+# net 模式輸入單點閘（§11.2-5）：我的席位＝當前玩家、非動畫忙碌、非旁觀、對局未結束。
+func _net_input_allowed() -> bool:
+	return _is_net and not _net_spectator and not _busy \
+		and _core != null and not _core.is_over() \
+		and _core.current_player() == _net_seat
+
+
+# net 模式的行動出口（§11.2-3）：**只 encode 送 server，絕不本地 dispatch**。gating 不通過＝零送信。
+func _net_do(action_type: String, x: int, y: int, idx: int) -> void:
+	if not _net_input_allowed() or _net_client == null:
+		return
+	_net_message = ""
+	var a := GameAction.new(action_type, _net_seat)
+	a.board_x = x
+	a.board_y = y
+	a.hand_index = idx
+	_net_client.send_action(a)
+
+
+# net 模式 HUD 狀態列（回合歸屬/旁觀/剩餘秒/被拒訊息）——取代本機的「當前玩家可用」計數塊。
+func _net_status_text() -> String:
+	var lines: Array = []
+	if _net_spectator:
+		lines.append("👁 旁觀中")
+	elif _core.is_over():
+		lines.append("對戰結束。")
+	elif _core.current_player() == _net_seat:
+		lines.append("▶ 你的回合，請行動。")
+	else:
+		lines.append("⏳ 對方回合…")
+	if not _net_spectator:
+		var me_line := "你＝%s" % ("先手 P1" if _net_seat == "player1" else "後手 P2")
+		if _net_opp_name != "":
+			me_line += "　對手：%s" % _net_opp_name
+		lines.append(me_line)
+	if _net_remaining >= 0:
+		lines.append("回合剩餘：%d 秒" % _net_remaining)
+	if _net_rtt >= 0:
+		lines.append("延遲：%d ms（%s）" % [_net_rtt, _net_quality])
+	if _net_spectator_count > 0:
+		lines.append("👁 觀戰：%d 人" % _net_spectator_count)
+	# P12-16：對手斷線等待重連——顯示等待提示（server 權威保留席位；逾時則對手判勝，見 §8）。
+	if _net_opp_held:
+		if _net_opp_hold_remaining > 0:
+			lines.append("⏳ 對方斷線，等待重連（剩餘 %d 秒）…" % _net_opp_hold_remaining)
+		else:
+			lines.append("⏳ 對方斷線，等待重連…")
+	if _net_message != "":
+		lines.append("⚠ %s" % _net_message)
+	return "\n".join(lines)
+
+
+# P12-16：對手 held（斷線等待重連）狀態更新（lobby 於房態轉入時呼叫）。顯示於狀態列。
+func set_opponent_held(held: bool, remaining: int) -> void:
+	_net_opp_held = held
+	_net_opp_hold_remaining = remaining
+	_refresh_net_status()
+
+
+# P12-17：對手暱稱更新（lobby 於房態轉入時呼叫）。
+func set_opponent_name(name: String) -> void:
+	_net_opp_name = name
+	_refresh_net_status()
+
+
+# P12-17：連線延遲/品質更新（lobby 週期心跳 rtt_measured 轉入）。
+func set_rtt(rtt_ms: int) -> void:
+	_net_rtt = rtt_ms
+	_net_quality = net_quality_text(rtt_ms) if rtt_ms >= 0 else ""
+	_refresh_net_status()
+
+
+# RTT → 連線品質文字（純函式，與 draft/大廳一致的門檻）。
+static func net_quality_text(rtt_ms: int) -> String:
+	if rtt_ms < 80:
+		return "良好"
+	if rtt_ms < 160:
+		return "普通"
+	if rtt_ms < 300:
+		return "偏高"
+	return "不穩"
+
+
+func _refresh_net_status() -> void:
+	if _is_net and _ui_built and _counts_label != null:
+		_counts_label.text = _net_status_text()
+
+
+# P12-14：房內觀戰人數更新（lobby 於房態轉入時呼叫）。只輕量更新狀態列。
+func set_spectator_count(n: int) -> void:
+	_net_spectator_count = n
+	if _is_net and _ui_built and _counts_label != null:
+		_counts_label.text = _net_status_text()
 
 
 # 為 SPAWN 事件先建立視圖（動畫連續性：deploy 引發的傷害可解析到新棋子/既有棋子）。
@@ -215,6 +725,25 @@ func _drain_logic() -> void:
 		_core.logic_step()
 
 
+# P12-4：盤面資料源一般化——快照非空時取快照 pieces，否則即時由 core 編碼；
+# 兩路皆回傳 GameSnapshot 的棋子欄位 Dictionary，_rebuild_board 統一消費。
+func _board_pieces() -> Array:
+	if not _snapshot.is_empty():
+		return _snapshot.get("pieces", [])
+	var out: Array = []
+	for p: PieceState in _core.get_all_pieces():
+		out.append(GameSnapshot.encode_piece(p))
+	return out
+
+
+# P12-4：以公開快照為盤面資料源並重畫（連線客端/旁觀/重連用；本機不呼叫）。
+# 傳空 Dictionary 還原為 core 資料源。
+func apply_snapshot(snap: Dictionary) -> void:
+	_snapshot = snap
+	if _ui_built:
+		_rebuild_board()
+
+
 func _rebuild_board() -> void:
 	for c in _board_layer.get_children():
 		c.free()
@@ -222,24 +751,33 @@ func _rebuild_board() -> void:
 	_shadow_views.clear()
 	_persist_layer.queue_redraw()
 
-	for piece: PieceState in _core.get_all_pieces():
-		var v: Node2D = _make_piece_view(piece.card_id, _owner_int(piece.owner), piece.pos())
-		v.update_stats(piece.health, piece.damage, piece.armor, piece.extra_damage)
-		v.set_status("numbness", piece.is_numb())
-		v.set_status("moving", piece.is_moving())
-		v.set_status("anger", piece.is_angry())
-		_views[piece.pos()] = v
+	for pd: Dictionary in _board_pieces():
+		var cell := Vector2i(int(pd["board_x"]), int(pd["board_y"]))
+		var v: Node2D = _make_piece_view(String(pd["card_id"]), _owner_int(String(pd["owner"])), cell)
+		v.update_stats(int(pd["health"]), int(pd["damage"]), int(pd["armor"]), int(pd["extra_damage"]))
+		var st: Dictionary = pd["statuses"]
+		v.set_status("numbness", _status_on(st, "numbness"))
+		v.set_status("moving", _status_on(st, "moving"))
+		v.set_status("anger", _status_on(st, "anger"))
+		_views[cell] = v
 		# Fuchsia 鏡像（僅顯示，不進 _views）。
-		for sh: PieceState in piece.shadows:
-			var linker: PieceState = sh.get_linker()
-			var job: String = linker.job if linker != null else "ADC"
+		for shd: Dictionary in pd.get("shadows", []):
+			var scell := Vector2i(int(shd["board_x"]), int(shd["board_y"]))
+			var job: String = String(shd.get("linker_job", ""))
+			if job == "":
+				job = "ADC"
 			var sv: Node2D = PieceViewScene.instantiate()
-			sv.position = _cell_topleft(sh.pos())
-			sv.z_index = _view.depth(sh.pos())
+			sv.position = _cell_topleft(scell)
+			sv.z_index = _view.depth(scell)
 			sv.fx_layer = _fx_layer
 			_board_layer.add_child(sv)
-			sv.configure("SHADOW", _owner_int(sh.owner), _db, true, job)
+			sv.configure("SHADOW", _owner_int(String(shd["owner"])), _db, true, job)
 			_shadow_views.append(sv)
+
+
+# 快照 statuses（{id:{value,duration}}）某狀態是否為真。
+func _status_on(statuses: Dictionary, id: String) -> bool:
+	return statuses.has(id) and bool(statuses[id].get("value", false))
 
 
 func _make_piece_view(card_id: String, owner_int: int, cell: Vector2i) -> Node2D:
@@ -268,8 +806,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _board_click(cell: Vector2i) -> void:
-	if _busy or _core.is_over():
+	if _replay != null or _busy or _core.is_over():
 		return
+	if _is_net and not _net_input_allowed():
+		return   # 非我回合/旁觀：完全不處理（連 _placing_index 都不動，確保零送信）
 	if _placing_index >= 0:
 		_do("play_card", cell.x, cell.y, _placing_index)
 		_placing_index = -1
@@ -282,6 +822,16 @@ func _board_click(cell: Vector2i) -> void:
 
 
 func _handle_key(keycode: int) -> void:
+	if _replay != null:
+		# 回放模式：鍵盤只控播放（空白＝播放/暫停、→/.＝單步、S＝速度），保留 I/V/T 觀看選項。
+		match keycode:
+			KEY_SPACE: _replay_toggle_play()
+			KEY_RIGHT, KEY_PERIOD: _replay_step()
+			KEY_S: _replay_cycle_speed()
+			KEY_I: set_animation_enabled(_instant)
+			KEY_T: _on_toggle_hints()
+			KEY_V: _toggle_board_mode()
+		return
 	match keycode:
 		KEY_A: _set_mode("attack")
 		KEY_M: _set_mode("move")
@@ -297,7 +847,9 @@ func _handle_key(keycode: int) -> void:
 # ---------------- HUD 回呼 ----------------
 
 func _on_hand_pressed(index: int) -> void:
-	if _busy or _core.is_over():
+	if _replay != null or _busy or _core.is_over():
+		return
+	if _is_net and not _net_input_allowed():
 		return
 	var hand: Array = _core.get_player(_core.current_player()).hand
 	if index < 0 or index >= hand.size():
@@ -313,7 +865,7 @@ func _on_hand_pressed(index: int) -> void:
 
 
 func _on_toggle_upgrade() -> void:
-	if _busy or _core.is_over() or _placing_index < 0:
+	if _replay != null or _busy or _core.is_over() or _placing_index < 0:
 		return
 	_do("toggle_upgrade", -1, -1, _placing_index)   # 只改手牌名（無事件）→ _resync 重繪
 
@@ -333,10 +885,17 @@ func _on_toggle_hints() -> void:
 
 
 func _on_win_restart() -> void:
+	if _replay != null:
+		# 回放模式：從頭重播（保留同一份紀錄）。
+		_replay_idx = 0
+		_replay_playing = true
+		_replay_accum = 0.0
 	_new_game()
 
 
 func _on_win_menu() -> void:
+	if _is_net:
+		return   # net 子場景不自行 change_scene（會拆掉常駐連線）；回房/離開由 online_lobby 主導（P12-15）
 	var tree := get_tree()
 	if tree != null:
 		tree.change_scene_to_file("res://scenes/menu/main_menu.tscn")
@@ -344,13 +903,16 @@ func _on_win_menu() -> void:
 
 # 轉到終局統計畫面（帶勝者/分數/每回合分數/主要統計前幾名）。
 func _open_end_game() -> void:
+	if _is_net:
+		return   # net 終局統計＋再戰閉環於 P12-15 由 online_lobby 主導（資料源＝終局快照統計 export）
 	var tree := get_tree()
 	if tree == null:
 		return
 	var end_scene: Node = load("res://scenes/end_game/end_game.tscn").instantiate()
 	# P8-6：傳完整統計 export（{stat_name: {owner_cardid: int}}）；摘要長條與表格由 end_game 派生。
+	# P11-2：附本局紀錄路徑（非回放時才有），供終局畫面「回放本局」。
 	end_scene.configure(_core.winner(), _core.score, _core.config.win_threshold,
-		_core.stats.score_history.duplicate(), _core.stats.export_for_charts())
+		_core.stats.score_history.duplicate(), _core.stats.export_for_charts(), _saved_replay_path)
 	tree.root.add_child(end_scene)
 	tree.current_scene = end_scene
 	queue_free()
@@ -460,14 +1022,20 @@ func _preview_draw() -> void:
 
 
 func _persist_draw() -> void:
-	# 選取中（selected）與移動中（moving）棋子的持續高亮。
 	if _core == null:
 		return
 	for piece: PieceState in _core.get_both_player_pieces():
+		# 選取中（selected）與移動中（moving）棋子的持續高亮（格內填色）。
 		if piece.has_status("selected"):
 			_fill_cell(_persist_layer, piece.pos(), COL_SELECTED)
 		elif piece.is_moving():
 			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
+		# 擁有者標示：棋子所在格的地格外框上色（先手紅／後手藍）——取代舊的棋子本體外框環。
+		var oc: Color = P1_COL if piece.owner == "player1" else P2_COL
+		_outline_cell(_persist_layer, piece.pos(), oc, 3.5)
+	# P10-5：單人對戰時，AI 決策鎖定的格畫黃色目標圈。
+	if _ai != null and _ai.has_focus and _in_board(_ai.focus_position):
+		_outline_cell(_persist_layer, _ai.focus_position, COL_AI_FOCUS, 3.0)
 
 
 # 格填色 / 格外框（統一走 BoardView.cell_polygon，正交＝方形、等距＝菱形）。
@@ -613,10 +1181,12 @@ func _bind_nodes() -> void:
 	_view_toggle_btn = %ViewToggle
 	_view_toggle_btn.pressed.connect(_toggle_board_mode)
 	_update_view_toggle_text()
-	(%EndTurnBtn as Button).pressed.connect(_do.bind("end_turn", -1, -1, -1))
+	_end_turn_btn = %EndTurnBtn
+	_end_turn_btn.pressed.connect(_do.bind("end_turn", -1, -1, -1))
 
-	# 手牌容器（動態手牌鈕生成於此）。
+	# 手牌容器（動態手牌鈕生成於此）。己方＝可點手牌列；對手＝唯讀公開列（D19，P12-2）。
 	_hand_box = %HandBox
+	_opponent_hand_box = %OpponentHandBox
 
 	# 勝負面板。
 	_win_panel = %WinPanel
@@ -634,7 +1204,8 @@ func _refresh_hud() -> void:
 		cur, _core.stats.score_history)
 
 	_res_label.text = _resource_text()
-	_counts_label.text = _counts_text(cur)
+	# net 模式以「回合歸屬/旁觀/被拒訊息」取代本機的可用次數塊（次數仍隨快照更新於資源列旁）。
+	_counts_label.text = _net_status_text() if _is_net else _counts_text(cur)
 
 	# 模式按鈕高亮。
 	for m: String in _mode_buttons:
@@ -732,15 +1303,33 @@ func _counts_text(cur: String) -> String:
 	]
 	if _placing_index >= 0 and _placing_index < p.hand.size():
 		lines.append("放置中：%s（點空格放置）" % p.hand[_placing_index])
+	if _turn_timer.running:
+		lines.append("⏳ 回合剩餘：%d 秒" % _turn_timer.remaining_seconds())
 	return "\n".join(lines)
 
 
+# D19 手牌公開（P12-2）：己方（當前操作方）渲染為可點手牌列、對手渲染為唯讀公開列。
+# hot-seat 換手時因每次 _refresh_hud 都以 cur/對手重建，兩列內容自然互換；
+# 單人對戰對手＝AI（其手牌亦公開）；回放模式兩列同時顯示（bottom 為當前 replay 玩家）。
 func _rebuild_hand(cur: String) -> void:
+	# 旁觀＝雙方手牌皆唯讀（無可點列）；本機/對戰參與者＝當前操作方可點、對手唯讀（D19，P12-2）。
+	var interactive := not (_is_net and _net_spectator)
+	_rebuild_hand_into(_hand_box, cur, interactive)
+	var opp: String = "player2" if cur == "player1" else "player1"
+	_rebuild_hand_into(_opponent_hand_box, opp, false)
+
+
+# 把指定玩家手牌渲染到指定容器。
+# interactive=true：可點列（放置/出牌/升級高亮，pressed → _on_hand_pressed）。
+# interactive=false：唯讀列（disabled 鈕＝點擊無作用；派別色標示；懸停 tooltip 顯示名稱＋提示）。
+func _rebuild_hand_into(container: Container, player_name: String, interactive: bool) -> void:
+	if container == null:
+		return
 	# 用 queue_free（非 free）：手牌按鈕的 pressed 信號會觸發本重建，emit 期間該按鈕被鎖定，
 	# 立即 free 會報「Object is locked」。queue_free 延到本幀 idle 釋放（繪製前已清，無殘影）。
-	for c in _hand_box.get_children():
+	for c in container.get_children():
 		c.queue_free()
-	var hand: Array = _core.get_player(cur).hand
+	var hand: Array = _core.get_player(player_name).hand
 	for i in hand.size():
 		var card: String = hand[i]
 		var base_name: String = card.trim_suffix(" (+)")
@@ -748,14 +1337,31 @@ func _rebuild_hand(cur: String) -> void:
 		var label_text: String = String(info.get("name", base_name))
 		if card.ends_with(" (+)"):
 			label_text += "＋"
+		# 派別色（兩列共用）：手牌全為公開資訊，己方與對手皆以派別色標示卡名。
+		var code: String = _db.color_code_of(base_name)
+		var col: Color = _db.color_rgb(code) if code != "" else Color.WHITE
 		var b := Button.new()
-		b.text = "%s\n%s" % [label_text, card]
-		b.custom_minimum_size = Vector2(96, 64)
-		b.add_theme_font_size_override("font_size", 12)
-		if i == _placing_index:
-			b.modulate = Color(1, 1, 0.5)
-		b.pressed.connect(_on_hand_pressed.bind(i))
-		_hand_box.add_child(b)
+		if interactive:
+			b.text = "%s\n%s" % [label_text, card]
+			b.custom_minimum_size = Vector2(96, 64)
+			b.add_theme_font_size_override("font_size", 12)
+			if code != "":
+				# 各互動態都套派別色，避免 hover/pressed 時字色跳回預設。
+				for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+					b.add_theme_color_override(state, col)
+			if i == _placing_index:
+				b.modulate = Color(1, 1, 0.5)
+			b.pressed.connect(_on_hand_pressed.bind(i))
+		else:
+			# 唯讀公開列：只顯示名稱＋派別色；disabled 保證點擊無作用（樣式亦與可點列區別）。
+			b.text = label_text
+			b.custom_minimum_size = Vector2(78, 48)
+			b.add_theme_font_size_override("font_size", 11)
+			b.disabled = true
+			if code != "":
+				b.add_theme_color_override("font_disabled_color", col)
+			b.tooltip_text = "%s\n%s" % [String(info.get("name", base_name)), String(info.get("hint", ""))]
+		container.add_child(b)
 
 
 # ---------------- 勝負畫面 ----------------
@@ -764,6 +1370,11 @@ func _show_win() -> void:
 	var w: int = _core.winner()
 	var who: String = "先手 P1" if w == 0 else ("後手 P2" if w == 1 else "平手")
 	_win_label.text = "%s 獲勝！\n最終分數 %d" % [who, _core.score]
+	# P11-2：非回放的對局結束時，把紀錄存到 user://replays/（供終局畫面「回放本局」與主選單載入）。
+	# is_inside_tree 守：headless 場景測試 instantiate 但不進場景樹，不落檔（避免測試污染 user://）。
+	if is_inside_tree() and _replay == null and _recorder != null and _saved_replay_path == "":
+		_saved_replay_path = ReplayLog.new_path()
+		ReplayLog.save_to_file(_recorder, _saved_replay_path)
 	_win_panel.visible = true
 
 
