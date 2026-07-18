@@ -149,6 +149,8 @@ func set_animation_set(a_set: PieceAnimationSet) -> void:
 # fx_layer 收納投射物/特效（P9-3：投射物、命中特效皆以 aset.fx_color 派別色上色）。
 func play_attack(target_global: Vector2, a_fx_layer: Node) -> void:
 	_bind_nodes()
+	if instant:
+		return   # 瞬時模式：不生成任何特效節點（零特效不變性；投射物/命中特效皆純演出）
 	var aset := _aset()
 	if aset.has_projectile() and a_fx_layer != null:
 		_fire_projectile(target_global, a_fx_layer, aset)

@@ -12,6 +12,9 @@
 extends Node2D
 
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
+# P12-12：連線對戰畫面以「子場景嵌入本大廳」方式進場（不 change_scene；NetClient 全程存活，
+# @rpc 路徑鐵則見 10 §11.2-1/2）。開戰時 instantiate battle、隱藏大廳 UI；離開/終局回房再釋放。
+const BattleScene := preload("res://scenes/battle/battle.tscn")
 # 內建預設伺服器位址（settings 可手動改，記住上次）。P12-11 部署時改為使用者主機固定 IP。
 const DEFAULT_HOST := "127.0.0.1"
 # 心跳間隔（秒）：連線後週期 ping 量 RTT 更新延遲顯示（§3）。
@@ -30,6 +33,8 @@ var _server_info: Dictionary = {}
 var _current_room: Dictionary = {}
 var _ui_state: String = UI_CONNECT
 var _ping_accum: float = 0.0
+# P12-12：進行中的連線對戰子場景（null＝未在對戰畫面）。
+var _battle_scene: Node = null
 
 # 節點（於 _bind_nodes 綁定）。
 var _msg_label: Label
@@ -155,6 +160,7 @@ func _make_client(_nickname: String) -> NetClient:
 
 
 func _teardown_client() -> void:
+	_exit_battle()   # 先釋放對戰子場景（斷開其對 client 的連結），再關 client
 	if _client != null:
 		_client.stop()
 		_client.queue_free()
@@ -211,11 +217,14 @@ func _on_room_list_received(list: Array) -> void:
 
 func _on_room_updated(room: Dictionary) -> void:
 	apply_room_state(room)
-	_show_state(UI_ROOM)
+	# 對戰子場景進行中：只更新房態資料（供席位查詢），不切回房內面板蓋掉對戰畫面。
+	if _battle_scene == null:
+		_show_state(UI_ROOM)
 
 
 func _on_room_closed(_room_id: String, _reason: String) -> void:
 	set_message("房間已解散。")
+	_exit_battle()
 	_current_room = {}
 	_show_state(UI_LOBBY)
 	if _client != null:
@@ -246,13 +255,47 @@ func _on_draft_rejected(reason: String, _message: String) -> void:
 	set_message(reason_text(reason))
 
 
-func _on_snapshot_received(_snapshot: Dictionary) -> void:
-	# P12-7 範圍到房間 UI 為止：對戰開局／校正快照先以狀態提示；連線對戰畫面於後續任務接入。
-	(%RoomStatus as Label).text = "對戰開始（連線對戰畫面將於後續任務接入）。"
+func _on_snapshot_received(snapshot: Dictionary) -> void:
+	# P12-12：對戰開局快照＝進場信號。尚未在對戰畫面 → 嵌入 battle 子場景並交棒；
+	# 已在對戰畫面 → 後續校正快照由子場景自身的 NetClient 連結處理（此處不重複）。
+	if _battle_scene == null:
+		_enter_battle(snapshot)
 
 
 func _on_game_over(_info: Dictionary) -> void:
-	(%RoomStatus as Label).text = "對戰結束。"
+	# P12-12：終局由對戰子場景顯示勝負面板（其自身連結 game_over）。回房/再戰閉環＝P12-15。
+	if _battle_scene == null:
+		(%RoomStatus as Label).text = "對戰結束。"
+
+
+# ---------------- 連線對戰子場景（P12-12，見 10 §11.2-2）----------------
+
+# 嵌入 battle 子場景（隱藏大廳 UI）。先 boot_net 再 add_child：boot_net 已建顯示鏡像 core，
+# 隨後 add_child 觸發的 _ready 見 _core 非空 → 不會誤啟動本地預設對局。
+func _enter_battle(opening_snapshot: Dictionary) -> void:
+	if _battle_scene != null:
+		return
+	_battle_scene = BattleScene.instantiate()
+	_battle_scene.boot_net(_client, _my_seat(), opening_snapshot, _my_seat() == "")
+	add_child(_battle_scene)
+	_hide_lobby_ui()
+
+
+# 釋放對戰子場景、恢復大廳 UI（離開/斷線/房解散時）。
+func _exit_battle() -> void:
+	if _battle_scene != null:
+		_battle_scene.queue_free()
+		_battle_scene = null
+	if _msg_label != null:
+		_msg_label.visible = true
+
+
+func _hide_lobby_ui() -> void:
+	for panel in [_connect_panel, _lobby_panel, _create_panel, _room_panel]:
+		if panel != null:
+			(panel as Control).visible = false
+	if _msg_label != null:
+		_msg_label.visible = false
 
 
 # ---------------- 大廳操作 ----------------
@@ -341,6 +384,7 @@ func _on_start_battle() -> void:
 func _on_leave_room() -> void:
 	if _client != null:
 		_client.leave_room()
+	_exit_battle()
 	_current_room = {}
 	_show_state(UI_LOBBY)
 	if _client != null:
