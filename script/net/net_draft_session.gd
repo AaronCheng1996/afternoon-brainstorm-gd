@@ -70,6 +70,7 @@ func is_done() -> bool:
 
 
 # 公開選秀 view（BP 全公開，D19：無 seed／無隱藏資訊）。每次行動/逾時後廣播全房。
+# remaining＝server 權威選秀倒數剩餘秒（<0＝未計時，客端不顯示；相容性小追加，見 10 §11.2-6）。
 func view() -> Dictionary:
 	return {
 		"phase": state.phase,
@@ -78,6 +79,7 @@ func view() -> Dictionary:
 		"player2_deck": state.player2_deck.duplicate(),
 		"player1_count": state.player1_deck.size(),
 		"player2_count": state.player2_deck.size(),
+		"remaining": phase_timer.remaining_seconds() if phase_timer.running else -1,
 		"done": state.phase == "done",
 	}
 

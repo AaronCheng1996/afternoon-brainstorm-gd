@@ -15,6 +15,8 @@ const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 # P12-12：連線對戰畫面以「子場景嵌入本大廳」方式進場（不 change_scene；NetClient 全程存活，
 # @rpc 路徑鐵則見 10 §11.2-1/2）。開戰時 instantiate battle、隱藏大廳 UI；離開/終局回房再釋放。
 const BattleScene := preload("res://scenes/battle/battle.tscn")
+# P12-13：連線選秀畫面同樣以子場景嵌入本大廳（不 change_scene；draft→battle 由開局快照切換）。
+const DraftScene := preload("res://scenes/draft/draft.tscn")
 # 內建預設伺服器位址（settings 可手動改，記住上次）。P12-11 部署時改為使用者主機固定 IP。
 const DEFAULT_HOST := "127.0.0.1"
 # 心跳間隔（秒）：連線後週期 ping 量 RTT 更新延遲顯示（§3）。
@@ -35,6 +37,8 @@ var _ui_state: String = UI_CONNECT
 var _ping_accum: float = 0.0
 # P12-12：進行中的連線對戰子場景（null＝未在對戰畫面）。
 var _battle_scene: Node = null
+# P12-13：進行中的連線選秀子場景（null＝未在選秀畫面）。
+var _draft_scene: Node = null
 
 # 節點（於 _bind_nodes 綁定）。
 var _msg_label: Label
@@ -89,7 +93,7 @@ func _bind_nodes() -> void:
 
 	# --- 房內面板 ---
 	(%ReadyBtn as Button).pressed.connect(_on_toggle_ready)
-	(%StartBtn as Button).pressed.connect(_on_start_battle)
+	(%StartBtn as Button).pressed.connect(_on_start)
 	(%LeaveBtn as Button).pressed.connect(_on_leave_room)
 
 	_show_state(UI_CONNECT)
@@ -160,7 +164,8 @@ func _make_client(_nickname: String) -> NetClient:
 
 
 func _teardown_client() -> void:
-	_exit_battle()   # 先釋放對戰子場景（斷開其對 client 的連結），再關 client
+	_exit_draft()    # 先釋放選秀/對戰子場景（斷開其對 client 的連結），再關 client
+	_exit_battle()
 	if _client != null:
 		_client.stop()
 		_client.queue_free()
@@ -217,13 +222,14 @@ func _on_room_list_received(list: Array) -> void:
 
 func _on_room_updated(room: Dictionary) -> void:
 	apply_room_state(room)
-	# 對戰子場景進行中：只更新房態資料（供席位查詢），不切回房內面板蓋掉對戰畫面。
-	if _battle_scene == null:
+	# 對戰/選秀子場景進行中：只更新房態資料（供席位查詢），不切回房內面板蓋掉畫面。
+	if _battle_scene == null and _draft_scene == null:
 		_show_state(UI_ROOM)
 
 
 func _on_room_closed(_room_id: String, _reason: String) -> void:
 	set_message("房間已解散。")
+	_exit_draft()
 	_exit_battle()
 	_current_room = {}
 	_show_state(UI_LOBBY)
@@ -240,15 +246,11 @@ func _on_rtt_measured(_peer_id: int, rtt_ms: int) -> void:
 		(%LatencyLabel as Label).text = "延遲：%d ms" % rtt_ms
 
 
-# P12-8 選秀狀態：以房內狀態列即時反映階段/當前選手/雙方張數（BP 全公開）。
-# 連線選秀畫面（可點選牌、非編輯方鎖定「對方選牌中」）於後續任務把 draft.tscn 接上 NetClient。
+# P12-13 選秀狀態：首份選秀 view＝進場信號。尚未在選秀/對戰畫面 → 嵌入 draft 子場景並交棒；
+# 已在畫面 → 後續 view 由子場景自身的 NetClient 連結渲染（此處不重複）。
 func _on_draft_updated(draft: Dictionary) -> void:
-	if _ui_state != UI_ROOM:
-		_show_state(UI_ROOM)
-	var editor := String(draft.get("editor", ""))
-	var picking := "你" if (editor != "" and editor == _my_seat()) else "對手"
-	(%RoomStatus as Label).text = "選秀中：目前 %s 選牌 · P1 %d/12　P2 %d/12（連線選秀畫面將於後續任務接入）" % [
-		picking, int(draft.get("player1_count", 0)), int(draft.get("player2_count", 0))]
+	if _draft_scene == null and _battle_scene == null:
+		_enter_draft(draft)
 
 
 func _on_draft_rejected(reason: String, _message: String) -> void:
@@ -256,9 +258,10 @@ func _on_draft_rejected(reason: String, _message: String) -> void:
 
 
 func _on_snapshot_received(snapshot: Dictionary) -> void:
-	# P12-12：對戰開局快照＝進場信號。尚未在對戰畫面 → 嵌入 battle 子場景並交棒；
-	# 已在對戰畫面 → 後續校正快照由子場景自身的 NetClient 連結處理（此處不重複）。
+	# P12-12/13：對戰開局快照＝進場信號。尚未在對戰畫面 → 嵌入 battle 子場景並交棒
+	# （若正在選秀畫面則先釋放＝BP→對戰轉場）；已在對戰畫面 → 後續校正快照由子場景自身處理。
 	if _battle_scene == null:
+		_exit_draft()
 		_enter_battle(snapshot)
 
 
@@ -279,6 +282,26 @@ func _enter_battle(opening_snapshot: Dictionary) -> void:
 	_battle_scene.boot_net(_client, _my_seat(), opening_snapshot, _my_seat() == "")
 	add_child(_battle_scene)
 	_hide_lobby_ui()
+
+
+# 嵌入 draft 子場景（隱藏大廳 UI）。先 boot_net 再 add_child（boot_net 已建顯示鏡像 _state，
+# 隨後 add_child 觸發的 _ready 見 _state 非空 → 不會誤啟動本地預設選秀）。
+func _enter_draft(opening_view: Dictionary) -> void:
+	if _draft_scene != null or _battle_scene != null:
+		return
+	_draft_scene = DraftScene.instantiate()
+	_draft_scene.boot_net(_client, _my_seat(), opening_view, _my_seat() == "")
+	add_child(_draft_scene)
+	_hide_lobby_ui()
+
+
+# 釋放選秀子場景、恢復大廳 UI（離開/斷線/房解散／BP→對戰轉場時）。
+func _exit_draft() -> void:
+	if _draft_scene != null:
+		_draft_scene.queue_free()
+		_draft_scene = null
+	if _msg_label != null:
+		_msg_label.visible = true
 
 
 # 釋放對戰子場景、恢復大廳 UI（離開/斷線/房解散時）。
@@ -376,14 +399,17 @@ func _on_toggle_ready() -> void:
 	_client.set_ready(not ready)
 
 
-func _on_start_battle() -> void:
+func _on_start() -> void:
+	# P12-13 正式流程：房主開始 → 連線選秀（BP）→ 對戰。
+	# 開發旗標 start_battle（跳過 BP、預設牌組）保留於 NetClient 供除錯，不再由 UI 觸發。
 	if _client != null:
-		_client.start_battle()   # 開發旗標：跳過 BP、預設牌組（正式 BP 走 P12-8）
+		_client.start_draft()
 
 
 func _on_leave_room() -> void:
 	if _client != null:
 		_client.leave_room()
+	_exit_draft()
 	_exit_battle()
 	_current_room = {}
 	_show_state(UI_LOBBY)
