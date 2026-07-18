@@ -189,6 +189,7 @@ func _make_client(_nickname: String) -> NetClient:
 	c.draft_rejected.connect(_on_draft_rejected)
 	c.snapshot_received.connect(_on_snapshot_received)
 	c.game_over.connect(_on_game_over)
+	c.replay_received.connect(_on_replay_received)   # P12-18：終局回放下載
 	return c
 
 
@@ -535,6 +536,7 @@ func _enter_end_game(winner: int, score: int, win_threshold: int,
 	_end_scene.boot_net(winner, score, win_threshold, score_history, stats, _my_seat() == "", reason)
 	_end_scene.net_rematch.connect(_on_end_rematch)
 	_end_scene.net_back_to_room.connect(_on_end_back_to_room)
+	_end_scene.net_download_replay.connect(_on_end_download_replay)   # P12-18
 	add_child(_end_scene)
 	_hide_lobby_ui()
 
@@ -561,6 +563,23 @@ func _on_end_rematch() -> void:
 func _on_end_back_to_room() -> void:
 	_exit_end_game()
 	_show_state(UI_ROOM)
+
+
+# P12-18：終局「下載本局回放」→ 向 server 索取（僅房態 ended 受理）。
+func _on_end_download_replay() -> void:
+	if _client != null:
+		_client.request_replay()
+
+
+# 收到 server 回放（JSONL，含 seed）→ 存到本地 user://replays/，回報終局子場景。
+# 觀看沿用既有「主選單→回放紀錄」（P11-2）；net 子場景不 change_scene。
+func _on_replay_received(jsonl: String) -> void:
+	var log: ReplayLog = ReplayLog.from_jsonl(jsonl)
+	var ok := false
+	if log != null and not (log.actions as Array).is_empty():
+		ok = ReplayLog.save_to_file(log, ReplayLog.new_path())
+	if _end_scene != null:
+		_end_scene.set_replay_saved(ok)
 
 
 func _hide_lobby_ui() -> void:
@@ -805,6 +824,8 @@ static func reason_text(reason: String) -> String:
 			return "旁觀者無法行動。"
 		NetMessage.REASON_BAD_ACTION:
 			return "行動非法。"
+		NetMessage.REASON_NO_REPLAY:
+			return "目前沒有可下載的回放（對局尚未結束或無紀錄）。"
 		_:
 			return "發生錯誤：%s" % reason
 

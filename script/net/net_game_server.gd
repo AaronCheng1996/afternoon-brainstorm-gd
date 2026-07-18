@@ -93,6 +93,8 @@ func _handle_lobby(sender_id: int, type: String, payload: Dictionary) -> void:
 			send_to(sender_id, NetMessage.T_ROOM_LIST, {"rooms": rooms.list_public()})
 		NetMessage.T_REMATCH:
 			_do_rematch(sender_id)
+		NetMessage.T_REQUEST_REPLAY:
+			_do_request_replay(sender_id)
 		NetMessage.T_START_DRAFT:
 			_do_start_draft(sender_id)
 		NetMessage.T_DRAFT_ACTION:
@@ -188,6 +190,24 @@ func _do_rematch(sender_id: int) -> void:
 		return
 	rooms.set_ready(sender_id, true)   # 請求者＝我要再來一局（本席就緒）
 	_broadcast_room_state(room_id)
+
+
+# P12-18 回放檔下載（D19 2026-07-18 修訂：終局後 seed 公開）。
+# 只有房態 ended（對局已結束）才受理——對局進行中 seed 仍隱藏（防實時模擬未來）。
+# 請求者須為房內成員（玩家或旁觀者皆可下載）；回本局 ReplayLog JSONL（含 seed＋牌組＋成功 action 流）。
+func _do_request_replay(sender_id: int) -> void:
+	var room_id := rooms.room_of(sender_id)
+	if room_id == "":
+		_lobby_error(sender_id, NetMessage.REASON_NOT_IN_ROOM)
+		return
+	if rooms.state_of(room_id) != RoomManager.STATE_ENDED or not _sessions.has(room_id):
+		_lobby_error(sender_id, NetMessage.REASON_NO_REPLAY)
+		return
+	var session: NetGameSession = _sessions[room_id]
+	if session.replay == null or (session.replay.actions as Array).is_empty():
+		_lobby_error(sender_id, NetMessage.REASON_NO_REPLAY)
+		return
+	send_to(sender_id, NetMessage.T_REPLAY_DATA, {"jsonl": session.replay.to_jsonl()})
 
 
 func _do_set_ready(sender_id: int, payload: Dictionary) -> void:

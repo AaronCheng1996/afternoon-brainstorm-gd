@@ -54,6 +54,10 @@ const T_ACTION_REJECTED := "action_rejected"  # {reason, message}（只回行動
 # server→client：入座／重連成功後私下下發席位 token（只給該玩家，供再次斷線重連）。
 const T_SEAT_TOKEN := "seat_token"      # {token, room_id, seat}
 
+# --- 伺服器回放檔下載（P12-18，D19 2026-07-18 修訂：終局後 seed 公開）---
+const T_REQUEST_REPLAY := "request_replay"  # client→server：{}（僅房態 ended 才受理）
+const T_REPLAY_DATA := "replay_data"        # server→client：{jsonl}（ReplayLog JSONL，含 seed）
+
 # --- 握手意圖（見 §5.3 角色）---
 const INTENT_PLAY := "play"
 const INTENT_SPECTATE := "spectate"
@@ -90,6 +94,9 @@ const REASON_NOT_READY := "not_ready"                 # 開戰前雙方尚未就
 const REASON_BAD_TOKEN := "bad_token"                 # 重連 token 無效／過期（席位不存在）
 const REASON_RECONNECT_TIMEOUT := "reconnect_timeout" # 玩家逾時未回→房解散（通知留下成員）
 const REASON_OPPONENT_FORFEIT := "opponent_forfeit"   # 對手重連逾時→判勝（game_over reason）
+
+# --- 回放下載原因（P12-18）---
+const REASON_NO_REPLAY := "no_replay"                 # 房間未終局或無紀錄，無回放可下載
 
 # --- 信封鍵 ---
 const K_PROTOCOL := "v"

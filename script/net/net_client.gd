@@ -43,6 +43,10 @@ signal action_rejected(reason: String, message: String)
 # 收到席位 token（入座／重連後；已存於 _token 供斷線後重連，UI 可據此顯示可重連）。
 signal seat_token_received(token: String, room_id: String, seat: String)
 
+# --- 伺服器回放檔下載（P12-18）---
+# 收到本局回放（ReplayLog JSONL 字串；終局後 seed 公開，D19 2026-07-18 修訂）。
+signal replay_received(jsonl: String)
+
 var _intent := NetMessage.INTENT_PLAY
 var _nickname := ""
 var _token := ""
@@ -132,6 +136,11 @@ func rematch() -> void:
 	send_to(SERVER_ID, NetMessage.T_REMATCH, {})
 
 
+# P12-18：向 server 索取本局回放（僅房態 ended 受理；回 T_REPLAY_DATA→replay_received）。
+func request_replay() -> void:
+	send_to(SERVER_ID, NetMessage.T_REQUEST_REPLAY, {})
+
+
 # --- 選秀 BP 請求（送往伺服器，P12-8）---
 
 # 兩席就緒後由玩家（房主）請求開始選秀（server 進 drafting、發首份選秀狀態）。
@@ -190,6 +199,8 @@ func _on_message(_sender_id: int, type: String, payload: Dictionary) -> void:
 		NetMessage.T_SEAT_TOKEN:
 			_token = String(payload.get("token", ""))   # 存 token（斷線後重連帶回，§8）
 			seat_token_received.emit(_token, String(payload.get("room_id", "")), String(payload.get("seat", "")))
+		NetMessage.T_REPLAY_DATA:
+			replay_received.emit(String(payload.get("jsonl", "")))
 
 
 func _on_conn_failed() -> void:

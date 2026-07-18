@@ -14,6 +14,7 @@ extends Node2D
 # （會拆掉常駐 NetClient，§11.2-2）而改 emit 信號，由 online_lobby 主導（釋放本子場景、回房內面板）。
 signal net_rematch()        # net 模式「再來一局」（→ lobby 送 rematch、回房）
 signal net_back_to_room()   # net 模式「回房間」（→ lobby 釋放本子場景、回房內面板）
+signal net_download_replay()   # P12-18 net 模式「下載本局回放」（→ lobby 向 server 索取並存檔）
 
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
@@ -92,8 +93,10 @@ func boot_net(winner: int, score: int, win_threshold: int, score_history: Array,
 	(%AgainBtn as Button).text = "再來一局"
 	(%AgainBtn as Button).visible = not spectator   # 旁觀者無「再來一局」（唯讀）
 	(%MenuBtn as Button).text = "回房間"
+	# P12-18：終局後 seed 公開（D19 修訂）→ 提供「下載本局回放」（玩家與旁觀者皆可）。
 	if _replay_btn != null:
-		_replay_btn.visible = false                 # 伺服器端回放下載＝P12-18（選做），此處不提供
+		_replay_btn.visible = true
+		_replay_btn.text = "下載本局回放"
 	if reason == NetMessage.REASON_OPPONENT_FORFEIT and _title_label != null:
 		_title_label.text += "（對手離線，判定勝出）"
 
@@ -325,6 +328,18 @@ func _on_menu() -> void:
 		_change_scene(MENU_SCENE)
 
 
+# P12-18：lobby 存檔完成/失敗後回報，更新下載鈕文字。
+func set_replay_saved(ok: bool) -> void:
+	if _replay_btn == null:
+		return
+	if ok:
+		_replay_btn.text = "已存回放（主選單→回放紀錄可看）"
+		_replay_btn.disabled = true
+	else:
+		_replay_btn.text = "下載失敗，重試"
+		_replay_btn.disabled = false
+
+
 func _change_scene(path: String) -> void:
 	var tree := get_tree()
 	if tree != null:
@@ -332,7 +347,13 @@ func _change_scene(path: String) -> void:
 
 
 # P11-2：回放本局——載入紀錄檔並以回放模式開 battle。
+# P12-18：net 模式改為「下載本局回放」——emit 信號交 lobby 向 server 索取存檔（不 change_scene）。
 func _on_replay() -> void:
+	if _is_net:
+		_replay_btn.disabled = true
+		_replay_btn.text = "下載中…"
+		net_download_replay.emit()
+		return
 	var tree := get_tree()
 	if tree == null or _replay_path == "":
 		return
