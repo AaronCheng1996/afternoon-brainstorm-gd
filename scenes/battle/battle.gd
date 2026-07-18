@@ -94,6 +94,8 @@ var _last_net_snapshot: Dictionary = {}   # 最近一次套用的公開快照（
 var _net_message: String = ""       # 最近一次被拒/提示訊息（顯示於 HUD 狀態列）
 var _net_remaining: int = -1        # 回合剩餘秒（server 於快照附 remaining 才顯示；<0＝不顯示）
 var _net_spectator_count: int = 0   # P12-14：房內觀戰人數（lobby 依房態轉入，顯示於狀態列）
+var _net_opp_held: bool = false     # P12-16：對手斷線等待重連（held），對戰畫面顯示等待提示
+var _net_opp_hold_remaining: int = 0   # P12-16：對手 held 剩餘秒（server 權威、客端顯示性）
 var _net_event_queue: Array = []    # 待播事件批次佇列（動畫忙碌時暫存，播完依序取出）
 var _net_pending_snapshot: Dictionary = {}  # 動畫忙碌時到達的校正快照（播完再套用）
 var _net_has_pending_snapshot: bool = false
@@ -628,9 +630,23 @@ func _net_status_text() -> String:
 		lines.append("回合剩餘：%d 秒" % _net_remaining)
 	if _net_spectator_count > 0:
 		lines.append("👁 觀戰：%d 人" % _net_spectator_count)
+	# P12-16：對手斷線等待重連——顯示等待提示（server 權威保留席位；逾時則對手判勝，見 §8）。
+	if _net_opp_held:
+		if _net_opp_hold_remaining > 0:
+			lines.append("⏳ 對方斷線，等待重連（剩餘 %d 秒）…" % _net_opp_hold_remaining)
+		else:
+			lines.append("⏳ 對方斷線，等待重連…")
 	if _net_message != "":
 		lines.append("⚠ %s" % _net_message)
 	return "\n".join(lines)
+
+
+# P12-16：對手 held（斷線等待重連）狀態更新（lobby 於房態轉入時呼叫）。顯示於狀態列。
+func set_opponent_held(held: bool, remaining: int) -> void:
+	_net_opp_held = held
+	_net_opp_hold_remaining = remaining
+	if _is_net and _ui_built and _counts_label != null:
+		_counts_label.text = _net_status_text()
 
 
 # P12-14：房內觀戰人數更新（lobby 於房態轉入時呼叫）。只輕量更新狀態列。

@@ -23,12 +23,16 @@ const EndGameScene := preload("res://scenes/end_game/end_game.tscn")
 const DEFAULT_HOST := "127.0.0.1"
 # 心跳間隔（秒）：連線後週期 ping 量 RTT 更新延遲顯示（§3）。
 const PING_INTERVAL := 2.0
+# P12-16 斷線重連 UX（§8/§11.2-8）：退避重試間隔（秒）與最大次數（逾則放棄回連線設定）。
+const RECONNECT_INTERVAL := 2.0
+const MAX_RECONNECT_ATTEMPTS := 8
 
 # UI 狀態（面板切換）。
 const UI_CONNECT := "connect"   # 連線設定
 const UI_LOBBY := "lobby"       # 大廳（房列表）
 const UI_CREATE := "create"     # 建房表單
 const UI_ROOM := "room"         # 房內
+const UI_RECONNECT := "reconnect"   # P12-16：斷線重連遮罩（自動帶 token 退避重試）
 
 var _bound: bool = false
 var _client: NetClient = null
@@ -37,6 +41,14 @@ var _server_info: Dictionary = {}
 var _current_room: Dictionary = {}
 var _ui_state: String = UI_CONNECT
 var _ping_accum: float = 0.0
+# P12-16 斷線重連狀態：重連中旗標、席位 token、退避倒數、已試次數；連線參數（供重連沿用）。
+var _reconnecting: bool = false
+var _reconnect_token: String = ""
+var _reconnect_accum: float = 0.0
+var _reconnect_attempts: int = 0
+var _conn_host: String = ""
+var _conn_port: int = 0
+var _conn_nick: String = ""
 # P12-12：進行中的連線對戰子場景（null＝未在對戰畫面）。
 var _battle_scene: Node = null
 # P12-13：進行中的連線選秀子場景（null＝未在選秀畫面）。
@@ -50,6 +62,8 @@ var _connect_panel: Panel
 var _lobby_panel: Panel
 var _create_panel: Panel
 var _room_panel: Panel
+var _reconnect_panel: Panel     # P12-16：斷線重連遮罩
+var _reconnect_status: Label
 var _room_list: VBoxContainer
 
 
@@ -74,6 +88,8 @@ func _bind_nodes() -> void:
 	_lobby_panel = %LobbyPanel
 	_create_panel = %CreatePanel
 	_room_panel = %RoomPanel
+	_reconnect_panel = %ReconnectPanel
+	_reconnect_status = %ReconnectStatus
 	_room_list = %RoomList
 
 	# --- 連線設定面板：欄位帶入上次設定 ---
@@ -100,6 +116,9 @@ func _bind_nodes() -> void:
 	(%StartBtn as Button).pressed.connect(_on_start)
 	(%LeaveBtn as Button).pressed.connect(_on_leave_room)
 
+	# --- 斷線重連遮罩（P12-16）---
+	(%ReconnectGiveUpBtn as Button).pressed.connect(_on_reconnect_give_up)
+
 	_show_state(UI_CONNECT)
 	_msg_label.text = ""
 
@@ -112,6 +131,8 @@ func _show_state(state: String) -> void:
 	_lobby_panel.visible = state == UI_LOBBY
 	_create_panel.visible = state == UI_CREATE
 	_room_panel.visible = state == UI_ROOM
+	if _reconnect_panel != null:
+		_reconnect_panel.visible = state == UI_RECONNECT
 
 
 func set_message(text: String) -> void:
@@ -130,6 +151,10 @@ func _on_connect() -> void:
 	if port <= 0:
 		port = NetTransport.DEFAULT_PORT
 	_persist_net_settings(nickname, host, port)
+	# P12-16：記住連線參數，供斷線後自動重連沿用（暱稱/位址/埠）。
+	_conn_host = host
+	_conn_port = port
+	_conn_nick = nickname
 
 	# 開新連線前先清掉舊的。
 	_teardown_client()
@@ -178,9 +203,17 @@ func _teardown_client() -> void:
 	_my_id = 0
 	_server_info = {}
 	_current_room = {}
+	_reconnecting = false   # P12-16：完整清連線＝退出重連狀態
 
 
 func _process(delta: float) -> void:
+	# P12-16：重連中——退避倒數到 → 發起下一次帶 token 重連嘗試（不量 RTT）。
+	if _reconnecting:
+		_reconnect_accum += delta
+		if _reconnect_accum >= RECONNECT_INTERVAL:
+			_reconnect_accum = 0.0
+			_reconnect_attempt()
+		return
 	# 連線後週期心跳量 RTT（更新延遲顯示）。未連線 → _client 為 null，headless 不觸發。
 	if _client == null or not _client.is_welcomed():
 		return
@@ -197,12 +230,23 @@ func _on_welcomed(info: Dictionary) -> void:
 	_server_info = info
 	(%LobbyServerLabel as Label).text = "已連線 · 遊戲版本 %s · 平衡 %s" % [
 		String(info.get("game_version", "?")), String(info.get("data_version", "?"))]
+	# P12-16：重連成功——不回大廳列表，改由 server 的 catchup（房態＋快照/選秀 view）自動把玩家
+	# 帶回對戰/選秀子場景或房內面板續玩（§11.2-8）。清重連狀態、隱藏遮罩。
+	if _reconnecting:
+		_reconnecting = false
+		_reconnect_attempts = 0
+		set_message("已重新連線，正在恢復…")
+		return
 	set_message("")
 	_show_state(UI_LOBBY)
 	_client.list_rooms()
 
 
 func _on_rejected(reason: String) -> void:
+	# P12-16：重連嘗試遭握手層拒絕（版本閘等）＝無法恢復 → 放棄重連、退回連線設定。
+	if _reconnecting:
+		_fail_reconnect(reason_text(reason))
+		return
 	# 版本閘等握手層拒絕：給明確訊息並退回連線設定。
 	(%ConnectStatus as Label).text = reason_text(reason)
 	_teardown_client()
@@ -210,15 +254,102 @@ func _on_rejected(reason: String) -> void:
 
 
 func _on_connection_failed() -> void:
+	# P12-16：重連嘗試連不上 → 退避後再試（不回連線設定）。
+	if _reconnecting:
+		_schedule_reconnect_retry()
+		return
 	(%ConnectStatus as Label).text = "連不上伺服器（請確認位址／埠與伺服器是否運行）。"
 	_teardown_client()
 	_show_state(UI_CONNECT)
 
 
+# P12-16：與伺服器連線中斷（§8/§11.2-8）。
+# 若持有席位 token 且原在房內／對局中 → 進入自動重連（帶 token 退避重試）；否則回連線設定。
+# 重連嘗試自身再度斷線 → 退避後續試（不重置整個流程）。
 func _on_server_disconnected() -> void:
+	if _reconnecting:
+		_schedule_reconnect_retry()
+		return
+	if _can_reconnect():
+		var token := _client.seat_token()
+		_release_client_for_reconnect()   # 於 client 自身信號回呼中安全釋放（queue_free）
+		_begin_reconnect(token)
+		return
 	set_message("與伺服器的連線已中斷。")
 	_teardown_client()
 	_show_state(UI_CONNECT)
+
+
+# ---------------- 斷線重連（P12-16，見 10 §8/§11.2-8）----------------
+
+# 可否自動重連：持有席位 token（只有玩家有；旁觀者斷線＝直接移除，§7）且原在某房。
+func _can_reconnect() -> bool:
+	return _client != null and not _client.seat_token().is_empty() and not _current_room.is_empty()
+
+
+# 進入重連（純狀態；不碰 client——client 由 _on_server_disconnected 於呼叫前釋放）。
+# 顯示重連遮罩，_process 退避倒數到即發首次帶 token 重連嘗試。headless 可直接測此狀態轉換。
+func _begin_reconnect(token: String) -> void:
+	_reconnect_token = token
+	_exit_battle()    # 釋放子場景（避免其連到即將釋放的舊 client）；_current_room 保留供恢復判斷
+	_exit_draft()
+	_exit_end_game()
+	_reconnecting = true
+	_reconnect_attempts = 0
+	_reconnect_accum = RECONNECT_INTERVAL   # 下一幀即發首次嘗試
+	_show_state(UI_RECONNECT)
+	_update_reconnect_status()
+
+
+# 釋放舊 client（於自身信號回呼中安全＝queue_free，不即時 free）。
+func _release_client_for_reconnect() -> void:
+	if _client != null:
+		_client.stop()
+		_client.queue_free()
+		_client = null
+
+
+# 發起一次帶 token 的重連嘗試（runtime；建立新 client 掛 /root，@rpc 路徑鐵則不變）。
+func _reconnect_attempt() -> void:
+	_reconnect_attempts += 1
+	if _reconnect_attempts > MAX_RECONNECT_ATTEMPTS:
+		_fail_reconnect("重新連線失敗（多次嘗試後仍無法連上伺服器）。")
+		return
+	_update_reconnect_status()
+	_release_client_for_reconnect()
+	_client = _make_client(_conn_nick)
+	var r: Dictionary = _client.start(_conn_host, _conn_port, NetMessage.INTENT_PLAY,
+		_conn_nick, _reconnect_token)
+	if not r["ok"]:
+		_release_client_for_reconnect()   # 開 peer 失敗 → 等下輪退避再試
+
+
+# 一次重連嘗試失敗（連不上／連上又斷）：釋放 client、重置退避倒數，_process 到點續試。
+func _schedule_reconnect_retry() -> void:
+	_release_client_for_reconnect()
+	_reconnect_accum = 0.0
+	_update_reconnect_status()
+
+
+# 放棄重連（逾次／握手拒／席位逾時）：回連線設定並顯示原因。
+func _fail_reconnect(msg: String) -> void:
+	_reconnecting = false
+	_teardown_client()
+	_show_state(UI_CONNECT)
+	(%ConnectStatus as Label).text = msg
+
+
+func _update_reconnect_status() -> void:
+	if _reconnect_status == null:
+		return
+	var suffix := "（第 %d 次嘗試）" % _reconnect_attempts if _reconnect_attempts > 0 else ""
+	_reconnect_status.text = "與伺服器的連線中斷，正在自動重新連線…%s" % suffix
+
+
+# 「放棄，回主選單」按鈕：中止重連、關連線、回主選單。
+func _on_reconnect_give_up() -> void:
+	_reconnecting = false
+	_on_back_to_menu()
 
 
 func _on_room_list_received(list: Array) -> void:
@@ -226,18 +357,41 @@ func _on_room_list_received(list: Array) -> void:
 
 
 func _on_room_updated(room: Dictionary) -> void:
+	# P12-16：收到房態＝重連成功的恢復信號 → 清重連狀態（catchup 快照/view 隨後重建子場景）。
+	if _reconnecting:
+		_reconnecting = false
+		_reconnect_attempts = 0
+		set_message("已重新連線。")
 	apply_room_state(room)
-	# 對戰/選秀/終局子場景進行中：只更新房態資料（供席位查詢＋觀戰人數），不切回房內面板蓋掉畫面。
+	# 對戰/選秀/終局子場景進行中：只更新房態資料（供席位查詢＋觀戰人數＋對手 held），不切回房內面板。
 	# （終局子場景在場時，玩家可能還在看統計；房態＝ended/waiting 由玩家自行按「再來一局／回房間」離開。）
 	var spec_count := (room.get("spectators", []) as Array).size()
 	if _battle_scene != null:
 		_battle_scene.set_spectator_count(spec_count)
+		_forward_opponent_held(_battle_scene)
 	elif _draft_scene != null:
 		_draft_scene.set_spectator_count(spec_count)
+		_forward_opponent_held(_draft_scene)
 	elif _end_scene != null:
 		pass
 	else:
 		_show_state(UI_ROOM)
+
+
+# P12-16：把「對方席位斷線等待重連（held）」轉入活躍子場景顯示（對手／旁觀時任一非我席位）。
+func _forward_opponent_held(scene: Node) -> void:
+	var my := _my_seat()
+	var held_map: Dictionary = _current_room.get("held", {})
+	var hr_map: Dictionary = _current_room.get("hold_remaining", {})
+	var held := false
+	var remaining := 0
+	for seat in RoomManager.SEATS:
+		if seat == my:
+			continue
+		if bool(held_map.get(seat, false)):
+			held = true
+			remaining = maxi(remaining, int(hr_map.get(seat, 0)))
+	scene.set_opponent_held(held, remaining)
 
 
 func _on_room_closed(_room_id: String, _reason: String) -> void:
@@ -252,6 +406,10 @@ func _on_room_closed(_room_id: String, _reason: String) -> void:
 
 
 func _on_lobby_error(reason: String) -> void:
+	# P12-16：重連時 server 回 bad_token（席位保留已逾時、token 失效）＝無法恢復席位 → 放棄重連。
+	if _reconnecting and reason == NetMessage.REASON_BAD_TOKEN:
+		_fail_reconnect("重新連線失敗：席位保留已逾時，請重新加入房間。")
+		return
 	set_message(reason_text(reason))
 
 
@@ -648,6 +806,9 @@ func _my_seat() -> String:
 func _seat_text(seat: String, seats: Dictionary, ready: Dictionary) -> String:
 	var pid := int(seats.get(seat, 0))
 	if pid == 0:
+		# P12-16：held 席位（掉線等待重連）與真正空位區別顯示。
+		if bool((_current_room.get("held", {}) as Dictionary).get(seat, false)):
+			return "（斷線，等待重連…）"
 		return "（空位）"
 	var who := "你" if pid == _my_id else "對手 #%d" % pid
 	var rd := "✓ 就緒" if bool(ready.get(seat, false)) else "… 未就緒"

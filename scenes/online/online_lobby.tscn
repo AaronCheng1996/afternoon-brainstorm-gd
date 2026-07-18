@@ -476,3 +476,47 @@ offset_right = 536.0
 offset_bottom = 368.0
 theme_override_font_sizes/font_size = 15
 text = "離開房間"
+
+[node name="ReconnectPanel" type="Panel" parent="HUD"]
+unique_name_in_owner = true
+visible = false
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -120.0
+offset_right = 260.0
+offset_bottom = 120.0
+
+[node name="ReconnectTitle" type="Label" parent="HUD/ReconnectPanel"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 496.0
+offset_bottom = 24.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "連線中斷"
+horizontal_alignment = 1
+autowrap_mode = 0
+
+[node name="ReconnectStatus" type="Label" parent="HUD/ReconnectPanel"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 80.0
+offset_right = 496.0
+offset_bottom = 160.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.85, 0.8, 0.6, 1)
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ReconnectGiveUpBtn" type="Button" parent="HUD/ReconnectPanel"]
+unique_name_in_owner = true
+offset_left = 130.0
+offset_top = 184.0
+offset_right = 390.0
+offset_bottom = 224.0
+theme_override_font_sizes/font_size = 15
+text = "放棄，回主選單"

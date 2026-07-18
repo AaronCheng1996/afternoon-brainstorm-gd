@@ -378,6 +378,8 @@ func member_view(room_id: String) -> Dictionary:
 		"ready": (room["ready"] as Dictionary).duplicate(),
 		# P12-10 席位保留狀態（掉線等待重連）——UI 顯示「等待重連」；不含 token（server-only）。
 		"held": (room["held"] as Dictionary).duplicate(),
+		# P12-16 客端重連 UX：對手 held 席位剩餘秒（客端做顯示性倒數，權威仍在 server tick_holds）。
+		"hold_remaining": (room["hold_remaining"] as Dictionary).duplicate(),
 		"spectators": (room["spectators"] as Array).duplicate(),
 		"player_count": _player_count(room),
 	}

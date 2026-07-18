@@ -41,6 +41,8 @@ var _net_seat: String = ""          # 我的席位（player1/player2；旁觀者
 var _net_spectator: bool = false    # 旁觀＝永久唯讀
 var _net_remaining: int = -1        # 選秀剩餘秒（server view 附；<0＝不顯示）
 var _net_spectator_count: int = 0   # P12-14：房內觀戰人數（lobby 依房態轉入，顯示於階段列）
+var _net_opp_held: bool = false     # P12-16：對手斷線等待重連（held），選秀畫面顯示等待提示
+var _net_opp_hold_remaining: int = 0   # P12-16：對手 held 剩餘秒（server 權威、客端顯示性）
 var _net_message: String = ""       # 最近一次被拒/提示訊息（顯示於 MsgLabel）
 
 # P11-1 每階段倒數計時：逾時自動補牌並進下一階段。開關/秒數讀 user://settings.json。
@@ -417,12 +419,26 @@ func _net_phase_text() -> String:
 		base += "　｜　⏳ %d 秒" % _net_remaining
 	if _net_spectator_count > 0:
 		base += "　｜　👁 觀戰 %d 人" % _net_spectator_count
+	# P12-16：對手斷線等待重連——顯示等待提示（server 權威保留席位）。
+	if _net_opp_held:
+		if _net_opp_hold_remaining > 0:
+			base += "　｜　⏳ 對方斷線，等待重連（剩餘 %d 秒）" % _net_opp_hold_remaining
+		else:
+			base += "　｜　⏳ 對方斷線，等待重連…"
 	return base
 
 
 # P12-14：房內觀戰人數更新（lobby 於房態轉入時呼叫）。
 func set_spectator_count(n: int) -> void:
 	_net_spectator_count = n
+	if _is_net and _ui_built:
+		_update_phase_label()
+
+
+# P12-16：對手 held（斷線等待重連）狀態更新（lobby 於房態轉入時呼叫）。顯示於階段列。
+func set_opponent_held(held: bool, remaining: int) -> void:
+	_net_opp_held = held
+	_net_opp_hold_remaining = remaining
 	if _is_net and _ui_built:
 		_update_phase_label()
 
