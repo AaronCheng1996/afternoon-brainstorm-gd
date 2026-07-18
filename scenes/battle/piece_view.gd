@@ -9,9 +9,9 @@ extends Node2D
 const PieceShapesScript := preload("res://script/view/piece_shapes.gd")
 
 const CELL_SIZE := 96.0
-const P1_OUTLINE := Color(0.90, 0.22, 0.22)   # 先手：紅外框
-const P2_OUTLINE := Color(0.25, 0.45, 0.92)   # 後手：藍外框
-const NEUTRAL_OUTLINE := Color(0.55, 0.55, 0.55)
+# 棋子本體維持「純色」（職業/派別填色）；描邊改為中立深色，僅作形狀定義。
+# 擁有者（先手紅／後手藍）改由「棋子所在格的地格外框」呈現（見 battle._persist_draw）。
+const EDGE_COLOR := Color(0.09, 0.10, 0.12)    # 中立深色描邊（貼近棋盤底色，讓形狀有清晰邊界）
 const OUTLINE_SCALE := 1.16                    # 外框比本體略大，形成描邊環
 const SHADOW_ALPHA := 0.45
 const CUBE_FILL := Color(0.70, 0.70, 0.70)
@@ -79,12 +79,8 @@ func configure(a_card_id: String, a_owner: int, db: Object = null, shadow: bool 
 		fill.a = SHADOW_ALPHA
 	placeholder_shape.color = fill
 
-	# 外框色（擁有者）。
-	var oc := NEUTRAL_OUTLINE
-	if owner_id == 1:
-		oc = P1_OUTLINE
-	elif owner_id == 2:
-		oc = P2_OUTLINE
+	# 描邊色：中立深色（擁有者顏色已改由地格外框呈現，棋子本體維持純色）。
+	var oc := EDGE_COLOR
 	if shadow:
 		oc.a = SHADOW_ALPHA
 	outline_shape.color = oc

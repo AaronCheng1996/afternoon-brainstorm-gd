@@ -1022,14 +1022,17 @@ func _preview_draw() -> void:
 
 
 func _persist_draw() -> void:
-	# 選取中（selected）與移動中（moving）棋子的持續高亮。
 	if _core == null:
 		return
 	for piece: PieceState in _core.get_both_player_pieces():
+		# 選取中（selected）與移動中（moving）棋子的持續高亮（格內填色）。
 		if piece.has_status("selected"):
 			_fill_cell(_persist_layer, piece.pos(), COL_SELECTED)
 		elif piece.is_moving():
 			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
+		# 擁有者標示：棋子所在格的地格外框上色（先手紅／後手藍）——取代舊的棋子本體外框環。
+		var oc: Color = P1_COL if piece.owner == "player1" else P2_COL
+		_outline_cell(_persist_layer, piece.pos(), oc, 3.5)
 	# P10-5：單人對戰時，AI 決策鎖定的格畫黃色目標圈。
 	if _ai != null and _ai.has_focus and _in_board(_ai.focus_position):
 		_outline_cell(_persist_layer, _ai.focus_position, COL_AI_FOCUS, 3.0)

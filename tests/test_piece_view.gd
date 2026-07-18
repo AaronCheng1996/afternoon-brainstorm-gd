@@ -71,17 +71,18 @@ func _test_configure(t: Object, db: Object) -> void:
 	t.eq(v.attack_label.text, "4", "ADCW ATK=4")
 	t.eq(v.placeholder_shape.polygon.size(), 3, "ADCW 三角形")
 	t.ok(v.placeholder_shape.color.is_equal_approx(Color(1, 1, 1)), "ADCW 白色填充")
-	t.ok(v.outline_shape.color.r > v.outline_shape.color.b, "先手＝紅框(r>b)")
+	# 擁有者改由地格外框呈現：棋子描邊為中立深色，不再依先手/後手上紅藍。
+	t.ok(v.outline_shape.color.is_equal_approx(PieceViewScript.EDGE_COLOR), "棋子描邊＝中立深色（擁有者移到地格）")
 	t.ok(not v.name_label.text.is_empty(), "ADCW 卡名非空")
 	v.free()
 
-	# TANKBR：方形、後手藍框、HP20/ATK1。
+	# TANKBR：方形、HP20/ATK1；描邊與先手同為中立深色（擁有者不再標在棋子本體）。
 	var v2: Node2D = PieceViewScene.instantiate()
 	v2.configure("TANKBR", 2, db)
 	t.eq(v2.placeholder_shape.polygon.size(), 4, "TANK 方形")
 	t.eq(v2.health_label.text, "20", "TANKBR HP=20")
 	t.eq(v2.attack_label.text, "1", "TANKBR ATK=1")
-	t.ok(v2.outline_shape.color.b > v2.outline_shape.color.r, "後手＝藍框(b>r)")
+	t.ok(v2.outline_shape.color.is_equal_approx(PieceViewScript.EDGE_COLOR), "後手描邊亦為中立深色（不再藍框）")
 	v2.free()
 
 	# APW：圓形。
@@ -90,11 +91,11 @@ func _test_configure(t: Object, db: Object) -> void:
 	t.ok(v3.placeholder_shape.polygon.size() >= 12, "APW 圓形")
 	v3.free()
 
-	# CUBE：中立灰框、以 CUBE 形狀。
+	# CUBE：中立深色描邊、以 CUBE 形狀。
 	var v4: Node2D = PieceViewScene.instantiate()
 	v4.configure("CUBE", 0, db)
 	t.eq(v4.placeholder_shape.polygon.size(), 4, "CUBE 小方塊")
-	t.ok(v4.outline_shape.color.is_equal_approx(PieceViewScript.NEUTRAL_OUTLINE), "CUBE 中立灰框")
+	t.ok(v4.outline_shape.color.is_equal_approx(PieceViewScript.EDGE_COLOR), "CUBE 中立深色描邊")
 	v4.free()
 
 
