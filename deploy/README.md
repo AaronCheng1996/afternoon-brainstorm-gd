@@ -82,6 +82,11 @@ journalctl -u afternoon-brainstorm-server -f      # 追 log
 與埠（`net_port`，預設 24242），玩家可於「線上對戰」畫面手動修改（存 `user://settings.json`）。
 朋友拿到同版遊戲即可直連——**版本閘**（遊戲版本＋資料版本）保證新舊版不會混連。
 
+**發佈給朋友前**：把用戶端預設位址改成主機公網 IP，玩家才不必每次手動輸入——
+改 `scenes/online/online_lobby.gd` 的 `DEFAULT_HOST`（首次執行、`user://settings.json` 尚無
+`net_host` 時的預設值），再匯出。已存過設定的玩家仍以 `user://settings.json` 為準，可在
+「線上對戰 → 伺服器位址」欄自行改回。若主機 IP 會變動，可掛便宜的 DDNS 網域指過去（§9，選配）。
+
 ## 7. 安全與展望
 
 - ENet 無內建加密，密碼/暱稱走明文 UDP——定位朋友圈同樂可接受（§9）。日後公開見生人再評估 DTLS。

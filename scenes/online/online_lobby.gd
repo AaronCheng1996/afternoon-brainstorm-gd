@@ -369,9 +369,11 @@ func _on_room_updated(room: Dictionary) -> void:
 	if _battle_scene != null:
 		_battle_scene.set_spectator_count(spec_count)
 		_forward_opponent_held(_battle_scene)
+		_battle_scene.set_opponent_name(_opponent_display_name())
 	elif _draft_scene != null:
 		_draft_scene.set_spectator_count(spec_count)
 		_forward_opponent_held(_draft_scene)
+		_draft_scene.set_opponent_name(_opponent_display_name())
 	elif _end_scene != null:
 		pass
 	else:
@@ -414,8 +416,23 @@ func _on_lobby_error(reason: String) -> void:
 
 
 func _on_rtt_measured(_peer_id: int, rtt_ms: int) -> void:
-	if _ui_state == UI_ROOM:
-		(%LatencyLabel as Label).text = "延遲：%d ms" % rtt_ms
+	(%LatencyLabel as Label).text = "延遲：%d ms（%s）" % [rtt_ms, _quality_text(rtt_ms)]
+	# P12-17：對戰/選秀進行中→把 RTT/連線品質轉入子場景 HUD 顯示。
+	if _battle_scene != null:
+		_battle_scene.set_rtt(rtt_ms)
+	elif _draft_scene != null:
+		_draft_scene.set_rtt(rtt_ms)
+
+
+# P12-17：RTT → 連線品質文字（純函式，供子場景 HUD 與大廳共用）。
+static func _quality_text(rtt_ms: int) -> String:
+	if rtt_ms < 80:
+		return "良好"
+	if rtt_ms < 160:
+		return "普通"
+	if rtt_ms < 300:
+		return "偏高"
+	return "不穩"
 
 
 # P12-13 選秀狀態：首份選秀 view＝進場信號。尚未在選秀/對戰畫面 → 嵌入 draft 子場景並交棒；
@@ -810,9 +827,28 @@ func _seat_text(seat: String, seats: Dictionary, ready: Dictionary) -> String:
 		if bool((_current_room.get("held", {}) as Dictionary).get(seat, false)):
 			return "（斷線，等待重連…）"
 		return "（空位）"
-	var who := "你" if pid == _my_id else "對手 #%d" % pid
+	var who := "你" if pid == _my_id else _peer_display_name(pid)
 	var rd := "✓ 就緒" if bool(ready.get(seat, false)) else "… 未就緒"
 	return "%s — %s" % [who, rd]
+
+
+# P12-17：peer 顯示名＝暱稱（server 於房態附 `names`）；空暱稱退回 #peer-id（實機截圖修正）。
+func _peer_display_name(pid: int) -> String:
+	var nick := String((_current_room.get("names", {}) as Dictionary).get(str(pid), ""))
+	return nick if not nick.is_empty() else "對手 #%d" % pid
+
+
+# 我的對手席位的顯示名（供轉入子場景顯示）；無對手回空字串。
+func _opponent_display_name() -> String:
+	var my := _my_seat()
+	var seats: Dictionary = _current_room.get("seats", {})
+	for seat in RoomManager.SEATS:
+		if seat == my:
+			continue
+		var pid := int(seats.get(seat, 0))
+		if pid != 0:
+			return _peer_display_name(pid)
+	return ""
 
 
 func _both_ready(seats: Dictionary, ready: Dictionary) -> bool:

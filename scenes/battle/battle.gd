@@ -96,6 +96,9 @@ var _net_remaining: int = -1        # 回合剩餘秒（server 於快照附 rema
 var _net_spectator_count: int = 0   # P12-14：房內觀戰人數（lobby 依房態轉入，顯示於狀態列）
 var _net_opp_held: bool = false     # P12-16：對手斷線等待重連（held），對戰畫面顯示等待提示
 var _net_opp_hold_remaining: int = 0   # P12-16：對手 held 剩餘秒（server 權威、客端顯示性）
+var _net_opp_name: String = ""      # P12-17：對手暱稱（lobby 依房態轉入；空＝退回席位標示）
+var _net_rtt: int = -1              # P12-17：連線延遲 ms（<0＝未量測、不顯示）
+var _net_quality: String = ""       # P12-17：連線品質文字（良好/普通/偏高/不穩）
 var _net_event_queue: Array = []    # 待播事件批次佇列（動畫忙碌時暫存，播完依序取出）
 var _net_pending_snapshot: Dictionary = {}  # 動畫忙碌時到達的校正快照（播完再套用）
 var _net_has_pending_snapshot: bool = false
@@ -625,9 +628,14 @@ func _net_status_text() -> String:
 	else:
 		lines.append("⏳ 對方回合…")
 	if not _net_spectator:
-		lines.append("你＝%s" % ("先手 P1" if _net_seat == "player1" else "後手 P2"))
+		var me_line := "你＝%s" % ("先手 P1" if _net_seat == "player1" else "後手 P2")
+		if _net_opp_name != "":
+			me_line += "　對手：%s" % _net_opp_name
+		lines.append(me_line)
 	if _net_remaining >= 0:
 		lines.append("回合剩餘：%d 秒" % _net_remaining)
+	if _net_rtt >= 0:
+		lines.append("延遲：%d ms（%s）" % [_net_rtt, _net_quality])
 	if _net_spectator_count > 0:
 		lines.append("👁 觀戰：%d 人" % _net_spectator_count)
 	# P12-16：對手斷線等待重連——顯示等待提示（server 權威保留席位；逾時則對手判勝，見 §8）。
@@ -645,6 +653,34 @@ func _net_status_text() -> String:
 func set_opponent_held(held: bool, remaining: int) -> void:
 	_net_opp_held = held
 	_net_opp_hold_remaining = remaining
+	_refresh_net_status()
+
+
+# P12-17：對手暱稱更新（lobby 於房態轉入時呼叫）。
+func set_opponent_name(name: String) -> void:
+	_net_opp_name = name
+	_refresh_net_status()
+
+
+# P12-17：連線延遲/品質更新（lobby 週期心跳 rtt_measured 轉入）。
+func set_rtt(rtt_ms: int) -> void:
+	_net_rtt = rtt_ms
+	_net_quality = net_quality_text(rtt_ms) if rtt_ms >= 0 else ""
+	_refresh_net_status()
+
+
+# RTT → 連線品質文字（純函式，與 draft/大廳一致的門檻）。
+static func net_quality_text(rtt_ms: int) -> String:
+	if rtt_ms < 80:
+		return "良好"
+	if rtt_ms < 160:
+		return "普通"
+	if rtt_ms < 300:
+		return "偏高"
+	return "不穩"
+
+
+func _refresh_net_status() -> void:
 	if _is_net and _ui_built and _counts_label != null:
 		_counts_label.text = _net_status_text()
 

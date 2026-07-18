@@ -100,9 +100,25 @@ func _test_lobby_reconnect_state(t: Object) -> void:
 	b.boot_net(client, "player1", sess.snapshot())
 	b.set_animation_enabled(false)
 	m._current_room = {"seats": {"player1": 100, "player2": 101},
-		"held": {"player1": false, "player2": true}, "hold_remaining": {"player1": 0.0, "player2": 25.0}}
+		"held": {"player1": false, "player2": true}, "hold_remaining": {"player1": 0.0, "player2": 25.0},
+		"names": {"101": "小美"}}
 	m._forward_opponent_held(b)
 	t.ok(b._net_opp_held and b._net_opp_hold_remaining == 25, "rc：對手 held 轉入對戰子場景")
+
+	# P12-17：對手暱稱與 RTT 轉入子場景（以 _battle_scene 掛上驗轉發路徑）。
+	m._my_id = 100   # 前面 _fail_reconnect→_teardown_client 已把 _my_id 清 0，這裡復原為 P1 席位
+	t.eq(m._peer_display_name(101), "小美", "p17：房態 names→對手暱稱")
+	t.eq(m._peer_display_name(999), "對手 #999", "p17：無暱稱退回 #peer-id")
+	t.eq(m._opponent_display_name(), "小美", "p17：對手席位暱稱")
+	m._battle_scene = b
+	m._on_rtt_measured(1, 55)
+	t.ok(b._net_rtt == 55 and b._net_quality == "良好", "p17：RTT/品質轉入對戰子場景")
+	m._on_room_updated({"room_id": "AB23", "state": RoomManager.STATE_BATTLING,
+		"seats": {"player1": 100, "player2": 101}, "ready": {"player1": true, "player2": true},
+		"host_id": 100, "spectators": [], "held": {"player1": false, "player2": false},
+		"hold_remaining": {"player1": 0.0, "player2": 0.0}, "names": {"101": "小美"}})
+	t.eq(b._net_opp_name, "小美", "p17：對手暱稱轉入對戰子場景")
+	m._battle_scene = null   # 避免 m.free 誤動 b（b 由本測試自行 free）
 	b.free()
 	client.free()
 

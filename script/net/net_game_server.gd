@@ -473,8 +473,19 @@ func _broadcast_room_state(room_id: String) -> void:
 	if not rooms.has_room(room_id):
 		return
 	var view := rooms.member_view(room_id)
+	# P12-17：附上成員暱稱（peer_id→nickname；握手時存於 _clients），供客端顯示對手暱稱而非 #peer-id。
+	# RoomManager 純邏輯只知 peer id、不知暱稱，故由 server 這層注入（相容性追加，空暱稱客端退回 #id）。
+	view["names"] = _member_names(room_id)
 	for pid in rooms.room_members(room_id):
 		send_to(int(pid), NetMessage.T_ROOM_STATE, {"room": view})
+
+
+# 房內成員暱稱表 {str(peer_id): nickname}（僅 live 成員；held 席位 pid=0 無此鍵）。
+func _member_names(room_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	for pid in rooms.room_members(room_id):
+		out[str(int(pid))] = String(_clients.get(int(pid), {}).get("nickname", ""))
+	return out
 
 
 # 大廳錯誤（不斷線）。握手層的 T_REJECTED 才會斷線。
