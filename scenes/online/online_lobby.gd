@@ -222,8 +222,13 @@ func _on_room_list_received(list: Array) -> void:
 
 func _on_room_updated(room: Dictionary) -> void:
 	apply_room_state(room)
-	# 對戰/選秀子場景進行中：只更新房態資料（供席位查詢），不切回房內面板蓋掉畫面。
-	if _battle_scene == null and _draft_scene == null:
+	# 對戰/選秀子場景進行中：只更新房態資料（供席位查詢＋觀戰人數），不切回房內面板蓋掉畫面。
+	var spec_count := (room.get("spectators", []) as Array).size()
+	if _battle_scene != null:
+		_battle_scene.set_spectator_count(spec_count)
+	elif _draft_scene != null:
+		_draft_scene.set_spectator_count(spec_count)
+	else:
 		_show_state(UI_ROOM)
 
 
@@ -281,6 +286,7 @@ func _enter_battle(opening_snapshot: Dictionary) -> void:
 	_battle_scene = BattleScene.instantiate()
 	_battle_scene.boot_net(_client, _my_seat(), opening_snapshot, _my_seat() == "")
 	add_child(_battle_scene)
+	_battle_scene.set_spectator_count((_current_room.get("spectators", []) as Array).size())
 	_hide_lobby_ui()
 
 
@@ -292,6 +298,7 @@ func _enter_draft(opening_view: Dictionary) -> void:
 	_draft_scene = DraftScene.instantiate()
 	_draft_scene.boot_net(_client, _my_seat(), opening_view, _my_seat() == "")
 	add_child(_draft_scene)
+	_draft_scene.set_spectator_count((_current_room.get("spectators", []) as Array).size())
 	_hide_lobby_ui()
 
 
