@@ -127,8 +127,8 @@ func _view_at(pos: Vector2i) -> Node:
 func _shake() -> void:
 	if _instant:
 		return
-	for layer in [_board_layer, _fx_layer]:
-		var tw := layer.create_tween()
+	for layer: Node2D in [_board_layer, _fx_layer]:
+		var tw: Tween = layer.create_tween()
 		for i in 5:
 			var damp := 6.0 * (1.0 - float(i) / 5.0)
 			tw.tween_property(layer, "position",
