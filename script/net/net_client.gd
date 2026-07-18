@@ -127,6 +127,11 @@ func list_rooms() -> void:
 	send_to(SERVER_ID, NetMessage.T_LIST_ROOMS, {})
 
 
+# P12-15：終局房（ended）請求再來一局（server 重開回 waiting＋標記本席就緒；雙方皆按→同成員新局）。
+func rematch() -> void:
+	send_to(SERVER_ID, NetMessage.T_REMATCH, {})
+
+
 # --- 選秀 BP 請求（送往伺服器，P12-8）---
 
 # 兩席就緒後由玩家（房主）請求開始選秀（server 進 drafting、發首份選秀狀態）。

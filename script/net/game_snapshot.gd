@@ -49,6 +49,9 @@ static func encode(core: GameCore) -> Dictionary:
 			"heals": core.number_of_heals.duplicate(),
 		},
 		"stats": core.stats.export_for_charts(),
+		# P12-15：每回合分數序列（公開；供終局統計折線）。純 int 陣列，JSON round-trip 穩定；
+		# 不含任何隱藏資訊（分數本就公開）。
+		"score_history": _int_array(core.stats.score_history),
 	}
 
 
@@ -115,4 +118,12 @@ static func _encode_shadows(shadows: Array) -> Array:
 static func _str_array(a: Array) -> Array:
 	var out: Array = []
 	out.assign(a)
+	return out
+
+
+# 把（可能為 typed）整數陣列複製為一般 Array（score_history 用）。
+static func _int_array(a: Array) -> Array:
+	var out: Array = []
+	for x in a:
+		out.append(int(x))
 	return out

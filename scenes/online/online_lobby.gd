@@ -17,6 +17,8 @@ const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const BattleScene := preload("res://scenes/battle/battle.tscn")
 # P12-13：連線選秀畫面同樣以子場景嵌入本大廳（不 change_scene；draft→battle 由開局快照切換）。
 const DraftScene := preload("res://scenes/draft/draft.tscn")
+# P12-15：連線終局統計畫面同樣以子場景嵌入本大廳（對戰結束後 battle→end_game；再戰/回房再釋放）。
+const EndGameScene := preload("res://scenes/end_game/end_game.tscn")
 # 內建預設伺服器位址（settings 可手動改，記住上次）。P12-11 部署時改為使用者主機固定 IP。
 const DEFAULT_HOST := "127.0.0.1"
 # 心跳間隔（秒）：連線後週期 ping 量 RTT 更新延遲顯示（§3）。
@@ -39,6 +41,8 @@ var _ping_accum: float = 0.0
 var _battle_scene: Node = null
 # P12-13：進行中的連線選秀子場景（null＝未在選秀畫面）。
 var _draft_scene: Node = null
+# P12-15：終局統計子場景（null＝未在終局畫面）。
+var _end_scene: Node = null
 
 # 節點（於 _bind_nodes 綁定）。
 var _msg_label: Label
@@ -164,8 +168,9 @@ func _make_client(_nickname: String) -> NetClient:
 
 
 func _teardown_client() -> void:
-	_exit_draft()    # 先釋放選秀/對戰子場景（斷開其對 client 的連結），再關 client
+	_exit_draft()    # 先釋放選秀/對戰/終局子場景（斷開其對 client 的連結），再關 client
 	_exit_battle()
+	_exit_end_game()
 	if _client != null:
 		_client.stop()
 		_client.queue_free()
@@ -222,12 +227,15 @@ func _on_room_list_received(list: Array) -> void:
 
 func _on_room_updated(room: Dictionary) -> void:
 	apply_room_state(room)
-	# 對戰/選秀子場景進行中：只更新房態資料（供席位查詢＋觀戰人數），不切回房內面板蓋掉畫面。
+	# 對戰/選秀/終局子場景進行中：只更新房態資料（供席位查詢＋觀戰人數），不切回房內面板蓋掉畫面。
+	# （終局子場景在場時，玩家可能還在看統計；房態＝ended/waiting 由玩家自行按「再來一局／回房間」離開。）
 	var spec_count := (room.get("spectators", []) as Array).size()
 	if _battle_scene != null:
 		_battle_scene.set_spectator_count(spec_count)
 	elif _draft_scene != null:
 		_draft_scene.set_spectator_count(spec_count)
+	elif _end_scene != null:
+		pass
 	else:
 		_show_state(UI_ROOM)
 
@@ -236,6 +244,7 @@ func _on_room_closed(_room_id: String, _reason: String) -> void:
 	set_message("房間已解散。")
 	_exit_draft()
 	_exit_battle()
+	_exit_end_game()
 	_current_room = {}
 	_show_state(UI_LOBBY)
 	if _client != null:
@@ -270,10 +279,12 @@ func _on_snapshot_received(snapshot: Dictionary) -> void:
 		_enter_battle(snapshot)
 
 
-func _on_game_over(_info: Dictionary) -> void:
-	# P12-12：終局由對戰子場景顯示勝負面板（其自身連結 game_over）。回房/再戰閉環＝P12-15。
-	if _battle_scene == null:
-		(%RoomStatus as Label).text = "對戰結束。"
+func _on_game_over(info: Dictionary) -> void:
+	# P12-15：對戰進行中＝由 battle 子場景播完動畫後 emit net_game_finished → _on_net_game_finished
+	# 開終局統計（此處不動，避免打斷結尾動畫）。無對戰/選秀子場景＝旁觀者於終局後才加入
+	# （catchup 直送 game_over，無 battle 場景）→ 直接開終局統計看勝負（P12-9(C)）。
+	if _battle_scene == null and _draft_scene == null and _end_scene == null:
+		_enter_end_game_from_info(info)
 
 
 # ---------------- 連線對戰子場景（P12-12，見 10 §11.2-2）----------------
@@ -285,6 +296,8 @@ func _enter_battle(opening_snapshot: Dictionary) -> void:
 		return
 	_battle_scene = BattleScene.instantiate()
 	_battle_scene.boot_net(_client, _my_seat(), opening_snapshot, _my_seat() == "")
+	# P12-15：對戰結束（動畫播完）後由 battle emit → 開終局統計（釋放 battle、嵌入 end_game）。
+	_battle_scene.net_game_finished.connect(_on_net_game_finished)
 	add_child(_battle_scene)
 	_battle_scene.set_spectator_count((_current_room.get("spectators", []) as Array).size())
 	_hide_lobby_ui()
@@ -318,6 +331,61 @@ func _exit_battle() -> void:
 		_battle_scene = null
 	if _msg_label != null:
 		_msg_label.visible = true
+
+
+# ---------------- 連線終局統計子場景（P12-15，見 10 §11.2-7）----------------
+
+# 對戰子場景 emit net_game_finished（動畫播完）→ 釋放 battle、嵌入 end_game 子場景。
+func _on_net_game_finished(winner: int, score: int, win_threshold: int,
+		score_history: Array, stats: Dictionary, reason: String) -> void:
+	_enter_end_game(winner, score, win_threshold, score_history, stats, reason)
+
+
+# 旁觀者於終局後才加入（catchup 直送 game_over，無 battle 場景）→ 由 game_over payload 開終局統計。
+func _enter_end_game_from_info(info: Dictionary) -> void:
+	var snap: Dictionary = info.get("snapshot", {})
+	var winner := _winner_name_to_int(String(info.get("winner", "")))
+	_enter_end_game(winner, int(snap.get("score", 0)), GameConfig.WIN_THRESHOLD_DEFAULT,
+		snap.get("score_history", []), snap.get("stats", {}), String(info.get("reason", "")))
+
+
+# 嵌入 end_game 子場景（隱藏大廳 UI）。釋放對戰/選秀子場景後接手。旁觀者無「再來一局」。
+func _enter_end_game(winner: int, score: int, win_threshold: int,
+		score_history: Array, stats: Dictionary, reason: String) -> void:
+	_exit_battle()
+	_exit_draft()
+	if _end_scene != null:
+		return
+	_end_scene = EndGameScene.instantiate()
+	_end_scene.boot_net(winner, score, win_threshold, score_history, stats, _my_seat() == "", reason)
+	_end_scene.net_rematch.connect(_on_end_rematch)
+	_end_scene.net_back_to_room.connect(_on_end_back_to_room)
+	add_child(_end_scene)
+	_hide_lobby_ui()
+
+
+# 釋放終局子場景、恢復大廳 UI（回房/再戰/離開/斷線時）。
+func _exit_end_game() -> void:
+	if _end_scene != null:
+		_end_scene.queue_free()
+		_end_scene = null
+	if _msg_label != null:
+		_msg_label.visible = true
+
+
+# 終局「再來一局」：送 rematch（server 重開回 waiting＋本席就緒）→ 釋放終局子場景、回房內面板。
+# 雙方皆按＝兩席就緒 → 房主按開始 → 新一局（同成員、新 seed）。
+func _on_end_rematch() -> void:
+	_exit_end_game()
+	if _client != null:
+		_client.rematch()
+	_show_state(UI_ROOM)
+
+
+# 終局「回房間」：釋放終局子場景、回房內面板（房態＝ended，可於房內按「再來一局」或離開）。
+func _on_end_back_to_room() -> void:
+	_exit_end_game()
+	_show_state(UI_ROOM)
 
 
 func _hide_lobby_ui() -> void:
@@ -402,6 +470,10 @@ func _on_toggle_ready() -> void:
 	var seat := _my_seat()
 	if seat.is_empty():
 		return   # 旁觀者無就緒
+	# P12-15：終局房內按「再來一局」＝送 rematch（server 重開回 waiting＋本席就緒）。
+	if String(_current_room.get("state", "")) == RoomManager.STATE_ENDED:
+		_client.rematch()
+		return
 	var ready := bool((_current_room.get("ready", {}) as Dictionary).get(seat, false))
 	_client.set_ready(not ready)
 
@@ -418,6 +490,7 @@ func _on_leave_room() -> void:
 		_client.leave_room()
 	_exit_draft()
 	_exit_battle()
+	_exit_end_game()
 	_current_room = {}
 	_show_state(UI_LOBBY)
 	if _client != null:
@@ -447,13 +520,20 @@ func apply_room_state(room: Dictionary) -> void:
 	var my_seat := _my_seat()
 	var is_player := not my_seat.is_empty()
 	var is_host := _my_id != 0 and _my_id == int(room.get("host_id", 0))
-	var waiting := String(room.get("state", "")) == RoomManager.STATE_WAITING
+	var state := String(room.get("state", ""))
+	var waiting := state == RoomManager.STATE_WAITING
+	var ended := state == RoomManager.STATE_ENDED
 
-	(%ReadyBtn as Button).visible = is_player
+	# P12-15：終局房（ended）ReadyBtn 變「再來一局」（送 rematch 重開＋就緒）；waiting 時為就緒切換。
+	(%ReadyBtn as Button).visible = is_player and (waiting or ended)
 	if is_player:
-		var my_ready := bool(ready.get(my_seat, false))
-		(%ReadyBtn as Button).text = "取消就緒" if my_ready else "準備就緒"
-		(%ReadyBtn as Button).disabled = not waiting
+		if ended:
+			(%ReadyBtn as Button).text = "再來一局"
+			(%ReadyBtn as Button).disabled = false
+		elif waiting:
+			var my_ready := bool(ready.get(my_seat, false))
+			(%ReadyBtn as Button).text = "取消就緒" if my_ready else "準備就緒"
+			(%ReadyBtn as Button).disabled = false
 	# 只有房主、雙方就位且皆就緒、且在等待中才可開戰。
 	(%StartBtn as Button).visible = is_host
 	(%StartBtn as Button).disabled = not (waiting and _both_ready(seats, ready))
@@ -595,9 +675,17 @@ func _room_status_text(room: Dictionary, is_player: bool) -> String:
 		RoomManager.STATE_BATTLING:
 			return "對戰進行中…"
 		RoomManager.STATE_ENDED:
-			return "對戰結束。"
+			return "對戰結束——按「再來一局」重開（雙方皆按），或離開房間。"
 		_:
 			return ""
+
+
+# 席位名（player1/player2）→ 終局 winner int（-1 平／0 P1／1 P2；沿用 GameCore.winner()）。
+func _winner_name_to_int(name: String) -> int:
+	match name:
+		"player1": return 0
+		"player2": return 1
+		_: return -1
 
 
 func _room_row_text(room: Dictionary) -> String:

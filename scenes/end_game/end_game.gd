@@ -10,6 +10,11 @@
 # 格式 {stat_name: {owner_cardid: int}}）；摘要長條與表格皆由它派生（單一資料源）。
 extends Node2D
 
+# P12-15 連線終局：本場景亦可作為線上大廳的子場景（net 模式）。此時「再來一局／回房間」不 change_scene
+# （會拆掉常駐 NetClient，§11.2-2）而改 emit 信號，由 online_lobby 主導（釋放本子場景、回房內面板）。
+signal net_rematch()        # net 模式「再來一局」（→ lobby 送 rematch、回房）
+signal net_back_to_room()   # net 模式「回房間」（→ lobby 釋放本子場景、回房內面板）
+
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
@@ -32,6 +37,9 @@ var _stats: Dictionary = {}       # {stat_name: {owner_cardid: int}}（export_fo
 var _show_table: bool = false
 var _replay_path: String = ""     # P11-2：本局紀錄路徑（非空才顯示「回放本局」）
 var _replay_btn: Button
+# P12-15 連線終局旗標：net 模式改 emit 信號（不 change_scene）；旁觀者無「再來一局」。
+var _is_net: bool = false
+var _net_spectator: bool = false
 
 var _hud: CanvasLayer
 var _chart_frame: ColorRect
@@ -73,6 +81,23 @@ func configure(winner: int, score: int, win_threshold: int, score_history: Array
 	_rebuild()
 
 
+# P12-15 連線終局：以終局公開快照的統計 export 建終局統計畫面（online_lobby 嵌入為子場景）。
+# 資料源＝終局快照（stats/score_history/winner/score，見 GameSnapshot）。spectator＝旁觀者（無再來一局）；
+# reason＝終局原因（opponent_forfeit 時於標題加註）。按鈕改 emit net_rematch/net_back_to_room（不 change_scene）。
+func boot_net(winner: int, score: int, win_threshold: int, score_history: Array,
+		stats: Dictionary, spectator: bool = false, reason: String = "") -> void:
+	_is_net = true
+	_net_spectator = spectator
+	configure(winner, score, win_threshold, score_history, stats, "")
+	(%AgainBtn as Button).text = "再來一局"
+	(%AgainBtn as Button).visible = not spectator   # 旁觀者無「再來一局」（唯讀）
+	(%MenuBtn as Button).text = "回房間"
+	if _replay_btn != null:
+		_replay_btn.visible = false                 # 伺服器端回放下載＝P12-18（選做），此處不提供
+	if reason == NetMessage.REASON_OPPONENT_FORFEIT and _title_label != null:
+		_title_label.text += "（對手離線，判定勝出）"
+
+
 func _bind_nodes() -> void:
 	if _bound:
 		return
@@ -86,8 +111,9 @@ func _bind_nodes() -> void:
 	_title_label = %TitleLabel
 	_caption_label = %ChartCaption
 	_view_toggle.pressed.connect(toggle_view)
-	(%AgainBtn as Button).pressed.connect(_change_scene.bind(DRAFT_SCENE))
-	(%MenuBtn as Button).pressed.connect(_change_scene.bind(MENU_SCENE))
+	# 「再來一局／回主選單」在 net 模式改走信號（見 _on_again/_on_menu），本機模式 change_scene。
+	(%AgainBtn as Button).pressed.connect(_on_again)
+	(%MenuBtn as Button).pressed.connect(_on_menu)
 	_replay_btn = %ReplayBtn
 	_replay_btn.pressed.connect(_on_replay)
 
@@ -282,6 +308,22 @@ func _short_key(key: String) -> String:
 
 
 # ---------------- 導覽 ----------------
+
+# 「再來一局」：net 模式 emit 信號（lobby 送 rematch＋回房）；本機模式回選秀開新局。
+func _on_again() -> void:
+	if _is_net:
+		net_rematch.emit()
+	else:
+		_change_scene(DRAFT_SCENE)
+
+
+# 「回房間／回主選單」：net 模式 emit 信號（lobby 釋放子場景回房內面板）；本機模式回主選單。
+func _on_menu() -> void:
+	if _is_net:
+		net_back_to_room.emit()
+	else:
+		_change_scene(MENU_SCENE)
+
 
 func _change_scene(path: String) -> void:
 	var tree := get_tree()

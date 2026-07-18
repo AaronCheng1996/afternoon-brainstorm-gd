@@ -91,6 +91,8 @@ func _handle_lobby(sender_id: int, type: String, payload: Dictionary) -> void:
 			_do_set_ready(sender_id, payload)
 		NetMessage.T_LIST_ROOMS:
 			send_to(sender_id, NetMessage.T_ROOM_LIST, {"rooms": rooms.list_public()})
+		NetMessage.T_REMATCH:
+			_do_rematch(sender_id)
 		NetMessage.T_START_DRAFT:
 			_do_start_draft(sender_id)
 		NetMessage.T_DRAFT_ACTION:
@@ -162,6 +164,30 @@ func _do_leave(sender_id: int) -> void:
 		_lobby_error(sender_id, res["error"])
 		return
 	_after_leave(res)
+
+
+# P12-15 再戰（見 10 §11.2-7）：終局房（ended）玩家請求「再來一局」。
+# 首位請求者把房間 ended→waiting（reopen 清就緒）並丟棄上一局權威 session；接著（含後續請求者）
+# 標記本席就緒。雙方皆按＝兩席就緒 → 回到一般 waiting 流程（房主按開始 → 連線 BP → 對戰，新 seed）。
+# 旁觀者無此權；非房內/非玩家/非 ended-或-waiting 皆回 lobby_error（不斷線）。
+func _do_rematch(sender_id: int) -> void:
+	var room_id := rooms.room_of(sender_id)
+	if room_id == "":
+		_lobby_error(sender_id, NetMessage.REASON_NOT_IN_ROOM)
+		return
+	if rooms.player_seat(sender_id) == "":
+		_lobby_error(sender_id, NetMessage.REASON_NOT_A_PLAYER)
+		return
+	var state := rooms.state_of(room_id)
+	if state == RoomManager.STATE_ENDED:
+		rooms.reopen(room_id)          # ended → waiting（清雙方就緒）
+		_sessions.erase(room_id)       # 丟棄上一局權威 session（統計已於終局送達；新局將重建）
+		_draft_sessions.erase(room_id)
+	elif state != RoomManager.STATE_WAITING:
+		_lobby_error(sender_id, NetMessage.REASON_BAD_STATE)
+		return
+	rooms.set_ready(sender_id, true)   # 請求者＝我要再來一局（本席就緒）
+	_broadcast_room_state(room_id)
 
 
 func _do_set_ready(sender_id: int, payload: Dictionary) -> void:

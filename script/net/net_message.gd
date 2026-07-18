@@ -24,6 +24,8 @@ const T_JOIN_ROOM := "join_room"      # {room_id, password, spectate}
 const T_LEAVE_ROOM := "leave_room"    # {}
 const T_SET_READY := "set_ready"      # {ready}
 const T_LIST_ROOMS := "list_rooms"    # {}
+# P12-15 再戰：終局房（ended）玩家請求再來一局＝重開回 waiting＋自己就緒（雙方皆按→同成員新局）。
+const T_REMATCH := "rematch"          # {}
 # server→client
 const T_ROOM_LIST := "room_list"      # {rooms:[public_room…]}（回應 list_rooms）
 const T_ROOM_STATE := "room_state"    # {room: member_view}（廣播給房內成員）
