@@ -29,9 +29,13 @@ func _initialize() -> void:
 
 
 # 節點入樹後開伺服器：`-s` SceneTree 主迴圈不會自動為節點建立 MultiplayerAPI（正式 boot 才有）
-# ——手動掛一個到伺服器節點路徑，否則 net_server 設 multiplayer.multiplayer_peer 時 multiplayer 為 null。
+# ——手動掛一個。**根＝真正的 "/root"（不是 _server.get_path()）**：RPC 定址是「節點路徑相對於
+# 該 MultiplayerAPI 的根」；用戶端走一般 boot 的預設 API（根＝其 SceneTree 的 /root），其 NetPeer
+# 必須是 /root 的直接子節點才會算出相對路徑 "NetPeer"（見 net_peer_base.gd 開頭的路徑一致性說明）。
+# 若這裡改綁 _server.get_path()（＝/root/NetPeer 自己），_server 相對自己的路徑會變成空字串，
+# 與用戶端的 "NetPeer" 對不上，RPC 會回報 "Node not found"（P12-11 實機部署發現的 bug）。
 func _boot() -> void:
-	set_multiplayer(SceneMultiplayer.new(), _server.get_path())
+	set_multiplayer(SceneMultiplayer.new(), ^"/root")
 	var res: Dictionary = _server.start(int(_cfg["port"]), int(_cfg["max_clients"]))
 	if not res["ok"]:
 		push_error("[server] 開埠失敗：%s" % res["error"])

@@ -44,6 +44,13 @@ func _ready() -> void:
 	_bind_nodes()
 
 
+# 安全網：NetClient 現掛在真正的樹根（見 _make_client 註解），不再隨本場景節點自動釋放——
+# 場景以任何方式離開樹（意外路徑／未來新增的離開流程）都確保連線與 peer 節點一併清掉。
+# 正常的「回主選單」已在 _on_back_to_menu 顯式呼叫過，這裡重複呼叫是安全的（_teardown_client 冪等）。
+func _exit_tree() -> void:
+	_teardown_client()
+
+
 func _bind_nodes() -> void:
 	if _bound:
 		return
@@ -123,10 +130,14 @@ func _on_connect() -> void:
 
 
 # 建立並掛上 NetClient（in-tree 才能收送 @rpc）；連接全部信號。
+# **掛在真正的樹根 `get_tree().root`（不是 `self`＝OnlineLobby 場景節點）**：伺服器的 NetPeer 是
+# `/root` 的直接子節點，RPC 定址採「節點路徑相對於 MultiplayerAPI 根」，用戶端預設 API 的根即
+# `/root`——若掛在場景節點下，相對路徑會變成 "OnlineLobby/NetPeer"，與伺服器對不上，RPC 會被
+# 判定為 "Node not found"（P12-11 實機部署發現的 bug；見 net_peer_base.gd 開頭的路徑一致性說明）。
 func _make_client(_nickname: String) -> NetClient:
 	var c := NetClient.new()
 	c.name = NetPeerBase.PEER_NODE_NAME   # 兩端同名，@rpc 路徑一致（見 NetPeerBase）
-	add_child(c)
+	get_tree().root.add_child(c)
 	c.welcomed.connect(_on_welcomed)
 	c.rejected.connect(_on_rejected)
 	c.connection_failed.connect(_on_connection_failed)
