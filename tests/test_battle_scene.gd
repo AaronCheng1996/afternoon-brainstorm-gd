@@ -20,6 +20,7 @@ func run(t: Object) -> void:
 	_test_view_at_freed(t, dbs)
 	_test_resource_feedback(t, dbs)
 	_test_hand_columns_fixed(t, dbs)   # P12-20（D21）固定左右欄
+	_test_board_anchor_geometry(t, dbs)   # P14-2 棋盤幾何由場景注入
 	for db in dbs:
 		db.free()
 
@@ -144,7 +145,7 @@ func _mk_battle(dbs: Array, p1: Array, p2: Array, seed_v: int) -> Node:
 func _test_node_tree(t: Object, dbs: Array) -> void:
 	var b: Node = BattleScene.instantiate()
 	# 世界層與 HUD 骨架皆宣告於 .tscn，instantiate 後即可解析。
-	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
+	for name in ["Background", "BoardAnchorOrtho", "BoardAnchorIso", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
 			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
 			"ViewToggle", "EndTurnBtn", "LeftHandTitle", "LeftHandBox", "RightHandTitle", "RightHandBox",
@@ -409,3 +410,54 @@ func _test_view_at_freed(t: Object, dbs: Array) -> void:
 	t.ok(true, "freed：懸停提示路徑不崩潰")
 
 	b.free()
+
+
+# ---------------- P14-2 棋盤幾何編輯器化 ----------------
+# 棋盤原點來自場景裡可拖曳的 BoardAnchorOrtho/BoardAnchorIso 節點、格距來自 root @export；
+# 兩者都要真的傳進 BoardView，而且棋子/格線/點擊反算整組跟著搬（美術拖了才有意義）。
+func _test_board_anchor_geometry(t: Object, dbs: Array) -> void:
+	# (A) 預設場景：注入值＝場景宣告值＝BoardView 常數（畫面與 P14-2 前相同）。
+	var b: Node = _mk_battle(dbs, _deck("ADCW", 12), _deck("ADCW", 12), 77)
+	t.eq(b._view.ortho_origin, b.get_node("%BoardAnchorOrtho").position,
+		"P14-2：ortho 原點取自 BoardAnchorOrtho")
+	t.eq(b._view.iso_origin, b.get_node("%BoardAnchorIso").position,
+		"P14-2：iso 原點取自 BoardAnchorIso")
+	t.eq(b._view.ortho_origin, BoardView.ORTHO_ORIGIN, "P14-2：場景預設 anchor＝置中常數（P12-20）")
+	t.eq(b._view.iso_origin, BoardView.ISO_ORIGIN, "P14-2：場景預設 iso anchor＝置中常數")
+	t.eq(b._view.ortho_stride, b.board_ortho_stride, "P14-2：ortho 格距取自 @export")
+	t.eq(b._view.iso_hw, b.board_iso_half_width, "P14-2：iso 半寬取自 @export")
+	t.eq(b._view.iso_hh, b.board_iso_half_height, "P14-2：iso 半高取自 @export")
+	t.eq(b._view.cell_size, b.board_cell_size, "P14-2：格寬取自 @export")
+	b.free()
+
+	# (B) 美術把 anchor 拖走、改格距 → 棋子位置/格線/點擊反算整組隨動。
+	var db: Object = _new_db()
+	dbs.append(db)
+	var b2: Node = BattleScene.instantiate()
+	var moved_iso := BoardView.ISO_ORIGIN + Vector2(37.0, -21.0)
+	b2.get_node("%BoardAnchorIso").position = moved_iso
+	b2.get_node("%BoardAnchorOrtho").position = Vector2(100.0, 60.0)
+	b2.board_iso_half_width = 70.0
+	b2.board_iso_half_height = 55.0
+	b2.board_ortho_stride = 130.0
+	b2.boot(_deck("ADCW", 12), _deck("ADCW", 12), 77, db)
+	b2.set_animation_enabled(false)
+
+	t.eq(b2._view.iso_origin, moved_iso, "P14-2：拖動 anchor 後 iso 原點跟著變")
+	t.eq(b2._view.iso_hw, 70.0, "P14-2：改 @export 後 iso 半寬跟著變")
+	# 格中心＝新參數算出的位置（預設視角＝ISO）。
+	var expect_center: Vector2 = moved_iso + Vector2((0.5 - 0.5) * 70.0, (0.5 + 0.5) * 55.0)
+	t.ok(b2._cell_center(Vector2i(0, 0)).is_equal_approx(expect_center),
+		"P14-2：格中心依新幾何算出")
+	# 點擊反算跟著搬：新位置的中心反算回同格，舊位置已不再是該格中心。
+	t.eq(b2._cell_from_global(expect_center), Vector2i(0, 0), "P14-2：新幾何下點擊反算正確")
+	# 格線也依新幾何重排（H0 起點＝corner(0,0)＝新原點）。
+	var h0: Line2D = b2._grid_layer.get_node("H0")
+	t.ok(h0.points[0].is_equal_approx(moved_iso), "P14-2：格線依新原點重排")
+	# 棋子定位面（`_cell_topleft`＝`_rebuild_board` 指派給每個 PieceView 的 position）亦依新幾何，
+	# 且仍以新的 cell_size 對齊格心（開局盤面為空，故驗換算面而非既有視圖）。
+	var cell := Vector2i(2, 1)
+	t.ok(b2._cell_topleft(cell).is_equal_approx(
+			b2._cell_center(cell) - Vector2(b2.board_cell_size, b2.board_cell_size) * 0.5),
+		"P14-2：棋子左上角依新幾何且對齊格心")
+	b2.free()

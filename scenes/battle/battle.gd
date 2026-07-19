@@ -35,6 +35,23 @@ const OWNER_OUTLINE_INSET := 6.0
 
 const MAGIC_CARDS := ["HEAL", "MOVE", "MOVEO", "CUBES"]
 
+# --- P14-2 棋盤幾何（美術可在編輯器調整）---
+# 棋盤**原點**不在這裡，而是場景裡可直接拖曳的兩個 Node2D：`%BoardAnchorOrtho`（俯視）與
+# `%BoardAnchorIso`（45 度）——拖動它們，棋子/格線/高亮/範圍預覽/投射物瞄準/點擊反算整組隨動
+# （全部已統一委派 BoardView，見 `_configure_board_view`）。格距類參數則是下列 @export。
+# 預設值＝`BoardView` 的常數（P12-20 置中定案）；不動它們時畫面與改版前逐位相同。
+@export_group("棋盤幾何")
+## 棋子佔位方形的邊長（兩視角共用）。**應與 `PieceView.CELL_SIZE` 一致**——它只影響「棋子
+## 左上角相對格心的偏移」，不改變 PieceView 自身畫多大；兩者不一致時棋子會偏離格心。
+@export var board_cell_size: float = BoardView.CELL
+## 俯視（正交）模式的格距（像素）。
+@export var board_ortho_stride: float = BoardView.ORTHO_STRIDE
+## 45 度（等距）模式菱形格的半寬。
+@export var board_iso_half_width: float = BoardView.ISO_HW
+## 45 度（等距）模式菱形格的半高。
+@export var board_iso_half_height: float = BoardView.ISO_HH
+@export_group("")
+
 
 # --- 設定 / 狀態 ---
 var _p1_deck: Array = []
@@ -932,6 +949,21 @@ func _open_end_game() -> void:
 
 # ---------------- 座標換算（統一委派 BoardView，P9-1）----------------
 
+# P14-2：把 battle.tscn 宣告的棋盤幾何注入 BoardView——原點取兩個可拖曳的 anchor 節點位置，
+# 格距取 root 的 @export。`_bind_nodes` 於 `_layout_grid` 前呼叫（idempotent，同 `_bind_nodes`）。
+# anchor 缺席時（舊場景/純腳本建構）保留 BoardView 預設常數，行為與改版前相同。
+func _configure_board_view() -> void:
+	var ortho_origin: Vector2 = _view.ortho_origin
+	var iso_origin: Vector2 = _view.iso_origin
+	var a_ortho := get_node_or_null("%BoardAnchorOrtho") as Node2D
+	if a_ortho != null:
+		ortho_origin = a_ortho.position
+	var a_iso := get_node_or_null("%BoardAnchorIso") as Node2D
+	if a_iso != null:
+		iso_origin = a_iso.position
+	_view.configure(board_cell_size, ortho_origin, board_ortho_stride,
+		iso_origin, board_iso_half_width, board_iso_half_height)
+
 func _cell_topleft(cell: Vector2i) -> Vector2:
 	return _view.cell_topleft(cell)
 
@@ -1155,6 +1187,7 @@ func _bind_nodes() -> void:
 	_ui_built = true
 
 	# 世界層（Node2D）。
+	_configure_board_view()   # P14-2：先把場景的棋盤幾何灌進 _view，格線/棋子才排在對的位置
 	_grid_layer = %GridLayer
 	_layout_grid()   # 依 _view 模式把格線排成方格/菱形（P9-1）
 	_persist_layer = %PersistLayer

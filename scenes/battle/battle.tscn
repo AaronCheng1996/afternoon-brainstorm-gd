@@ -15,6 +15,14 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.09, 0.1, 0.13, 1)
 
+[node name="BoardAnchorOrtho" type="Node2D" parent="." unique_id=311204871]
+unique_name_in_owner = true
+position = Vector2(276, 150)
+
+[node name="BoardAnchorIso" type="Node2D" parent="." unique_id=311204872]
+unique_name_in_owner = true
+position = Vector2(512, 160)
+
 [node name="GridLayer" type="Node2D" parent="." unique_id=74254080]
 unique_name_in_owner = true
 

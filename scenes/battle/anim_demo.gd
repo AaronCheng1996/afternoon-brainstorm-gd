@@ -8,9 +8,16 @@ const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 const AnimSetScript := preload("res://script/view/piece_animation_set.gd")
 const AnimLibScript := preload("res://script/view/piece_animation_library.gd")   # P9-3
 
-const CELL := 96.0
-const STRIDE := 116.0
-const ORIGIN := Vector2(180, 180)
+# P14-2：本示範場景自帶一套棋盤幾何（與對戰場景的 BoardView 各自為政——這裡是固定正交小盤，
+# 不切視角）。改為 @export 讓美術在編輯器調整；預設值＝改版前的常數。
+@export_group("棋盤幾何")
+## 棋子佔位方形的邊長（應與 `PieceView.CELL_SIZE` 一致）。
+@export var cell_size: float = 96.0
+## 格距（像素）。
+@export var stride: float = 116.0
+## 棋盤左上角原點。
+@export var origin: Vector2 = Vector2(180, 180)
+@export_group("")
 
 # 攻擊者與三個目標（同一直行 → 大十字命中）。第三個低血量以示範死亡淡出。
 const ATTACKER_POS := Vector2i(1, 1)
@@ -110,7 +117,7 @@ func _place(core: GameCore, card_id: String, owner: String, pos: Vector2i) -> Pi
 
 func _make_view(pos: Vector2i, card_id: String, owner: int, aset: Resource) -> void:
 	var v: Node2D = PieceViewScene.instantiate()
-	v.position = ORIGIN + Vector2(pos) * STRIDE
+	v.position = origin + Vector2(pos) * stride
 	_board_layer.add_child(v)
 	v.fx_layer = _fx_layer   # P9-2：命中/死亡粒子與殘影掛 fx 層
 	v.configure(card_id, owner, Balance)
@@ -137,20 +144,20 @@ func _shake() -> void:
 
 
 func _cell_center(pos: Vector2i) -> Vector2:
-	return ORIGIN + Vector2(pos) * STRIDE + Vector2(CELL, CELL) * 0.5
+	return origin + Vector2(pos) * stride + Vector2(cell_size, cell_size) * 0.5
 
 
 func _add_grid() -> void:
 	for i in range(5):
 		var h := Line2D.new()
-		h.add_point(ORIGIN + Vector2(0, i * STRIDE))
-		h.add_point(ORIGIN + Vector2(4 * STRIDE, i * STRIDE))
+		h.add_point(origin + Vector2(0, i * stride))
+		h.add_point(origin + Vector2(4 * stride, i * stride))
 		h.width = 1.5
 		h.default_color = Color(0.3, 0.32, 0.36)
 		add_child(h)
 		var vline := Line2D.new()
-		vline.add_point(ORIGIN + Vector2(i * STRIDE, 0))
-		vline.add_point(ORIGIN + Vector2(i * STRIDE, 4 * STRIDE))
+		vline.add_point(origin + Vector2(i * stride, 0))
+		vline.add_point(origin + Vector2(i * stride, 4 * stride))
 		vline.width = 1.5
 		vline.default_color = Color(0.3, 0.32, 0.36)
 		add_child(vline)

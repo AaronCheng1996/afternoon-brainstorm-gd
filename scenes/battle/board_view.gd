@@ -15,6 +15,8 @@ extends RefCounted
 enum Mode { ORTHO, ISO }
 
 const BOARD := 4
+
+# --- 幾何預設值（P14-2 前為唯一來源；現為「場景未指定時的預設」，見下方同名 var）---
 const CELL := 96.0   # 佔位形狀邊長（＝PieceView.CELL_SIZE）；等距下棋子仍以此方形佔位置中，不做偽 3D。
 
 # 正交參數：STRIDE 不變；ORIGIN.x 由 40 → 276 使棋盤置中（寬 4×118=472，(1024−472)/2=276）。
@@ -30,12 +32,39 @@ const ISO_ORIGIN := Vector2(512.0, 160.0)
 
 var mode: int = Mode.ISO   # P9-1 新方向：預設等距；ORTHO 供切換對照。
 
+# **P14-2 美術可編輯化**：幾何參數由常數改為實例欄位，預設值＝上列常數（不指定時行為與改版前
+# 逐位相同）。呼叫端（battle.gd）於 `_ready` 以 battle.tscn 宣告的 `BoardAnchorOrtho`/`BoardAnchorIso`
+# 節點位置與 root `@export` 格距覆寫，美術即可在編輯器拖曳原點/調整格距，不必讀程式。
+# 本類仍是純數學、零 Node 依賴（RefCounted），可 headless 測試。
+var cell_size: float = CELL
+var ortho_origin: Vector2 = ORTHO_ORIGIN
+var ortho_stride: float = ORTHO_STRIDE
+var iso_origin: Vector2 = ISO_ORIGIN
+var iso_hw: float = ISO_HW
+var iso_hh: float = ISO_HH
+
+
+# 一次覆寫全部幾何參數（供場景注入）。傳入非正數的格距/格寬視為「不指定」，保留預設，
+# 避免美術誤填 0 造成除以零（pixel_to_grid）或棋子退化成零尺寸。
+func configure(a_cell_size: float, a_ortho_origin: Vector2, a_ortho_stride: float,
+		a_iso_origin: Vector2, a_iso_hw: float, a_iso_hh: float) -> void:
+	if a_cell_size > 0.0:
+		cell_size = a_cell_size
+	ortho_origin = a_ortho_origin
+	if a_ortho_stride > 0.0:
+		ortho_stride = a_ortho_stride
+	iso_origin = a_iso_origin
+	if a_iso_hw > 0.0:
+		iso_hw = a_iso_hw
+	if a_iso_hh > 0.0:
+		iso_hh = a_iso_hh
+
 
 # 格線交點（整數或半格皆可，gx,gy ∈ [0,BOARD]）→ 螢幕像素。所有換算的基元。
 func corner(gx: float, gy: float) -> Vector2:
 	if mode == Mode.ISO:
-		return ISO_ORIGIN + Vector2((gx - gy) * ISO_HW, (gx + gy) * ISO_HH)
-	return ORTHO_ORIGIN + Vector2(gx, gy) * ORTHO_STRIDE
+		return iso_origin + Vector2((gx - gy) * iso_hw, (gx + gy) * iso_hh)
+	return ortho_origin + Vector2(gx, gy) * ortho_stride
 
 
 # 格中心（棋子/瞄準用）。
@@ -45,7 +74,7 @@ func cell_center(cell: Vector2i) -> Vector2:
 
 # 佔位棋子左上角原點（PieceView 以左上為原點、中心在 +CELL/2；置中對齊格中心）。
 func cell_topleft(cell: Vector2i) -> Vector2:
-	return cell_center(cell) - Vector2(CELL, CELL) * 0.5
+	return cell_center(cell) - Vector2(cell_size, cell_size) * 0.5
 
 
 # 一格的四頂點（順時針），供高亮/預覽繪製。正交＝方形、等距＝菱形。
@@ -78,11 +107,11 @@ func cell_polygon_inset(cell: Vector2i, inset: float) -> PackedVector2Array:
 # 螢幕像素 → 連續格座標（反矩陣）。整數部即所在格。
 func pixel_to_grid(p: Vector2) -> Vector2:
 	if mode == Mode.ISO:
-		var d: Vector2 = p - ISO_ORIGIN
-		var u: float = d.x / ISO_HW   # = gx − gy
-		var v: float = d.y / ISO_HH   # = gx + gy
+		var d: Vector2 = p - iso_origin
+		var u: float = d.x / iso_hw   # = gx − gy
+		var v: float = d.y / iso_hh   # = gx + gy
 		return Vector2((v + u) * 0.5, (v - u) * 0.5)
-	return (p - ORTHO_ORIGIN) / ORTHO_STRIDE
+	return (p - ortho_origin) / ortho_stride
 
 
 # 螢幕像素 → 格座標；界外回傳 (-1,-1)。

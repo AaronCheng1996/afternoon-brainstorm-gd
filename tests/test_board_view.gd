@@ -14,6 +14,9 @@ func run(t: Object) -> void:
 	_test_polygon_and_depth(t)
 	_test_out_of_board(t)
 	_test_polygon_inset(t)   # P12-22 所有權外框內縮
+	_test_defaults_match_constants(t)   # P14-2 預設值＝原常數
+	_test_configure_overrides(t)        # P14-2 自訂參數生效
+	_test_configure_rejects_degenerate(t)
 
 
 # 每格中心反算回同格；格內任一取樣點也落在該格。
@@ -114,3 +117,85 @@ func _test_polygon_inset(t: Object) -> void:
 				if pa.distance_to(pb) < 0.001:
 					shared += 1
 		t.eq(shared, 2, "%s：未內縮時相鄰格共用 2 頂點（共邊＝覆蓋成因）" % tag)
+
+
+# --- P14-2 幾何參數編輯器化（常數 → 實例欄位，場景可注入）---
+
+# 新建的 BoardView 未經 configure 時，欄位值與換算結果**與原常數逐位一致**
+# （＝美術不動任何東西時，畫面與 P14-2 改版前完全相同）。
+func _test_defaults_match_constants(t: Object) -> void:
+	var bv: Object = BoardViewScript.new()
+	t.eq(bv.cell_size, BoardViewScript.CELL, "P14-2：cell_size 預設＝CELL")
+	t.eq(bv.ortho_origin, BoardViewScript.ORTHO_ORIGIN, "P14-2：ortho_origin 預設＝常數")
+	t.eq(bv.ortho_stride, BoardViewScript.ORTHO_STRIDE, "P14-2：ortho_stride 預設＝常數")
+	t.eq(bv.iso_origin, BoardViewScript.ISO_ORIGIN, "P14-2：iso_origin 預設＝常數")
+	t.eq(bv.iso_hw, BoardViewScript.ISO_HW, "P14-2：iso_hw 預設＝常數")
+	t.eq(bv.iso_hh, BoardViewScript.ISO_HH, "P14-2：iso_hh 預設＝常數")
+	# 換算結果亦逐位一致（以常數直接算出的期望值比對，兩視角各三格）。
+	for mode in [BoardViewScript.Mode.ORTHO, BoardViewScript.Mode.ISO]:
+		bv.mode = mode
+		var tag: String = "ortho" if mode == BoardViewScript.Mode.ORTHO else "iso"
+		for cell in [Vector2i(0, 0), Vector2i(1, 2), Vector2i(3, 3)]:
+			var gx := float(cell.x) + 0.5
+			var gy := float(cell.y) + 0.5
+			var expect: Vector2
+			if mode == BoardViewScript.Mode.ISO:
+				expect = BoardViewScript.ISO_ORIGIN + Vector2(
+					(gx - gy) * BoardViewScript.ISO_HW, (gx + gy) * BoardViewScript.ISO_HH)
+			else:
+				expect = BoardViewScript.ORTHO_ORIGIN + Vector2(gx, gy) * BoardViewScript.ORTHO_STRIDE
+			t.ok(bv.cell_center(cell).is_equal_approx(expect),
+				"P14-2：%s 預設 cell_center 與常數公式一致 (%d,%d)" % [tag, cell.x, cell.y])
+
+
+# configure() 注入自訂參數後，cell_center / cell_topleft / cell_from_pixel 都隨之改變，
+# 且往返（中心→反算）仍恆等（＝美術拖 anchor / 改格距後，點擊判定跟著搬）。
+func _test_configure_overrides(t: Object) -> void:
+	var ortho_origin := Vector2(10.0, 20.0)
+	var iso_origin := Vector2(400.0, 60.0)
+	var bv: Object = BoardViewScript.new()
+	bv.configure(80.0, ortho_origin, 100.0, iso_origin, 50.0, 40.0)
+	t.eq(bv.cell_size, 80.0, "P14-2：configure 後 cell_size 生效")
+
+	bv.mode = BoardViewScript.Mode.ORTHO
+	t.ok(bv.cell_center(Vector2i(0, 0)).is_equal_approx(ortho_origin + Vector2(50.0, 50.0)),
+		"P14-2：ortho 原點/格距生效")
+	t.ok(bv.cell_center(Vector2i(2, 1)).is_equal_approx(ortho_origin + Vector2(250.0, 150.0)),
+		"P14-2：ortho 第 (2,1) 格隨格距移動")
+	# topleft＝中心 − 半個 cell_size（用新的 80 而非舊常數 96）。
+	t.ok(bv.cell_topleft(Vector2i(2, 1)).is_equal_approx(bv.cell_center(Vector2i(2, 1)) - Vector2(40.0, 40.0)),
+		"P14-2：cell_topleft 用新的 cell_size")
+
+	bv.mode = BoardViewScript.Mode.ISO
+	t.ok(bv.cell_center(Vector2i(0, 0)).is_equal_approx(iso_origin + Vector2(0.0, 40.0)),
+		"P14-2：iso 原點/半寬半高生效")
+
+	# 兩視角在新參數下往返仍恆等（點擊反算不因搬動而失準）。
+	for mode in [BoardViewScript.Mode.ORTHO, BoardViewScript.Mode.ISO]:
+		bv.mode = mode
+		var tag: String = "ortho" if mode == BoardViewScript.Mode.ORTHO else "iso"
+		for y in range(BoardViewScript.BOARD):
+			for x in range(BoardViewScript.BOARD):
+				var cell := Vector2i(x, y)
+				t.eq(bv.cell_from_pixel(bv.cell_center(cell)), cell,
+					"P14-2：%s 自訂參數下中心反算 (%d,%d)" % [tag, x, y])
+
+	# 未 configure 的另一個實例不受影響（欄位為實例狀態，非全域）。
+	var other: Object = BoardViewScript.new()
+	t.eq(other.ortho_origin, BoardViewScript.ORTHO_ORIGIN, "P14-2：configure 不污染其他實例")
+
+
+# 美術在編輯器誤填 0/負數時，格距類參數保留預設——否則 pixel_to_grid 會除以零、
+# 棋子佔位退化為零尺寸。原點無此風險（0 是合法位置），故照單全收。
+func _test_configure_rejects_degenerate(t: Object) -> void:
+	var bv: Object = BoardViewScript.new()
+	bv.configure(0.0, Vector2.ZERO, 0.0, Vector2.ZERO, 0.0, -5.0)
+	t.eq(bv.cell_size, BoardViewScript.CELL, "P14-2：cell_size 填 0 保留預設")
+	t.eq(bv.ortho_stride, BoardViewScript.ORTHO_STRIDE, "P14-2：ortho_stride 填 0 保留預設")
+	t.eq(bv.iso_hw, BoardViewScript.ISO_HW, "P14-2：iso_hw 填 0 保留預設")
+	t.eq(bv.iso_hh, BoardViewScript.ISO_HH, "P14-2：iso_hh 填負數保留預設")
+	t.eq(bv.ortho_origin, Vector2.ZERO, "P14-2：原點 (0,0) 為合法值，照單全收")
+	# 仍可正常換算（不除以零）。
+	bv.mode = BoardViewScript.Mode.ORTHO
+	t.eq(bv.cell_from_pixel(bv.cell_center(Vector2i(1, 1))), Vector2i(1, 1),
+		"P14-2：退化輸入後換算仍自洽")
