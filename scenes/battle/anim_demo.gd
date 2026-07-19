@@ -10,6 +10,16 @@ const AnimLibScript := preload("res://script/view/piece_animation_library.gd")  
 
 # P14-2：本示範場景自帶一套棋盤幾何（與對戰場景的 BoardView 各自為政——這裡是固定正交小盤，
 # 不切視角）。改為 @export 讓美術在編輯器調整；預設值＝改版前的常數。
+@export_group("配色")
+## 背景底色。
+@export var bg_color: Color = Color(0.10, 0.11, 0.13)
+## 格線顏色。
+@export var grid_color: Color = Color(0.3, 0.32, 0.36)
+## 操作說明文字色。
+@export var help_text_color: Color = Color(0.75, 0.8, 0.85)
+## 狀態列文字色。
+@export var status_text_color: Color = Color(0.7, 0.9, 0.7)
+@export_group("")
 @export_group("棋盤幾何")
 ## 棋子佔位方形的邊長（應與 `PieceView.CELL_SIZE` 一致）。
 @export var cell_size: float = 96.0
@@ -37,14 +47,14 @@ var _status_label: Label
 
 func _ready() -> void:
 	var bg := ColorRect.new()
-	bg.color = Color(0.10, 0.11, 0.13)
+	bg.color = bg_color
 	bg.size = Vector2(1024, 768)
 	add_child(bg)
 
 	_add_grid()
 	_add_text(Vector2(16, 12), 22, "午後激盪 — 攻擊演出示範（P2-2）", Color.WHITE)
-	_add_text(Vector2(16, 44), 14, "空白鍵＝重播　　I＝切換動畫開關（瞬時）", Color(0.75, 0.8, 0.85))
-	_status_label = _add_text(Vector2(16, 68), 14, "", Color(0.7, 0.9, 0.7))
+	_add_text(Vector2(16, 44), 14, "空白鍵＝重播　　I＝切換動畫開關（瞬時）", help_text_color)
+	_status_label = _add_text(Vector2(16, 68), 14, "", status_text_color)
 
 	_board_layer = Node2D.new()
 	_board_layer.name = "BoardLayer"
@@ -153,13 +163,13 @@ func _add_grid() -> void:
 		h.add_point(origin + Vector2(0, i * stride))
 		h.add_point(origin + Vector2(4 * stride, i * stride))
 		h.width = 1.5
-		h.default_color = Color(0.3, 0.32, 0.36)
+		h.default_color = grid_color
 		add_child(h)
 		var vline := Line2D.new()
 		vline.add_point(origin + Vector2(i * stride, 0))
 		vline.add_point(origin + Vector2(i * stride, 4 * stride))
 		vline.width = 1.5
-		vline.default_color = Color(0.3, 0.32, 0.36)
+		vline.default_color = grid_color
 		add_child(vline)
 
 
@@ -169,7 +179,5 @@ func _add_text(pos: Vector2, font_size: int, text: String, color: Color) -> Labe
 	l.text = text
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
 	add_child(l)
 	return l

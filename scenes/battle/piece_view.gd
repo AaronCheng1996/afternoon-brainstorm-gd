@@ -11,11 +11,19 @@ const PieceShapesScript := preload("res://script/view/piece_shapes.gd")
 const CELL_SIZE := 96.0
 # 棋子本體維持「純色」（職業/派別填色）；描邊改為中立深色，僅作形狀定義。
 # 擁有者（先手紅／後手藍）改由「棋子所在格的地格外框」呈現（見 battle._persist_draw）。
-const EDGE_COLOR := Color(0.09, 0.10, 0.12)    # 中立深色描邊（貼近棋盤底色，讓形狀有清晰邊界）
+# P14-4：佔位美術的三個色改 @export（美術可在編輯器調；預設值＝P14-4 前的常數）。
+# 派別色不在這裡——一律走 Balance.color_rgb 資料驅動（鐵則，見 08 §5.0）。
+# 特效暫態色（受擊白閃/火花/施法環/殘影）屬 P14-6，本輪不動。
+@export_group("佔位美術配色")
+## 中立深色描邊（貼近棋盤底色，讓形狀有清晰邊界）。
+@export var edge_color: Color = Color(0.09, 0.10, 0.12)
+## CUBE 方塊的填色。
+@export var cube_fill: Color = Color(0.70, 0.70, 0.70)
+## LUCKYBLOCK 幸運方塊的填色。
+@export var luckyblock_fill: Color = Color(1.0, 0.84, 0.16)
+@export_group("")
 const OUTLINE_SCALE := 1.16                    # 外框比本體略大，形成描邊環
 const SHADOW_ALPHA := 0.45
-const CUBE_FILL := Color(0.70, 0.70, 0.70)
-const LUCKYBLOCK_FILL := Color(1.0, 0.84, 0.16)
 
 # 狀態圖示（沿用舊 UI buff 圖；見 04 §6）。圖檔已貼於 piece_view.tscn 的 StatusIcons 子節點。
 const STATUS_ORDER := ["numbness", "anger", "moving"]
@@ -80,7 +88,7 @@ func configure(a_card_id: String, a_owner: int, db: Object = null, shadow: bool 
 	placeholder_shape.color = fill
 
 	# 描邊色：中立深色（擁有者顏色已改由地格外框呈現，棋子本體維持純色）。
-	var oc := EDGE_COLOR
+	var oc := edge_color
 	if shadow:
 		oc.a = SHADOW_ALPHA
 	outline_shape.color = oc
@@ -377,9 +385,9 @@ func _fill_color(data: Object, color_code: String) -> Color:
 	if color_code != "":
 		return data.color_rgb(color_code)
 	if card_id == "LUCKYBLOCK":
-		return LUCKYBLOCK_FILL
+		return luckyblock_fill
 	if card_id == "CUBE":
-		return CUBE_FILL
+		return cube_fill
 	return Color.WHITE
 
 

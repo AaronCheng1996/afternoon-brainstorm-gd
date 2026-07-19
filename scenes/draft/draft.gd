@@ -489,7 +489,7 @@ func _refresh_body() -> void:
 
 	# 色頁高亮。
 	for i in _color_tabs.size():
-		_color_tabs[i].modulate = Color(1, 1, 0.6) if i == _selected_color else Color(1, 1, 1)
+		_color_tabs[i].modulate = UIPalette.tab_tint(i == _selected_color)
 
 	# 進度鈕文字：p1_last6 完成後為「開始對戰」。
 	_advance_btn.text = "開始對戰" if _state.phase == "p1_last6" else "下一階段"

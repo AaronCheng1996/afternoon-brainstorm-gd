@@ -24,15 +24,27 @@ const HandCardReadonlyScene := preload("res://scenes/battle/hand_card_button_rea
 
 const BOARD := 4
 
-const COL_BG := Color(0.10, 0.11, 0.13)
-const COL_GRID := Color(0.30, 0.32, 0.36)
-const COL_HOVER := Color(1.0, 1.0, 1.0, 0.10)
-const COL_RANGE := Color(0.95, 0.35, 0.30, 0.28)
-const COL_SELECTED := Color(1.0, 0.9, 0.3, 0.30)
-const COL_MOVING := Color(0.4, 0.9, 1.0, 0.22)
-const COL_AI_FOCUS := Color(1.0, 0.85, 0.2, 0.95)   # P10-5：單人對戰 AI 目標圈（黃）
-const P1_COL := Color(0.95, 0.4, 0.4)
-const P2_COL := Color(0.45, 0.6, 1.0)
+# P14-4 棋盤高亮配色（美術可在編輯器調；預設值＝P14-4 前的常數）。
+# 先手/後手代表色不在這裡——它是跨場景語意色，單一來源＝theme 具名色（見 UIPalette）。
+# 原 `COL_BG`／`COL_GRID` 兩常數**已無任何使用點**（背景色由 .tscn 的 Background 節點決定、
+# 格線色由 GridLayer 各 Line2D 的 default_color 決定，皆已是編輯器可調）→ 直接移除，
+# 不補成 @export（補了就是憑空多一個沒人讀的參數）。
+@export_group("棋盤高亮配色")
+## 滑鼠懸停格的填色。
+@export var hover_color: Color = Color(1.0, 1.0, 1.0, 0.10)
+## 攻擊範圍預覽的填色。
+@export var range_color: Color = Color(0.95, 0.35, 0.30, 0.28)
+## 已選取棋子所在格的填色。
+@export var selected_color: Color = Color(1.0, 0.9, 0.3, 0.30)
+## 移動模式下可移動格的填色。
+@export var moving_color: Color = Color(0.4, 0.9, 1.0, 0.22)
+## 單人對戰時 AI 目標圈的外框色（P10-5）。
+@export var ai_focus_color: Color = Color(1.0, 0.85, 0.2, 0.95)
+## 滑鼠懸停格的外框色（畫在填色之上，標出目前指向哪一格）。
+@export var hover_outline_color: Color = Color(1, 1, 1, 0.5)
+## 手牌「待放置」那張卡的染色（點了單位卡、尚未選格子時）。
+@export var placing_tint: Color = Color(1, 1, 0.5)
+@export_group("")
 # P12-22：所有權外框向格心內縮的像素數。相鄰格共邊，不內縮時兩格外框會互相覆蓋而無法分辨。
 const OWNER_OUTLINE_INSET := 6.0
 
@@ -1058,14 +1070,14 @@ func _update_preview() -> void:
 func _preview_draw() -> void:
 	# 懸停格外框（依模式為方形/菱形，走 BoardView 頂點）。
 	if _in_board(_hover_cell):
-		_fill_cell(_preview_layer, _hover_cell, COL_HOVER)
-		_outline_cell(_preview_layer, _hover_cell, Color(1, 1, 1, 0.5), 2.0)
+		_fill_cell(_preview_layer, _hover_cell, hover_color)
+		_outline_cell(_preview_layer, _hover_cell, hover_outline_color, 2.0)
 	# 攻擊模式：懸停在我方棋子上 → 顯示其攻擊範圍（含 Fuchsia 鏡像）。
 	if _mode == "attack" and _in_board(_hover_cell):
 		var piece: PieceState = _my_piece_at(_hover_cell)
 		if piece != null:
 			for cell: Vector2i in _footprint_cells(piece):
-				_fill_cell(_preview_layer, cell, COL_RANGE)
+				_fill_cell(_preview_layer, cell, range_color)
 
 
 func _persist_draw() -> void:
@@ -1074,16 +1086,16 @@ func _persist_draw() -> void:
 	for piece: PieceState in _core.get_both_player_pieces():
 		# 選取中（selected）與移動中（moving）棋子的持續高亮（格內填色）。
 		if piece.has_status("selected"):
-			_fill_cell(_persist_layer, piece.pos(), COL_SELECTED)
+			_fill_cell(_persist_layer, piece.pos(), selected_color)
 		elif piece.is_moving():
-			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
+			_fill_cell(_persist_layer, piece.pos(), moving_color)
 		# 擁有者標示：棋子所在格的地格外框上色（先手紅／後手藍）——取代舊的棋子本體外框環。
 		# P12-22：畫在向格心內縮一圈的框上，相鄰格各自完整可辨（不再共邊互相覆蓋）。
-		var oc: Color = P1_COL if piece.owner == "player1" else P2_COL
+		var oc: Color = UIPalette.player_color(piece.owner)
 		_outline_cell(_persist_layer, piece.pos(), oc, 3.5, OWNER_OUTLINE_INSET)
 	# P10-5：單人對戰時，AI 決策鎖定的格畫黃色目標圈。
 	if _ai != null and _ai.has_focus and _in_board(_ai.focus_position):
-		_outline_cell(_persist_layer, _ai.focus_position, COL_AI_FOCUS, 3.0)
+		_outline_cell(_persist_layer, _ai.focus_position, ai_focus_color, 3.0)
 
 
 # 格填色 / 格外框（統一走 BoardView.cell_polygon，正交＝方形、等距＝菱形）。
@@ -1264,7 +1276,7 @@ func _refresh_hud() -> void:
 
 	# 模式按鈕高亮。
 	for m: String in _mode_buttons:
-		_mode_buttons[m].modulate = Color(1, 1, 0.6) if m == _mode else Color(1, 1, 1)
+		_mode_buttons[m].modulate = UIPalette.tab_tint(m == _mode)
 
 	_rebuild_hand()   # P12-20：固定左右欄，不隨 cur 互換位置
 	_update_hint_text()
@@ -1333,8 +1345,6 @@ func _float_resource(kind: String, owner: String, delta: int, slot: int) -> void
 	l.text = "%s +%d %s" % [who, delta, String(info.get("label", kind))]
 	l.add_theme_font_size_override("font_size", 16)
 	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
 	l.z_index = 50
 	_hud.add_child(l)
 	var base: Vector2 = _res_label.global_position + Vector2(150, 4 + slot * 22)
@@ -1445,7 +1455,7 @@ func _rebuild_hand_into(container: Container, player_name: String, interactive: 
 				for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 					b.add_theme_color_override(state, col)
 			if i == _placing_index:
-				b.modulate = Color(1, 1, 0.5)
+				b.modulate = placing_tint
 			b.pressed.connect(_on_hand_pressed.bind(i))
 		else:
 			# 唯讀公開列：只顯示名稱＋派別色（disabled 已由 item 場景設好＝點擊無作用）。

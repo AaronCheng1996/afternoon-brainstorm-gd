@@ -14,6 +14,21 @@ const COLORS := [
 const JOBS := ["ADC", "AP", "TANK", "HF", "LF", "ASS", "APT", "SP"]
 const PURPLE_JOBS := ["AP", "TANK", "HF", "ASS"]
 
+# P14-4：展示館配色改 @export（美術可在編輯器調；預設值＝P14-4 前的常數）。
+# 棋子本身的派別色一律走 Balance.color_rgb（資料驅動，不硬編）。
+@export_group("展示館配色")
+## 背景底色。
+@export var bg_color: Color = Color(0.10, 0.11, 0.13)
+## 副標題（資料版本/圖例）文字色。
+@export var caption_color: Color = Color(0.75, 0.78, 0.82)
+## 職業欄標題文字色。
+@export var job_header_color: Color = Color(0.85, 0.9, 1.0)
+## 色系列標題文字色。
+@export var row_label_color: Color = Color(0.9, 0.9, 0.9)
+## 特殊/衍生棋子的小標題文字色。
+@export var special_label_color: Color = Color(0.8, 0.8, 0.8)
+@export_group("")
+
 const LEFT := 150.0
 const TOP := 96.0
 const COL_STRIDE := 120.0
@@ -31,7 +46,7 @@ func _build() -> void:
 
 	# 背景（深色，讓幾何色塊清楚）。
 	var bg := ColorRect.new()
-	bg.color = Color(0.10, 0.11, 0.13)
+	bg.color = bg_color
 	bg.position = Vector2(-40, -40)
 	bg.size = Vector2(content_w + 80, content_h + 80)
 	add_child(bg)
@@ -40,12 +55,12 @@ func _build() -> void:
 	_add_text(Vector2(-8, 8), 24, HORIZONTAL_ALIGNMENT_LEFT,
 		"午後激盪 — 棋子佔位美術一覽（P2-1）", Color.WHITE)
 	_add_text(Vector2(-8, 40), 13, HORIZONTAL_ALIGNMENT_LEFT,
-		Balance.data_version() + "　｜　外框：紅=先手 藍=後手　｜　半透明=鏡像 SHADOW", Color(0.75, 0.78, 0.82))
+		Balance.data_version() + "　｜　外框：紅=先手 藍=後手　｜　半透明=鏡像 SHADOW", caption_color)
 
 	# 職業欄位標題。
 	for c in range(JOBS.size()):
 		_add_text(Vector2(LEFT + float(c) * COL_STRIDE, TOP - 26), 15, HORIZONTAL_ALIGNMENT_LEFT,
-			JOBS[c], Color(0.85, 0.9, 1.0))
+			JOBS[c], job_header_color)
 
 	# 逐色（列）× 逐職業（欄）。
 	for r in range(COLORS.size()):
@@ -53,7 +68,7 @@ func _build() -> void:
 		var color_name: String = COLORS[r][1]
 		var jobs: Array = PURPLE_JOBS if code == "P" else JOBS
 		var row_y := TOP + float(r) * ROW_STRIDE
-		_add_text(Vector2(6, row_y + 40), 15, HORIZONTAL_ALIGNMENT_LEFT, color_name, Color(0.9, 0.9, 0.9))
+		_add_text(Vector2(6, row_y + 40), 15, HORIZONTAL_ALIGNMENT_LEFT, color_name, row_label_color)
 		for c in range(JOBS.size()):
 			var job: String = JOBS[c]
 			if not jobs.has(job):
@@ -62,13 +77,13 @@ func _build() -> void:
 			_add_piece(job + code, owner, Vector2(LEFT + float(c) * COL_STRIDE, row_y))
 
 	# 特殊卡 / 衍生物列。
-	_add_text(Vector2(6, special_top + 40), 15, HORIZONTAL_ALIGNMENT_LEFT, "特殊/衍生", Color(0.9, 0.9, 0.9))
+	_add_text(Vector2(6, special_top + 40), 15, HORIZONTAL_ALIGNMENT_LEFT, "特殊/衍生", row_label_color)
 	_add_piece("CUBE", 0, Vector2(LEFT, special_top))
-	_add_text(Vector2(LEFT, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "CUBE 方塊", Color(0.8, 0.8, 0.8))
+	_add_text(Vector2(LEFT, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "CUBE 方塊", special_label_color)
 	_add_piece("LUCKYBLOCK", 0, Vector2(LEFT + COL_STRIDE, special_top))
-	_add_text(Vector2(LEFT + COL_STRIDE, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "LUCKYBLOCK", Color(0.8, 0.8, 0.8))
+	_add_text(Vector2(LEFT + COL_STRIDE, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "LUCKYBLOCK", special_label_color)
 	_add_shadow("ADC", Vector2(LEFT + COL_STRIDE * 2.0, special_top))
-	_add_text(Vector2(LEFT + COL_STRIDE * 2.0, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "SHADOW(ADC)", Color(0.8, 0.8, 0.8))
+	_add_text(Vector2(LEFT + COL_STRIDE * 2.0, special_top - 26), 13, HORIZONTAL_ALIGNMENT_LEFT, "SHADOW(ADC)", special_label_color)
 
 	_fit_camera(content_w, content_h)
 
@@ -94,8 +109,6 @@ func _add_text(pos: Vector2, font_size: int, align: int, text: String, color: Co
 	l.horizontal_alignment = align
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
 	add_child(l)
 
 

@@ -27,11 +27,27 @@ const StatCellScene := preload("res://scenes/end_game/stat_cell.tscn")
 # （只有 per-player 的 HEAL_USE），故不列入 per-卡表格，見進度日誌 P8-6 說明。
 const CARD_STATS := ["KILLED", "DAMAGE_DEALT", "SCORED"]
 const STAT_TITLES := {"KILLED": "擊殺", "DAMAGE_DEALT": "造成傷害", "SCORED": "得分"}
-const STAT_COLORS := {
+
+# P14-4 圖表/表格配色（美術可在編輯器調；預設值＝P14-4 前的常數）。
+# 先手/後手代表色不在這裡——跨場景語意色，單一來源＝theme 具名色（見 UIPalette）。
+@export_group("統計圖表配色")
+## 三項統計的長條色（鍵＝CARD_STATS 的項目名）。
+@export var stat_colors: Dictionary = {
 	"KILLED": Color(0.9, 0.4, 0.4),
 	"DAMAGE_DEALT": Color(0.95, 0.7, 0.35),
 	"SCORED": Color(0.5, 0.8, 0.6),
 }
+## 折線圖的 0 分中線。
+@export var chart_mid_line_color: Color = Color(0.5, 0.52, 0.56)
+## 分數折線本身。
+@export var chart_line_color: Color = Color(0.95, 0.9, 0.55)
+## 表格標題列文字。
+@export var table_header_color: Color = Color(0.8, 0.82, 0.86)
+## 表格內容文字。
+@export var table_text_color: Color = Color(0.93, 0.94, 0.96)
+## 「無資料」提示文字。
+@export var table_empty_color: Color = Color(0.6, 0.62, 0.66)
+@export_group("")
 
 var _winner: int = -1
 var _score: int = 0
@@ -171,16 +187,16 @@ func _draw_score_chart() -> void:
 	var half_h: float = CHART.size.y * 0.5 - 8.0
 
 	# 0 線與 ±門檻線。
-	_add_hline(mid_y, Color(0.5, 0.52, 0.56), 1.5)
-	_add_hline(mid_y - float(_win_threshold) / float(max_abs) * half_h, Color(0.45, 0.6, 1.0, 0.7), 1.0)
-	_add_hline(mid_y + float(_win_threshold) / float(max_abs) * half_h, Color(0.95, 0.45, 0.45, 0.7), 1.0)
+	_add_hline(mid_y, chart_mid_line_color, 1.5)
+	_add_hline(mid_y - float(_win_threshold) / float(max_abs) * half_h, _threshold_color("player2"), 1.0)
+	_add_hline(mid_y + float(_win_threshold) / float(max_abs) * half_h, _threshold_color("player1"), 1.0)
 
 	if _score_history.is_empty():
 		return
 	var n: int = _score_history.size()
 	var line := Line2D.new()
 	line.width = 2.5
-	line.default_color = Color(0.95, 0.9, 0.55)
+	line.default_color = chart_line_color
 	for i in n:
 		var x: float = CHART.position.x + (0.0 if n == 1 else float(i) / float(n - 1) * CHART.size.x)
 		var y: float = mid_y - float(int(_score_history[i])) / float(max_abs) * half_h
@@ -216,7 +232,7 @@ func _draw_stat_bars() -> void:
 		var rows: Array = _bars_for(stat_name)
 		var title := _mk_label(Vector2(col_x, y), 16, 320, HORIZONTAL_ALIGNMENT_LEFT)
 		title.text = STAT_TITLES.get(stat_name, stat_name)
-		title.add_theme_color_override("font_color", STAT_COLORS.get(stat_name, Color.WHITE))
+		title.add_theme_color_override("font_color", stat_colors.get(stat_name, Color.WHITE))
 		_bars_root.add_child(title)
 		y += 26.0
 		var max_val: int = 1
@@ -225,14 +241,14 @@ func _draw_stat_bars() -> void:
 		if rows.is_empty():
 			var none := _mk_label(Vector2(col_x + 8, y), 13, 320, HORIZONTAL_ALIGNMENT_LEFT)
 			none.text = "（無）"
-			none.add_theme_color_override("font_color", Color(0.6, 0.62, 0.66))
+			none.add_theme_color_override("font_color", table_empty_color)
 			_bars_root.add_child(none)
 			y += 24.0
 		for entry: Array in rows:
 			var key: String = _short_key(String(entry[0]))
 			var val: int = int(entry[1])
 			var bar := ColorRect.new()
-			bar.color = STAT_COLORS.get(stat_name, Color.WHITE)
+			bar.color = stat_colors.get(stat_name, Color.WHITE)
 			bar.position = Vector2(col_x + 4, y + 3)
 			bar.size = Vector2(4.0 + float(val) / float(max_val) * 180.0, 14)
 			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -274,7 +290,7 @@ func _build_table() -> void:
 		var header := _mk_label(Vector2.ZERO, 18, 0, HORIZONTAL_ALIGNMENT_LEFT)
 		header.text = "%s（%d 張出場）" % [who, keys.size()]
 		header.add_theme_color_override("font_color",
-			Color(0.95, 0.4, 0.4) if owner == "player1" else Color(0.45, 0.6, 1.0))
+			UIPalette.player_color(owner))
 		_table_root.add_child(header)
 
 		var grid := GridContainer.new()
@@ -282,18 +298,18 @@ func _build_table() -> void:
 		grid.add_theme_constant_override("h_separation", 24)
 		grid.add_theme_constant_override("v_separation", 4)
 		# 表頭列。
-		_add_cell(grid, "卡牌", 14, Color(0.8, 0.82, 0.86), 180)
+		_add_cell(grid, "卡牌", 14, table_header_color, 180)
 		for stat_name: String in CARD_STATS:
-			_add_cell(grid, STAT_TITLES[stat_name], 14, STAT_COLORS[stat_name], 90)
+			_add_cell(grid, STAT_TITLES[stat_name], 14, stat_colors[stat_name], 90)
 		# 資料列。
 		if keys.is_empty():
-			_add_cell(grid, "（無出場紀錄）", 13, Color(0.6, 0.62, 0.66), 180)
+			_add_cell(grid, "（無出場紀錄）", 13, table_empty_color, 180)
 			for _i in CARD_STATS.size():
 				_add_cell(grid, "", 13, Color.WHITE, 90)
 		for key: String in keys:
-			_add_cell(grid, _short_key(key), 13, Color(0.93, 0.94, 0.96), 180)
+			_add_cell(grid, _short_key(key), 13, table_text_color, 180)
 			for stat_name: String in CARD_STATS:
-				_add_cell(grid, str(data[key][stat_name]), 13, Color(0.93, 0.94, 0.96), 90)
+				_add_cell(grid, str(data[key][stat_name]), 13, table_text_color, 90)
 		_table_root.add_child(grid)
 
 
@@ -305,6 +321,13 @@ func _add_cell(grid: GridContainer, txt: String, font_size: int, color: Color, m
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	grid.add_child(l)
+
+
+# 勝負門檻線色＝該方代表色淡化（alpha .7），與記分板/表格同一來源（P14-4）。
+func _threshold_color(player_name: String) -> Color:
+	var c: Color = UIPalette.player_color(player_name)
+	c.a = 0.7
+	return c
 
 
 func _short_key(key: String) -> String:

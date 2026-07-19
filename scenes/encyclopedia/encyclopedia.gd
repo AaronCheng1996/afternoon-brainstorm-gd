@@ -157,10 +157,10 @@ func _refresh() -> void:
 	if not _ui_built:
 		return
 	for i in _color_tab_btns.size():
-		_color_tab_btns[i].modulate = Color(1, 1, 0.6) if i == _selected_color else Color(1, 1, 1)
+		_color_tab_btns[i].modulate = UIPalette.tab_tint(i == _selected_color)
 	for i in _job_tab_btns.size():
 		var job: String = "" if i == 0 else JOB_ORDER[i - 1]
-		_job_tab_btns[i].modulate = Color(1, 1, 0.6) if job == _job_filter else Color(1, 1, 1)
+		_job_tab_btns[i].modulate = UIPalette.tab_tint(job == _job_filter)
 	_rebuild_grid()
 
 
