@@ -149,14 +149,17 @@ func _test_battle_spectator_scene(t: Object) -> void:
 	t.ok(spec_b._end_turn_btn != null and not spec_b._end_turn_btn.visible,
 		"battle：旁觀隱藏結束回合鈕")
 
-	# 雙方手牌唯讀（己方列在旁觀模式亦 disabled）。
-	var hand_children: Array = spec_b._hand_box.get_children()
-	t.ok(hand_children.size() > 0, "battle：手牌列非空（快照含公開手牌）")
+	# 雙方手牌唯讀（旁觀＝左右兩欄皆 disabled）。P12-20（D21）：旁觀無主視角→左 P1／右 P2。
+	t.eq(spec_b._left_seat(), "player1", "battle：旁觀（無主視角）左欄＝P1")
+	t.eq(spec_b._right_seat(), "player2", "battle：旁觀右欄＝P2")
+	var hand_children: Array = spec_b._left_hand_box.get_children() \
+		+ spec_b._right_hand_box.get_children()
+	t.ok(hand_children.size() > 0, "battle：兩欄手牌非空（快照含公開手牌）")
 	var all_disabled := true
 	for c in hand_children:
 		if not (c as Button).disabled:
 			all_disabled = false
-	t.ok(all_disabled, "battle：旁觀手牌列全唯讀（disabled）")
+	t.ok(all_disabled, "battle：旁觀雙方手牌欄全唯讀（disabled）")
 
 	# 任何點擊零送信。
 	var before := spec.sent_actions

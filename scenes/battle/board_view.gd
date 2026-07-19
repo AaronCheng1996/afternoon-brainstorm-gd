@@ -6,7 +6,9 @@
 # 等距公式（見 P9-1 步驟）：以格線交點座標 (gx,gy) 線性映射到螢幕——
 #   sx = origin.x + (gx − gy)·HW
 #   sy = origin.y + (gx + gy)·HH
-# 正交模式沿用舊 battle 常數（ORIGIN=(40,150)、STRIDE=118），確保切回時像素完全一致。
+# **P12-20（D21，2026-07-19）棋盤置中**：雙方手牌改為固定左右兩欄後，棋盤由畫面左側移到
+# 水平置中（1024 基準寬）。兩模式的棋盤水平中心皆＝512，左右各留約 256px 給手牌欄。
+# 原「正交沿用 P2 舊常數 ORIGIN=(40,150)」的像素對齊需求已由本次改版取代（僅影響畫在哪裡）。
 class_name BoardView
 extends RefCounted
 
@@ -15,14 +17,16 @@ enum Mode { ORTHO, ISO }
 const BOARD := 4
 const CELL := 96.0   # 佔位形狀邊長（＝PieceView.CELL_SIZE）；等距下棋子仍以此方形佔位置中，不做偽 3D。
 
-# 正交參數（保持與 P2 舊實作完全一致）。
-const ORTHO_ORIGIN := Vector2(40.0, 150.0)
+# 正交參數：STRIDE 不變；ORIGIN.x 由 40 → 276 使棋盤置中（寬 4×118=472，(1024−472)/2=276）。
+const ORTHO_ORIGIN := Vector2(276.0, 150.0)
 const ORTHO_STRIDE := 118.0
 
 # 等距參數：菱形格的半寬 / 半高（＝步驟公式中的 w/2、h/2）。
 const ISO_HW := 60.0
 const ISO_HH := 48.0
-const ISO_ORIGIN := Vector2(276.0, 160.0)   # 格線交點 (0,0) 的螢幕位置（菱形頂角）。
+# 格線交點 (0,0) 的螢幕位置（菱形頂角）。ISO 下 origin.x 即菱形水平中心（(gx−gy) 對稱 ±4×HW=±240），
+# 故置中＝512；棋盤水平範圍 [272, 752]。
+const ISO_ORIGIN := Vector2(512.0, 160.0)
 
 var mode: int = Mode.ISO   # P9-1 新方向：預設等距；ORTHO 供切換對照。
 

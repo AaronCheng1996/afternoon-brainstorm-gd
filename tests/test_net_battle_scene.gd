@@ -125,6 +125,15 @@ func _test_scene_battle(t: Object) -> void:
 	t.eq(p2_b._views.size(), opening_pieces, "scene：p2 開局盤面視圖＝快照棋子數")
 	t.eq(host_b._core.current_player(), "player1", "scene：開局先手 player1（鏡像）")
 
+	# P12-20（D21）：連線＝**主視角（我的席位）恆左欄**，對手右欄；兩端各自視角固定、不互換。
+	t.eq(host_b._left_seat(), "player1", "scene：host（席位 player1）左欄＝自己")
+	t.eq(host_b._right_seat(), "player2", "scene：host 右欄＝對手 player2")
+	t.eq(p2_b._left_seat(), "player2", "scene：p2（席位 player2）左欄＝自己（主視角恆左）")
+	t.eq(p2_b._right_seat(), "player1", "scene：p2 右欄＝對手 player1")
+	# 非我回合時我方欄唯讀（可點性隨當前玩家，欄位不動）。
+	t.ok(host_b._hand_interactive("player1"), "scene：player1 回合→host 左欄可點")
+	t.ok(not p2_b._hand_interactive("player2"), "scene：player1 回合→p2 左欄（自己）唯讀")
+
 	# (B) gating：開局為 player1 回合 → p2 場景（非當前）任何輸入零送信。
 	var p2_before: int = p2.sent_actions
 	p2_b._board_click(Vector2i(0, 0))

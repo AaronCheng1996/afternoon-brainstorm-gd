@@ -30,12 +30,13 @@ func _test_roundtrip(t: Object, mode: int, tag: String) -> void:
 					"%s：格內取樣反算 (%d,%d)" % [tag, x, y])
 
 
-# 正交模式像素必須與 P2 舊實作一致（ORIGIN=(40,150)、STRIDE=118、INSET=11）。
+# 正交模式的 cell→pixel 公式：topleft＝origin+cell*stride+inset、center＝origin+cell*stride+stride/2。
+# P12-20（D21）棋盤置中後 origin 由 (40,150) 改為 ORTHO_ORIGIN，故改由常數導出（守公式而非絕對像素）。
 func _test_ortho_matches_legacy(t: Object) -> void:
 	var bv: Object = BoardViewScript.new()
 	bv.mode = BoardViewScript.Mode.ORTHO
-	var origin := Vector2(40.0, 150.0)
-	var stride := 118.0
+	var origin: Vector2 = BoardViewScript.ORTHO_ORIGIN
+	var stride: float = BoardViewScript.ORTHO_STRIDE
 	var inset := (stride - BoardViewScript.CELL) * 0.5
 	for cell in [Vector2i(0, 0), Vector2i(1, 2), Vector2i(3, 3)]:
 		var legacy_topleft: Vector2 = origin + Vector2(cell) * stride + Vector2(inset, inset)

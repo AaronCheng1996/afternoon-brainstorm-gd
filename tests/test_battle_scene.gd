@@ -19,6 +19,7 @@ func run(t: Object) -> void:
 	_test_view_toggle(t, dbs)
 	_test_view_at_freed(t, dbs)
 	_test_resource_feedback(t, dbs)
+	_test_hand_columns_fixed(t, dbs)   # P12-20（D21）固定左右欄
 	for db in dbs:
 		db.free()
 
@@ -39,16 +40,17 @@ func _test_resource_feedback(t: Object, _dbs: Array) -> void:
 	t.eq(BattleScript.resource_deltas(b2, a2).size(), 2, "res：多類正向變化各記一筆")
 
 
-# 斷言兩手牌列「存活」子節點數與 core 雙方 hand 同步（己方＝當前玩家、對手＝另一方）。
+# 斷言左右兩欄「存活」子節點數與 core 雙方 hand 同步。P12-20（D21）：欄位歸屬固定
+# （左＝_left_seat()、右＝_right_seat()），**不隨換手互換**；只有可點性隨當前操作方變。
 # 用存活數（排除 queue_free 待刪）：headless 場景不在樹上，queue_free 不會即時處理，
 # 每次重建的舊鈕會殘留為待刪節點，故以 is_queued_for_deletion 過濾。
 func _assert_hands_synced(t: Object, b: Node, tag: String) -> void:
-	var cur: String = b._core.current_player()
-	var opp: String = "player2" if cur == "player1" else "player1"
-	t.eq(_live(b._hand_box), b._core.get_player(cur).hand.size(),
-		"%s：己方列＝當前玩家手牌數" % tag)
-	t.eq(_live(b._opponent_hand_box), b._core.get_player(opp).hand.size(),
-		"%s：對手列＝對手手牌數（D19）" % tag)
+	var left: String = b._left_seat()
+	var right: String = b._right_seat()
+	t.eq(_live(b._left_hand_box), b._core.get_player(left).hand.size(),
+		"%s：左欄＝%s 手牌數" % [tag, left])
+	t.eq(_live(b._right_hand_box), b._core.get_player(right).hand.size(),
+		"%s：右欄＝%s 手牌數（D19 公開）" % [tag, right])
 
 
 # 容器內尚未待刪（存活）子節點數。
@@ -66,6 +68,63 @@ func _first_live(container: Node) -> Node:
 		if not c.is_queued_for_deletion():
 			return c
 	return null
+
+
+# ---------------- P12-20（D21）手牌固定左右欄 ----------------
+# 核心不變式：**換手前後兩欄的所屬玩家不變**（不再互換位置），只有「可點與否」與標題隨當前
+# 操作方切換；兩欄內容恆與 core 雙方 hand 同步（D19 公開）。各模式歸屬：本機雙人＝P1 左/P2 右；
+# 單人 vs AI＝人類 P1 左、CPU P2 右（CPU 欄恆唯讀）；回放＝無主視角 P1 左/P2 右且兩欄皆唯讀。
+# （連線＝我的席位恆左欄，於 test_net_battle_scene 驗；旁觀於 test_net_spectator_scene 驗。）
+func _test_hand_columns_fixed(t: Object, dbs: Array) -> void:
+	# (1) 本機雙人：換手不互換欄位，只換可點性。
+	var b: Node = _mk_battle(dbs, _deck("ADCW", 12), _deck("ADCW", 12), 202)
+	t.eq(b._core.current_player(), "player1", "cols：開局當前＝P1")
+	t.eq(b._left_seat(), "player1", "cols：本機左欄＝P1")
+	t.eq(b._right_seat(), "player2", "cols：本機右欄＝P2")
+	t.ok(b._hand_interactive("player1"), "cols：P1 回合→P1（左欄）可點")
+	t.ok(not b._hand_interactive("player2"), "cols：P1 回合→P2（右欄）唯讀")
+	t.ok(not _first_live(b._left_hand_box).disabled, "cols：左欄鈕可點（P1 回合）")
+	t.ok(_first_live(b._right_hand_box).disabled, "cols：右欄鈕唯讀（P1 回合）")
+	_assert_hands_synced(t, b, "cols：換手前")
+
+	b._do("end_turn", -1, -1)
+	t.eq(b._core.current_player(), "player2", "cols：換手後當前＝P2")
+	t.eq(b._left_seat(), "player1", "cols：**換手後左欄仍＝P1**（不互換位置）")
+	t.eq(b._right_seat(), "player2", "cols：**換手後右欄仍＝P2**（不互換位置）")
+	t.ok(not b._hand_interactive("player1"), "cols：P2 回合→P1（左欄）轉唯讀")
+	t.ok(b._hand_interactive("player2"), "cols：P2 回合→P2（右欄）轉可點")
+	t.ok(_first_live(b._left_hand_box).disabled, "cols：左欄鈕轉唯讀（P2 回合）")
+	t.ok(not _first_live(b._right_hand_box).disabled, "cols：右欄鈕轉可點（P2 回合）")
+	_assert_hands_synced(t, b, "cols：換手後")
+	b.free()
+
+	# (2) 單人 vs AI：人類 P1 恆左欄；CPU（P2）欄恆唯讀（含輪到 CPU 時）。
+	var db2: Object = _new_db()
+	dbs.append(db2)
+	var ai: Node = BattleScene.instantiate()
+	ai.boot(_deck("ADCW", 12), _deck("ADCW", 12), 203, db2, "white")
+	ai.set_animation_enabled(false)
+	t.eq(ai._left_seat(), "player1", "cols：單人左欄＝人類 P1（主視角恆左）")
+	t.eq(ai._right_seat(), "player2", "cols：單人右欄＝CPU P2")
+	t.ok(ai._hand_interactive("player1"), "cols：單人 P1 回合人類可點")
+	t.ok(not ai._hand_interactive("player2"), "cols：CPU 手牌唯讀（P1 回合）")
+	ai._do("end_turn", -1, -1)   # 換到 CPU 回合（headless 無 _process，AI 不自動行動）
+	t.eq(ai._left_seat(), "player1", "cols：單人換手後左欄仍＝人類 P1")
+	t.ok(not ai._hand_interactive("player2"), "cols：CPU 回合 CPU 手牌仍唯讀")
+	t.ok(not ai._hand_interactive("player1"), "cols：CPU 回合人類手牌唯讀")
+	ai.free()
+
+	# (3) 回放：無主視角＝P1 左/P2 右，兩欄皆唯讀。
+	var db3: Object = _new_db()
+	dbs.append(db3)
+	var rp: Node = BattleScene.instantiate()
+	rp.boot_replay(ReplayLog.new(204, _deck("ADCW", 12), _deck("ADCW", 12)), db3)
+	rp.set_animation_enabled(false)
+	t.eq(rp._left_seat(), "player1", "cols：回放左欄＝P1")
+	t.eq(rp._right_seat(), "player2", "cols：回放右欄＝P2")
+	t.ok(not rp._hand_interactive("player1"), "cols：回放左欄唯讀（純觀看）")
+	t.ok(not rp._hand_interactive("player2"), "cols：回放右欄唯讀（純觀看）")
+	rp.free()
 
 
 func _new_db() -> Object:
@@ -88,7 +147,7 @@ func _test_node_tree(t: Object, dbs: Array) -> void:
 	for name in ["Background", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
 			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
-			"ViewToggle", "EndTurnBtn", "HandBox", "OpponentHandTitle", "OpponentHandBox",
+			"ViewToggle", "EndTurnBtn", "LeftHandTitle", "LeftHandBox", "RightHandTitle", "RightHandBox",
 			"WinPanel", "WinLabel", "RestartBtn", "StatsBtn", "MenuBtn"]:
 		t.ok(b.get_node_or_null("%" + name) != null, "tree：%s 節點存在" % name)
 	# 格線 10 條預置於 GridLayer。
@@ -114,12 +173,14 @@ func _test_attack_flow(t: Object, dbs: Array) -> void:
 	t.eq(b._scoreboard.turn_number, b._core.turn_number, "attack：記分板回合同步 core")
 	t.eq(b._views.size(), 0, "attack：初盤無棋子視圖")
 
-	# P12-2：D19 手牌公開——己方可點列＋對手唯讀公開列，兩列與 core 雙方 hand 同步。
+	# D19 手牌公開＋P12-20（D21）固定左右欄：本機雙人＝P1 左欄、P2 右欄；當前操作方可點、另一方唯讀。
 	# （複用本場景避免另建 battle 影響既有洩漏基準；用存活數排除 headless 下 queue_free 待刪的舊鈕。）
 	_assert_hands_synced(t, b, "hands：開局")
-	t.ok(_live(b._hand_box) > 0, "hands：己方列有手牌")
-	t.ok(not _first_live(b._hand_box).disabled, "hands：己方手牌可點")
-	t.ok(_first_live(b._opponent_hand_box).disabled, "hands：對手手牌唯讀（disabled，點擊無作用）")
+	t.eq(b._left_seat(), "player1", "hands：本機雙人左欄＝P1")
+	t.eq(b._right_seat(), "player2", "hands：本機雙人右欄＝P2")
+	t.ok(_live(b._left_hand_box) > 0, "hands：左欄有手牌")
+	t.ok(not _first_live(b._left_hand_box).disabled, "hands：左欄（當前操作方 P1）可點")
+	t.ok(_first_live(b._right_hand_box).disabled, "hands：右欄（非操作方 P2）唯讀（disabled）")
 
 	# p1 出一子於 (1,1)：選手牌單位 → 點空格放置。
 	b._on_hand_pressed(0)

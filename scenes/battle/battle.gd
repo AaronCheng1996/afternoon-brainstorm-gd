@@ -4,7 +4,8 @@
 #
 # P7-4：UI 骨架（背景/格線/圖層/HUD/勝負面板）宣告於 battle.tscn（編輯器可視可編輯，美術可接手）；
 # 本腳本只用場景唯一名稱（`%NodeName`）綁定既有節點、連接信號，不再程序建構。
-# 動態集合生成到宣告好的容器：棋子視圖 → BoardLayer、投射物/飄字 → FxLayer、手牌鈕 → HandBox。
+# 動態集合生成到宣告好的容器：棋子視圖 → BoardLayer、投射物/飄字 → FxLayer、
+# 手牌鈕 → LeftHandBox／RightHandBox（P12-20：固定左右兩欄，見 D21）。
 # 換美術：棋子視覺在 PieceView 的 SpriteSlot；本場景不含任何美術資源。
 extends Node2D
 
@@ -114,8 +115,12 @@ var _res_label: Label
 var _counts_label: Label
 var _hint_label: KeywordLabel   # P8-3：RichTextLabel 子類，機制詞高亮＋懸停備註
 var _mode_buttons: Dictionary = {}  # mode -> Button
-var _hand_box: HBoxContainer
-var _opponent_hand_box: Container   # D19：對手手牌唯讀公開列（P12-2）
+# P12-20（D21）：手牌固定左右兩欄，**任何模式都不隨換手互換位置**。
+# 欄位歸屬於開局決定（見 _left_seat/_right_seat）；可否點擊由 _hand_interactive 每次重建時決定。
+var _left_hand_box: Container       # 左欄＝主視角（連線＝我的席位；其餘＝player1）
+var _right_hand_box: Container      # 右欄＝另一方
+var _left_hand_title: Label
+var _right_hand_title: Label
 var _toggle_hint_btn: Button
 var _toggle_anim_btn: Button
 var _view_toggle_btn: Button        # P9-1：俯視／45 度視角切換
@@ -1190,8 +1195,10 @@ func _bind_nodes() -> void:
 	_end_turn_btn.pressed.connect(_do.bind("end_turn", -1, -1, -1))
 
 	# 手牌容器（動態手牌鈕生成於此）。己方＝可點手牌列；對手＝唯讀公開列（D19，P12-2）。
-	_hand_box = %HandBox
-	_opponent_hand_box = %OpponentHandBox
+	_left_hand_box = %LeftHandBox
+	_right_hand_box = %RightHandBox
+	_left_hand_title = %LeftHandTitle
+	_right_hand_title = %RightHandTitle
 
 	# 勝負面板。
 	_win_panel = %WinPanel
@@ -1216,7 +1223,7 @@ func _refresh_hud() -> void:
 	for m: String in _mode_buttons:
 		_mode_buttons[m].modulate = Color(1, 1, 0.6) if m == _mode else Color(1, 1, 1)
 
-	_rebuild_hand(cur)
+	_rebuild_hand()   # P12-20：固定左右欄，不隨 cur 互換位置
 	_update_hint_text()
 
 
@@ -1316,12 +1323,53 @@ func _counts_text(cur: String) -> String:
 # D19 手牌公開（P12-2）：己方（當前操作方）渲染為可點手牌列、對手渲染為唯讀公開列。
 # hot-seat 換手時因每次 _refresh_hud 都以 cur/對手重建，兩列內容自然互換；
 # 單人對戰對手＝AI（其手牌亦公開）；回放模式兩列同時顯示（bottom 為當前 replay 玩家）。
-func _rebuild_hand(cur: String) -> void:
-	# 旁觀＝雙方手牌皆唯讀（無可點列）；本機/對戰參與者＝當前操作方可點、對手唯讀（D19，P12-2）。
-	var interactive := not (_is_net and _net_spectator)
-	_rebuild_hand_into(_hand_box, cur, interactive)
-	var opp: String = "player2" if cur == "player1" else "player1"
-	_rebuild_hand_into(_opponent_hand_box, opp, false)
+# P12-20（D21）：固定左右兩欄渲染——**欄位玩家不隨 current_player 互換**，換手時只有
+# 「可點與否」與標題文字改變。雙方手牌皆公開（D19），不可點者渲染為唯讀列。
+func _rebuild_hand() -> void:
+	var left := _left_seat()
+	var right := _right_seat()
+	_rebuild_hand_into(_left_hand_box, left, _hand_interactive(left))
+	_rebuild_hand_into(_right_hand_box, right, _hand_interactive(right))
+	if _left_hand_title != null:
+		_left_hand_title.text = _hand_title_for(left)
+	if _right_hand_title != null:
+		_right_hand_title.text = _hand_title_for(right)
+
+
+# 左欄玩家（D21）：有主視角者恆左欄——連線＝我的席位；單人 vs AI 的人類、本機雙人的 P1、
+# 回放/旁觀（無主視角）＝一律 player1。故除「連線且我的席位＝player2」外皆為 player1。
+func _left_seat() -> String:
+	if _is_net and not _net_spectator and _net_seat != "":
+		return _net_seat
+	return "player1"
+
+
+func _right_seat() -> String:
+	return "player2" if _left_seat() == "player1" else "player1"
+
+
+# 該玩家手牌此刻是否可操作。不可點＝唯讀公開列（D19）。
+func _hand_interactive(player: String) -> bool:
+	if _core == null or _core.is_over() or _replay != null:
+		return false                              # 無局/已結束/回放：純觀看
+	if _is_net:
+		# 連線：只有「我的席位」且輪到我才可點；旁觀恆唯讀（伺服器另有權威把關）。
+		return not _net_spectator and player == _net_seat and _core.current_player() == player
+	if _ai != null and player == _ai.player_name:
+		return false                              # 單人對戰：CPU 手牌不可點
+	return _core.current_player() == player       # 本機雙人：當前操作方可點
+
+
+# 欄位標題：標明擁有者（我方/對手/CPU＋席位）與當前是否唯讀。
+func _hand_title_for(player: String) -> String:
+	var seat_text: String = "先手 P1" if player == "player1" else "後手 P2"
+	var prefix := ""
+	if _is_net and not _net_spectator:
+		prefix = "我方" if player == _net_seat else "對手"
+	elif _ai != null:
+		prefix = "CPU" if player == _ai.player_name else "我方"
+	var head: String = ("%s（%s）" % [prefix, seat_text]) if prefix != "" else seat_text
+	return "%s 手牌%s" % [head, "" if _hand_interactive(player) else "・唯讀"]
 
 
 # 把指定玩家手牌渲染到指定容器。
