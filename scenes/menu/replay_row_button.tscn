@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 主選單「回放紀錄」清單的一列。main_menu.gd `_populate_replays` 使用。
+; 與 online_lobby 的房間列同型但寬度不同，故各自一檔（見 06 P14-3 備註）。
+[node name="ReplayRowButton" type="Button"]
+custom_minimum_size = Vector2(496, 40)
+theme_override_font_sizes/font_size = 14

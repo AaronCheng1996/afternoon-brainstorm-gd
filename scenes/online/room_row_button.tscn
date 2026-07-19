@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+; P14-3 大廳公開房間清單的一列。online_lobby.gd `populate_room_list` 使用。
+[node name="RoomRowButton" type="Button"]
+custom_minimum_size = Vector2(560, 40)
+theme_override_font_sizes/font_size = 14

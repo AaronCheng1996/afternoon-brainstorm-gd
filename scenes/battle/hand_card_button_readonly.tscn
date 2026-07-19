@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+; P14-3 手牌鈕（唯讀公開列，D19 手牌公開）。battle.gd `_rebuild_hand_into(interactive=false)`
+; 使用；`disabled` 保證點擊無作用，樣式亦與可點列區別（較小、字級較小）。
+[node name="HandCardButtonReadonly" type="Button"]
+custom_minimum_size = Vector2(78, 48)
+disabled = true
+theme_override_font_sizes/font_size = 11

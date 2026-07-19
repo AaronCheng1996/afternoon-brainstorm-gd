@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 選秀展示卡（含魔法卡）。draft.gd `_mk_card_button` instantiate 後填 text／
+; 派別色淡染（modulate）／disabled／信號；樣式在本檔調整。
+[node name="ExhibitCard" type="Button"]
+custom_minimum_size = Vector2(122, 58)
+theme_override_font_sizes/font_size = 12

@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 圖鑑「10 色」頁籤鈕。encyclopedia.gd `_build_color_tabs` instantiate 後填 text／
+; 派別色字色（資料驅動，見 Balance.color_rgb）／信號。
+[node name="ColorTabButton" type="Button"]
+custom_minimum_size = Vector2(66, 30)
+theme_override_font_sizes/font_size = 13

@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+; P14-3 關鍵字解釋浮窗。keyword_label.gd 懸停機制詞時 instantiate 並填入文字。
+; `top_level`＝以視窗座標定位（脫離父容器裁切）、`z_index` 高於一切 HUD。
+; 美術調浮窗底色/寬度/內距的唯一入口（底色來自全域 theme 的 PanelContainer styleBox）。
+[node name="KeywordTip" type="PanelContainer"]
+top_level = true
+custom_minimum_size = Vector2(240, 0)
+mouse_filter = 2
+z_index = 4096
+visible = false
+
+[node name="TipLabel" type="RichTextLabel" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 0)
+mouse_filter = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+autowrap_mode = 3

@@ -10,6 +10,13 @@ extends Node2D
 
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")
 
+# P14-3：清單列/頁籤/圖示的樣式抽成 item 模板場景（美術可單開檔案調樣式；程式只填資料與信號）。
+const CardRowScene := preload("res://scenes/encyclopedia/card_row_button.tscn")
+const ColorTabScene := preload("res://scenes/encyclopedia/color_tab_button.tscn")
+const JobTabScene := preload("res://scenes/encyclopedia/job_tab_button.tscn")
+const DerivButtonScene := preload("res://scenes/encyclopedia/deriv_button.tscn")
+const AttackIconScene := preload("res://scenes/encyclopedia/attack_icon.tscn")
+
 # 色碼 → 繁中名（沿用 02 對照表 / piece_gallery / draft）。分頁順序。
 const COLORS := [
 	["W", "蒼白"], ["R", "緋紅"], ["G", "翠綠"], ["B", "蔚藍"], ["O", "橙橘"],
@@ -101,10 +108,8 @@ func _build_color_tabs() -> void:
 	if not _color_tab_btns.is_empty():
 		return
 	for i in COLORS.size():
-		var b := Button.new()
+		var b: Button = ColorTabScene.instantiate()   # 樣式在 item 場景
 		b.text = COLORS[i][1]
-		b.custom_minimum_size = Vector2(66, 30)
-		b.add_theme_font_size_override("font_size", 13)
 		var col: Color = _db.color_rgb(COLORS[i][0])
 		b.add_theme_color_override("font_color", col.lerp(Color.WHITE, 0.35))
 		b.pressed.connect(_select_color.bind(i))
@@ -121,10 +126,8 @@ func _build_job_tabs() -> void:
 
 
 func _add_job_btn(label: String, job: String) -> void:
-	var b := Button.new()
+	var b: Button = JobTabScene.instantiate()   # 樣式在 item 場景
 	b.text = label
-	b.custom_minimum_size = Vector2(58, 28)
-	b.add_theme_font_size_override("font_size", 13)
 	b.pressed.connect(_select_job.bind(job))
 	_job_tabs.add_child(b)
 	_job_tab_btns.append(b)
@@ -189,11 +192,8 @@ func _rebuild_grid() -> void:
 
 func _mk_card_button(id: String) -> Button:
 	var info: Dictionary = _db.text(id)
-	var b := Button.new()
+	var b: Button = CardRowScene.instantiate()   # 樣式（尺寸/字級/靠左對齊）在 item 場景
 	b.text = String(info.get("name", id))
-	b.custom_minimum_size = Vector2(248, 30)
-	b.add_theme_font_size_override("font_size", 13)
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.pressed.connect(_show_detail.bind(id))
 	return b
 
@@ -251,11 +251,8 @@ func _rebuild_attack_icons(job: String) -> void:
 		var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
 		if tex == null:
 			continue
-		var tr := TextureRect.new()
+		var tr: TextureRect = AttackIconScene.instantiate()   # 尺寸/縮放模式在 item 場景
 		tr.texture = tex
-		tr.custom_minimum_size = Vector2(52, 52)
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.tooltip_text = tok
 		_attack_icons.add_child(tr)
 
@@ -281,10 +278,8 @@ func _rebuild_derivatives(text: String) -> void:
 		if not hit:
 			continue
 		shown = true
-		var b := Button.new()
+		var b: Button = DerivButtonScene.instantiate()   # 樣式在 item 場景
 		b.text = d["label"]
-		b.custom_minimum_size = Vector2(0, 28)
-		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(_show_derivative.bind(String(d["id"])))
 		_deriv_row.add_child(b)
 	_deriv_caption.visible = shown

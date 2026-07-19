@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+; P14-3 圖鑑「職業」頁籤鈕（含「全部」）。encyclopedia.gd `_add_job_btn` 使用。
+[node name="JobTabButton" type="Button"]
+custom_minimum_size = Vector2(58, 28)
+theme_override_font_sizes/font_size = 13

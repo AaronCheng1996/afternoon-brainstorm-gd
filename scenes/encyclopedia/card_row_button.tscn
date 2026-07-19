@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 圖鑑卡片清單的一列。encyclopedia.gd `_mk_card_button` instantiate 後填 text／信號。
+[node name="CardRowButton" type="Button"]
+custom_minimum_size = Vector2(248, 30)
+theme_override_font_sizes/font_size = 13
+alignment = 0

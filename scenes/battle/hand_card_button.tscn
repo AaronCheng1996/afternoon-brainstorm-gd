@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+; P14-3 手牌鈕（可點列）。battle.gd `_rebuild_hand_into(interactive=true)` instantiate 後
+; 只填 text／派別色／pressed 信號——字級、最小尺寸等樣式一律在本檔調整。
+; 唯讀列樣式見 hand_card_button_readonly.tscn。
+[node name="HandCardButton" type="Button"]
+custom_minimum_size = Vector2(96, 64)
+theme_override_font_sizes/font_size = 12

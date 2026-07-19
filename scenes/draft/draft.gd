@@ -9,6 +9,10 @@ extends Node2D
 
 const BattleScene := preload("res://scenes/battle/battle.tscn")
 
+# P14-3：展示卡與牌組列的樣式抽成 item 模板場景（美術可單開檔案調樣式；程式只填資料與信號）。
+const ExhibitCardScene := preload("res://scenes/draft/exhibit_card.tscn")
+const DeckRowScene := preload("res://scenes/draft/deck_row_button.tscn")
+
 # 色碼 → 繁中名（沿用 02 對照表 / piece_gallery）。分頁順序。
 const COLORS := [
 	["W", "蒼白"], ["R", "緋紅"], ["G", "翠綠"], ["B", "蔚藍"], ["O", "橙橘"],
@@ -529,10 +533,8 @@ func _rebuild_deck_panel(panel: VBoxContainer, owner: String) -> void:
 	for card_id: String in deck:
 		var base: String = card_id
 		var info: Dictionary = _db.text(base)
-		var b := Button.new()
+		var b: Button = DeckRowScene.instantiate()   # 樣式在 item 場景，這裡只填資料與信號
 		b.text = String(info.get("name", base))
-		b.custom_minimum_size = Vector2(160, 26)
-		b.add_theme_font_size_override("font_size", 12)
 		# net 模式：只有我回合、且是我的牌組才可點移除（本機模式恆可點）。
 		b.disabled = _is_net and (not _net_editable() or owner != _net_seat)
 		b.pressed.connect(_on_deck_card_pressed.bind(owner, card_id))
@@ -542,10 +544,8 @@ func _rebuild_deck_panel(panel: VBoxContainer, owner: String) -> void:
 
 func _mk_card_button(card_id: String, glyph: String, color_code: String) -> Button:
 	var info: Dictionary = _db.text(card_id)
-	var b := Button.new()
+	var b: Button = ExhibitCardScene.instantiate()   # 樣式在 item 場景，這裡只填資料與信號
 	b.text = "%s\n%s" % [String(info.get("name", card_id)), glyph]
-	b.custom_minimum_size = Vector2(122, 58)
-	b.add_theme_font_size_override("font_size", 12)
 	if color_code != "":
 		# 以派別色淡染按鈕，便於辨識色頁。
 		var fc: Color = _db.color_rgb(color_code)

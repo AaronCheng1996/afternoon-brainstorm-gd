@@ -20,6 +20,9 @@ const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const DRAFT_SCENE := "res://scenes/draft/draft.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
 
+# P14-3：統計表儲存格／圖表文字標籤的共通樣式抽成 item 模板場景。
+const StatCellScene := preload("res://scenes/end_game/stat_cell.tscn")
+
 # 卡牌層級（key＝owner_cardid）且已被 core 追蹤的統計欄位。治療（HEALING）未被 core 追蹤
 # （只有 per-player 的 HEAL_USE），故不列入 per-卡表格，見進度日誌 P8-6 說明。
 const CARD_STATS := ["KILLED", "DAMAGE_DEALT", "SCORED"]
@@ -295,14 +298,12 @@ func _build_table() -> void:
 
 
 func _add_cell(grid: GridContainer, txt: String, font_size: int, color: Color, min_w: float) -> void:
-	var l := Label.new()
+	# 共通樣式（黑描邊、不吃滑鼠）在 item 場景；這裡只填內容與逐格差異（字級/字色/欄寬）。
+	var l: Label = StatCellScene.instantiate()
 	l.text = txt
 	l.custom_minimum_size = Vector2(min_w, 0)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
 	grid.add_child(l)
 
 
@@ -370,13 +371,10 @@ func _on_replay() -> void:
 # ---------------- 小工具（動態長條/標籤仍程式生成）----------------
 
 func _mk_label(pos: Vector2, font_size: int, width: float, align: int) -> Label:
-	var l := Label.new()
+	# 與表格儲存格共用 item 場景（字色/黑描邊/不吃滑鼠皆在該檔）；這裡只填幾何與字級。
+	var l: Label = StatCellScene.instantiate()
 	l.position = pos
 	l.size = Vector2(width, 0)
 	l.horizontal_alignment = align
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
 	return l

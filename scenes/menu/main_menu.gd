@@ -10,6 +10,9 @@ const ENCYCLOPEDIA_SCENE := "res://scenes/encyclopedia/encyclopedia.tscn"
 const BATTLE_SCENE := "res://scenes/battle/battle.tscn"
 const ONLINE_SCENE := "res://scenes/online/online_lobby.tscn"   # P12-7 線上對戰大廳
 
+# P14-3：回放清單列的樣式抽成 item 模板場景（美術可單開檔案調樣式）。
+const ReplayRowScene := preload("res://scenes/menu/replay_row_button.tscn")
+
 # P10-5 單人對戰（vs CPU）。v1：雙方用固定預設牌組（含 B/G/C/DKG 以顯示四種資源列），
 # AI 關卡色只決定「策略/難度」不決定牌組；玩家執先手 P1，CPU 執後手 P2。
 # 每個 AI 對手＝AIController 的一個關卡（見 AIController.KNOWN_STAGES）＋顯示標籤。
@@ -181,10 +184,8 @@ func _populate_replays() -> void:
 		_replay_list.add_child(empty)
 		return
 	for path: String in paths:
-		var b := Button.new()
+		var b: Button = ReplayRowScene.instantiate()   # 樣式在 item 場景
 		b.text = _replay_label(path)
-		b.custom_minimum_size = Vector2(496, 40)
-		b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_on_pick_replay.bind(path))
 		_replay_list.add_child(b)
 

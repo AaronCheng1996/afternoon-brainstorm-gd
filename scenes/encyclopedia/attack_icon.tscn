@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+; P14-3 圖鑑攻擊範圍圖示。encyclopedia.gd `_rebuild_attack_icons` instantiate 後只填
+; texture／tooltip；尺寸與縮放模式在本檔調整。
+; 圖檔來源＝`res://img/UI/attack_pattern/`（查檔存在才建，見 08 §5.5）。
+[node name="AttackIcon" type="TextureRect"]
+custom_minimum_size = Vector2(52, 52)
+expand_mode = 1
+stretch_mode = 5

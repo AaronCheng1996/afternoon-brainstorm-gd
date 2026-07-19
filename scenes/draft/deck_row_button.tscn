@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 選秀牌組列的一張牌。draft.gd `_rebuild_deck_panel` instantiate 後填 text／
+; disabled／信號；樣式在本檔調整。
+[node name="DeckRowButton" type="Button"]
+custom_minimum_size = Vector2(160, 26)
+theme_override_font_sizes/font_size = 12

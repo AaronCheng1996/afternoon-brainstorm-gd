@@ -18,6 +18,9 @@ const PieceViewScript := preload("res://scenes/battle/piece_view.gd")   # 常數
 const PieceViewScene := preload("res://scenes/battle/piece_view.tscn")   # 實例化用
 const SchedulerScript := preload("res://script/view/combat_scheduler.gd")
 const AnimLibScript := preload("res://script/view/piece_animation_library.gd")   # P9-3：職業攻擊演出
+# P14-3：手牌鈕樣式抽成 item 模板場景（美術可單開檔案調樣式；程式只填資料與信號）。
+const HandCardScene := preload("res://scenes/battle/hand_card_button.tscn")
+const HandCardReadonlyScene := preload("res://scenes/battle/hand_card_button_readonly.tscn")
 
 const BOARD := 4
 
@@ -1433,11 +1436,10 @@ func _rebuild_hand_into(container: Container, player_name: String, interactive: 
 		# 派別色（兩列共用）：手牌全為公開資訊，己方與對手皆以派別色標示卡名。
 		var code: String = _db.color_code_of(base_name)
 		var col: Color = _db.color_rgb(code) if code != "" else Color.WHITE
-		var b := Button.new()
+		# 樣式（尺寸/字級/唯讀列的 disabled）在 item 場景裡，這裡只填資料與信號。
+		var b: Button = (HandCardScene if interactive else HandCardReadonlyScene).instantiate()
 		if interactive:
 			b.text = "%s\n%s" % [label_text, card]
-			b.custom_minimum_size = Vector2(96, 64)
-			b.add_theme_font_size_override("font_size", 12)
 			if code != "":
 				# 各互動態都套派別色，避免 hover/pressed 時字色跳回預設。
 				for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
@@ -1446,11 +1448,8 @@ func _rebuild_hand_into(container: Container, player_name: String, interactive: 
 				b.modulate = Color(1, 1, 0.5)
 			b.pressed.connect(_on_hand_pressed.bind(i))
 		else:
-			# 唯讀公開列：只顯示名稱＋派別色；disabled 保證點擊無作用（樣式亦與可點列區別）。
+			# 唯讀公開列：只顯示名稱＋派別色（disabled 已由 item 場景設好＝點擊無作用）。
 			b.text = label_text
-			b.custom_minimum_size = Vector2(78, 48)
-			b.add_theme_font_size_override("font_size", 11)
-			b.disabled = true
 			if code != "":
 				b.add_theme_color_override("font_disabled_color", col)
 			b.tooltip_text = "%s\n%s" % [String(info.get("name", base_name)), String(info.get("hint", ""))]

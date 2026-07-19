@@ -5,6 +5,9 @@
 class_name KeywordLabel
 extends RichTextLabel
 
+# P14-3：浮窗（面板＋內文）抽成 item 模板場景——美術要調浮窗底色/寬度/內距只改該檔。
+const KeywordTipScene := preload("res://scenes/ui/keyword_tip.tscn")
+
 var _tip: PanelContainer = null
 var _tip_label: RichTextLabel = null
 
@@ -52,21 +55,10 @@ func _process(_dt: float) -> void:
 func _ensure_tip() -> void:
 	if _tip != null:
 		return
-	_tip = PanelContainer.new()
-	_tip.top_level = true                       # 以視窗座標定位，脫離父容器裁切
-	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tip.z_index = 4096
-	_tip.custom_minimum_size = Vector2(240, 0)
-	_tip_label = RichTextLabel.new()
-	_tip_label.bbcode_enabled = true
-	_tip_label.fit_content = true
-	_tip_label.scroll_active = false
-	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip_label.custom_minimum_size = Vector2(220, 0)
-	_tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tip.add_child(_tip_label)
+	# 樣式（top_level／z_index／寬度／自動換行／不吃滑鼠）全在 item 場景裡。
+	_tip = KeywordTipScene.instantiate()
+	_tip_label = _tip.get_node("TipLabel")
 	add_child(_tip)
-	_tip.visible = false
 
 
 # 把浮窗貼在滑鼠右下，超出視窗邊界時翻向另一側。

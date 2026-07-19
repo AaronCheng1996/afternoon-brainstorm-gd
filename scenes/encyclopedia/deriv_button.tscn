@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+; P14-3 圖鑑「衍生物」連結鈕。encyclopedia.gd `_rebuild_derivatives` 使用。
+; 最小寬度刻意為 0＝寬度隨文字（與頁籤鈕的固定寬不同，勿套用頁籤尺寸）。
+[node name="DerivButton" type="Button"]
+custom_minimum_size = Vector2(0, 28)
+theme_override_font_sizes/font_size = 13

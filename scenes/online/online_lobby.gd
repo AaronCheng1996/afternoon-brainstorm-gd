@@ -19,6 +19,8 @@ const BattleScene := preload("res://scenes/battle/battle.tscn")
 const DraftScene := preload("res://scenes/draft/draft.tscn")
 # P12-15：連線終局統計畫面同樣以子場景嵌入本大廳（對戰結束後 battle→end_game；再戰/回房再釋放）。
 const EndGameScene := preload("res://scenes/end_game/end_game.tscn")
+# P14-3：房間清單列的樣式抽成 item 模板場景（美術可單開檔案調樣式）。
+const RoomRowScene := preload("res://scenes/online/room_row_button.tscn")
 # 內建預設伺服器位址（settings 可手動改，記住上次）。P12-11 部署時改為使用者主機固定 IP。
 const DEFAULT_HOST := "127.0.0.1"
 # 心跳間隔（秒）：連線後週期 ping 量 RTT 更新延遲顯示（§3）。
@@ -755,10 +757,8 @@ func populate_room_list(rooms: Array) -> void:
 		_room_list.add_child(empty)
 		return
 	for room: Dictionary in rooms:
-		var b := Button.new()
+		var b: Button = RoomRowScene.instantiate()   # 樣式在 item 場景
 		b.text = _room_row_text(room)
-		b.custom_minimum_size = Vector2(560, 40)
-		b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_prefill_join.bind(room))
 		_room_list.add_child(b)
 
