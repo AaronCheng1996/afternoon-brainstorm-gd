@@ -108,7 +108,8 @@ func _test_lobby_reconnect_state(t: Object) -> void:
 	# P12-17：對手暱稱與 RTT 轉入子場景（以 _battle_scene 掛上驗轉發路徑）。
 	m._my_id = 100   # 前面 _fail_reconnect→_teardown_client 已把 _my_id 清 0，這裡復原為 P1 席位
 	t.eq(m._peer_display_name(101), "小美", "p17：房態 names→對手暱稱")
-	t.eq(m._peer_display_name(999), "對手 #999", "p17：無暱稱退回 #peer-id")
+	# P12-21：無暱稱不再退回裸 peer id（實機「對手 #948868441」），改短碼「玩家NNNN」。
+	t.eq(m._peer_display_name(999), "玩家0999", "p21：無暱稱→短碼保底（不顯示裸 peer id）")
 	t.eq(m._opponent_display_name(), "小美", "p17：對手席位暱稱")
 	m._battle_scene = b
 	m._on_rtt_measured(1, 55)

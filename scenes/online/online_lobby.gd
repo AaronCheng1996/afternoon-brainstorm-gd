@@ -94,7 +94,10 @@ func _bind_nodes() -> void:
 
 	# --- 連線設定面板：欄位帶入上次設定 ---
 	var s := SettingsStore.load_settings()
-	(%NicknameEdit as LineEdit).text = String(s.get("net_nickname", ""))
+	# P12-21：暱稱從未填過（預設空字串）時給一個「玩家NNNN」預設，避免空暱稱進 server
+	# 導致房內/對戰顯示退回裸 peer id（實機「對手 #948868441」）。使用者可直接改寫。
+	var saved_nick := String(s.get("net_nickname", ""))
+	(%NicknameEdit as LineEdit).text = saved_nick if not saved_nick.is_empty() else default_nickname()
 	var host := String(s.get("net_host", DEFAULT_HOST))
 	(%HostEdit as LineEdit).text = host if not host.is_empty() else DEFAULT_HOST
 	(%PortEdit as LineEdit).text = str(int(s.get("net_port", NetTransport.DEFAULT_PORT)))
@@ -144,6 +147,10 @@ func set_message(text: String) -> void:
 
 func _on_connect() -> void:
 	var nickname := (%NicknameEdit as LineEdit).text.strip_edges()
+	if nickname.is_empty():
+		# P12-21：使用者清空欄位時也補預設——server 端 names 永不為空字串（否則對手看到裸 peer id）。
+		nickname = default_nickname()
+		(%NicknameEdit as LineEdit).text = nickname
 	var host := (%HostEdit as LineEdit).text.strip_edges()
 	if host.is_empty():
 		host = DEFAULT_HOST
@@ -853,10 +860,22 @@ func _seat_text(seat: String, seats: Dictionary, ready: Dictionary) -> String:
 	return "%s — %s" % [who, rd]
 
 
-# P12-17：peer 顯示名＝暱稱（server 於房態附 `names`）；空暱稱退回 #peer-id（實機截圖修正）。
+# P12-17：peer 顯示名＝暱稱（server 於房態附 `names`）。
+# P12-21：保底不再顯示裸 peer id——空暱稱（或 server 版本過舊未送 `names`）改用短碼「玩家NNNN」。
 func _peer_display_name(pid: int) -> String:
-	var nick := String((_current_room.get("names", {}) as Dictionary).get(str(pid), ""))
-	return nick if not nick.is_empty() else "對手 #%d" % pid
+	return display_name_for(String((_current_room.get("names", {}) as Dictionary).get(str(pid), "")), pid)
+
+
+# 新連線的預設暱稱（使用者可改寫）。P12-21：確保暱稱永不為空。
+static func default_nickname() -> String:
+	return "玩家%04d" % (randi() % 10000)
+
+
+# 顯示名純函式（供測試）：有暱稱用暱稱；否則以 peer id 短碼保底，**不顯示裸 peer id**。
+# 短碼取末四位，足以在房內區分兩人，且不像 `#948868441` 那樣難讀（實機截圖問題）。
+static func display_name_for(nick: String, pid: int) -> String:
+	var n := nick.strip_edges()
+	return n if not n.is_empty() else "玩家%04d" % (absi(pid) % 10000)
 
 
 # 我的對手席位的顯示名（供轉入子場景顯示）；無對手回空字串。

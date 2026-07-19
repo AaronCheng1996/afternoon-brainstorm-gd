@@ -17,6 +17,7 @@ func run(t: Object) -> void:
 	_test_validation(t)
 	_test_reason_text(t)
 	_test_settings_roundtrip(t)
+	_test_display_name(t)   # P12-21 暱稱顯示
 
 
 # ---------------- 0. 節點樹存在（instantiate 後 `%` 名稱解析）----------------
@@ -114,7 +115,11 @@ func _test_room_state_player(t: Object) -> void:
 	})
 	t.ok(not (m.get_node("%StartBtn") as Button).disabled, "room：雙方就緒後房主可開始")
 	t.eq((m.get_node("%ReadyBtn") as Button).text, "取消就緒", "room：已就緒時鈕為『取消就緒』")
-	t.ok((m.get_node("%Seat2Label") as Label).text.contains("對手"), "room：P2 席位標為『對手』")
+	# P12-21：他人席位顯示暱稱；房態未附 `names` 時以短碼保底，不再出現裸 peer id。
+	var seat2: String = (m.get_node("%Seat2Label") as Label).text
+	t.ok(not seat2.begins_with("你"), "room：P2 席位為他人（非『你』）")
+	t.ok(seat2.contains("玩家0101"), "room：P2 席位以短碼顯示（無 names 時保底）")
+	t.ok(not seat2.contains("#"), "room：席位不出現裸 peer id")
 	t.ok((m.get_node("%RoomStatus") as Label).text.contains("可開始"), "room：狀態提示雙方就緒可開始")
 	m.free()
 
@@ -166,6 +171,30 @@ func _test_reason_text(t: Object) -> void:
 	t.ok(m.reason_text(NetMessage.REASON_NO_SPECTATE).contains("旁觀"), "reason：未開放旁觀")
 	# 未知原因不崩潰、回顯原字串。
 	t.ok(m.reason_text("weird_thing").contains("weird_thing"), "reason：未知原因回顯原字串")
+	m.free()
+
+
+# ---------------- 8. P12-21 暱稱顯示（實機「對手 #948868441」修正）----------------
+# 有暱稱用暱稱；空暱稱或舊 server 未送 `names` 時以短碼保底，**任何情況不出現裸 peer id**。
+func _test_display_name(t: Object) -> void:
+	var m: Node = LobbyScene.instantiate()
+
+	t.eq(m.display_name_for("阿倫", 948868441), "阿倫", "name：有暱稱直接用暱稱")
+	t.eq(m.display_name_for("  阿倫  ", 1), "阿倫", "name：暱稱去除前後空白")
+	var fb: String = m.display_name_for("", 948868441)
+	t.ok(not fb.contains("948868441"), "name：空暱稱**不顯示裸 peer id**")
+	t.eq(fb, "玩家8441", "name：空暱稱以短碼（末四位）保底")
+
+	# 預設暱稱：確保永不為空 → server 端 names 不會是空字串。
+	t.ok(not m.default_nickname().strip_edges().is_empty(), "name：預設暱稱非空")
+	t.ok(m.default_nickname().begins_with("玩家"), "name：預設暱稱為「玩家NNNN」")
+
+	# 房態 names 對映（辨因 (c) 防迴歸）：server 以 str(int(peer_id)) 為鍵、客端以 str(pid) 查，
+	# 經 JSON 後 peer id 為浮點也必須先 int() 正規化才對得上。
+	m._current_room = {"names": {"100": "阿倫", "101": ""}}
+	t.eq(m._peer_display_name(100), "阿倫", "name：依房態 names 顯示暱稱")
+	t.eq(m._peer_display_name(101), "玩家0101", "name：names 內空暱稱→短碼保底")
+	t.eq(m._peer_display_name(999), "玩家0999", "name：names 缺鍵（舊版 server）→短碼保底")
 	m.free()
 
 
