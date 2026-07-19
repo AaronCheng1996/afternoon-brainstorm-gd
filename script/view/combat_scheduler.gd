@@ -35,7 +35,10 @@ func play_events(events: Array) -> void:
 	_queue.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["time"] < b["time"])
 	_elapsed = 0.0
 	_playing = true
-	if instant:
+	# 瞬時模式，或本批無任何排程動畫（例如只含 SPAWN/RESOURCE 的「出牌」批——皆不進佇列）：
+	# 立即結束並發 finished，不必等下一個 _process 幀。避免 net 模式的 _busy 旗標為了一個
+	# 純資料批空等一幀（P12-19「busy 旗標未解除」假說的結構性防呆；死亡/攻擊等有佇列項者不受影響）。
+	if instant or _queue.is_empty():
 		_flush_all()
 
 

@@ -459,9 +459,13 @@ func _exit_tree() -> void:
 		_disconnect_net_signals()
 
 
-# 校正快照到達：非忙碌立即套用；動畫忙碌時暫存，待本批事件播完再套用（避免打斷動畫、
-# 且不會被舊快照回捲——事件負責即時演出、快照負責回合邊界的一致性兜底，§4）。
+# 校正快照到達（D20：server 每次成功行動後即下發）：非忙碌立即套用，行動結果即時反映於
+# 手牌/資源/盤面；動畫忙碌時暫存，待本批事件播完再套用（避免打斷動畫）。
+# 防呆（P12-19）：若本地 _busy 與排程器實況不一致（finished 信號在某時序下漏觸發，
+# 實機「busy 旗標未解除」假說），以排程器為準先解除，避免快照無限暫存、行動結果無聲遺失。
 func _on_net_snapshot(snap: Dictionary) -> void:
+	if _busy and _scheduler != null and not _scheduler.is_busy():
+		_busy = false
 	if _busy:
 		_net_pending_snapshot = snap
 		_net_has_pending_snapshot = true
@@ -522,9 +526,10 @@ func _drain_net_events() -> void:
 	_scheduler.play_events(events)
 
 
-# 一批事件播完：解鎖 → 若有暫存校正快照先套用（回合邊界一致性）→ 否則只刷新 HUD
-# （net 模式不從鏡像重建盤面：盤面此刻由事件動畫呈現，鏡像要到下一份快照才更新，
-# 若此時 _rebuild_board 會把剛演出的變化回捲）→ 再取下一批事件。
+# 一批事件播完：解鎖 → 若有暫存校正快照先套用（D20：server 每次行動皆下發，故一般每批播完
+# 都會有一份→立即以權威快照重建盤面/手牌/資源，行動結果即時呈現、不待回合交接）→ 否則只
+# 刷新 HUD（無快照可用的少數情形，如 server 尚未送達；此時不從鏡像重建盤面以免回捲已演出的
+# 變化）→ 再取下一批事件。
 func _on_net_anim_finished() -> void:
 	_busy = false
 	if _net_pending_game_over:

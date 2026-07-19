@@ -14,6 +14,9 @@ const BattleScene := preload("res://scenes/battle/battle.tscn")
 
 func run(t: Object) -> void:
 	_test_scene_battle(t)
+	_test_immediate_sync(t)       # P12-19/D20：每次成功行動後即時同步（不待回合交接）
+	_test_busy_window(t)          # P12-19：動畫忙碌窗——手動驅動 busy/finished，暫存快照不遺失
+	_test_scheduler_early_finish(t)  # P12-19：純資料批（無排程動畫）於非瞬時也立即結束
 
 
 # ---------------- 同程序匯流排（沿用 test_net_battle）----------------
@@ -188,3 +191,158 @@ func _test_scene_battle(t: Object) -> void:
 	server.free()
 	host.free()
 	p2.free()
+
+
+# ---------------- P12-19：連線對戰行動即時同步（D20）----------------
+
+# 共用啟動：server＋兩玩家＋房間 battling（開發旗標跳過 BP），回傳 {bus,server,host,p2,rid}。
+func _boot_battle_scenes(seed_value: int, room_code_seed: int, base_id: int) -> Dictionary:
+	var bus := _Bus.new()
+	var server := _WiredServer.new()
+	server.bus = bus
+	server.rooms = RoomManager.new(16, room_code_seed)
+	bus.add(NetPeerBase.SERVER_ID, server)
+	var host := _mk_client(bus, base_id, "host")
+	var p2 := _mk_client(bus, base_id + 1, "p2")
+	for c in [host, p2]:
+		bus.add(c.my_id, c)
+		c._on_connected()
+	host.create_room("即時房", false, "", true, 8)
+	var rid: String = String(host.last_room.get("room_id", ""))
+	p2.join_room(rid, "", false)
+	host.set_ready(true)
+	p2.set_ready(true)
+	host.start_battle(seed_value)
+	return {"bus": bus, "server": server, "host": host, "p2": p2, "rid": rid}
+
+
+# (E) D20 核心：每次「未換手」的成功行動後，兩場景手牌/資源/盤面即時＝server（不待回合交接）。
+# 舊行為（校正快照只在 turn_changed 下發）在此會失敗；修正後（server 每動作附快照）通過。
+func _test_immediate_sync(t: Object) -> void:
+	var seed_value := 20260719
+	var b := _boot_battle_scenes(seed_value, 24681, 200)
+	var server: _WiredServer = b["server"]
+	var host: _WiredClient = b["host"]
+	var p2: _WiredClient = b["p2"]
+	var rid: String = b["rid"]
+	var host_b: Node = _mk_battle(host, "player1", host.opening_snapshot)
+	var p2_b: Node = _mk_battle(p2, "player2", p2.opening_snapshot)
+	var sess: NetGameSession = server._sessions[rid]
+
+	# 參考 session（同 seed/牌組）逐步鎖定；White AI 驅動雙方行動流。
+	var ref := NetGameSession.new()
+	ref.start(NetGameSession.DEV_P1_DECK, NetGameSession.DEV_P2_DECK, seed_value, null)
+	var ai1 := AIController.new("white", Balance, "player1")
+	var ai2 := AIController.new("white", Balance, "player2")
+	var now := 0
+	var guard := 0
+	var midturn_checks := 0
+	while midturn_checks < 4 and not ref.core.is_over() and guard < 4000:
+		guard += 1
+		now += 1000
+		var cur: String = ref.core.current_player()
+		var acts: Array = (ai1 if cur == "player1" else ai2).tick(ref.core, now, false)
+		if acts.is_empty():
+			continue
+		var a: GameAction = acts[0]
+		var turn_before: int = ref.core.turn_number
+		var bt: Node = host_b if cur == "player1" else p2_b
+		bt._do(a.action_type, a.board_x, a.board_y, a.hand_index)   # 場景→server（瞬時同步套用）
+		ref.apply_action(cur, a)
+		if ref.core.turn_number != turn_before:
+			continue   # 換手行動另有回合交接快照；本項專驗「未換手也即時」
+		midturn_checks += 1
+		var server_canon := _canon(sess.snapshot())
+		t.eq(_canon(host_b._last_net_snapshot), server_canon,
+			"E：未換手行動後 host 場景即時＝server（不待回合交接）")
+		t.eq(_canon(p2_b._last_net_snapshot), server_canon,
+			"E：未換手行動後 p2 場景即時＝server")
+		# 手牌逐一（D20「手牌不消失」的直接反例）：兩場景鏡像手牌＝server 權威手牌。
+		t.eq(host_b._core.get_player(cur).hand, sess.core.get_player(cur).hand,
+			"E：行動方手牌 host 鏡像＝server（即時）")
+		t.eq(p2_b._core.get_player(cur).hand, sess.core.get_player(cur).hand,
+			"E：行動方手牌 p2 鏡像亦即時（D19 公開）")
+
+	t.ok(midturn_checks >= 1, "E：至少驗證一次未換手行動的即時同步")
+
+	host_b.free()
+	p2_b.free()
+	server.free()
+	host.free()
+	p2.free()
+
+
+# (F) 動畫忙碌窗（P12-19「busy 旗標未解除」假說）：非瞬時場景手動驅動排程器/旗標
+# （headless 無 _process）。忙碌期間到達的校正快照須暫存不即套、輸入被 gating；播畢即套用
+# （行動結果不無聲遺失）。另驗防呆：_busy 與排程器實況不一致（stale）時新快照即恢復。
+func _test_busy_window(t: Object) -> void:
+	var seed_value := 20260720
+	var b := _boot_battle_scenes(seed_value, 24682, 300)
+	var server: _WiredServer = b["server"]
+	var host: _WiredClient = b["host"]
+	var p2: _WiredClient = b["p2"]
+	var rid: String = b["rid"]
+	var sess: NetGameSession = server._sessions[rid]
+	# 直接 boot_net（不經 _mk_battle 的瞬時覆寫）→ 預設動畫開＝非瞬時，才有真正的忙碌窗。
+	var scene: Node = BattleScene.instantiate()
+	scene.boot_net(host, "player1", host.opening_snapshot)
+
+	t.ok(scene._net_input_allowed(), "F：開局我方回合非忙碌→輸入允許")
+
+	# 注入一筆「有排程動畫」的事件批（攻擊者在盤外＝無視圖→回呼安全返回、不建 tween）→ 進入忙碌。
+	scene._on_net_events([GameEvent.attack(Vector2i(9, 9), Vector2i(9, 9), 0.05)])
+	t.ok(scene._busy, "F：事件動畫批進行中→忙碌")
+	t.ok(scene._scheduler.is_busy(), "F：排程器實際忙碌（佇列有排程項）")
+	t.ok(not scene._net_input_allowed(), "F：忙碌時輸入被 gating（零送信）")
+
+	# 忙碌期間校正快照到達 → 暫存、不即套用。
+	var before := JSON.stringify(scene._last_net_snapshot)
+	sess.apply_action("player1", GameAction.new("end_turn", "player1"))   # 產生反映變化的權威快照
+	var mid_snap := sess.snapshot()
+	scene._on_net_snapshot(mid_snap)
+	t.ok(scene._net_has_pending_snapshot, "F：忙碌時校正快照暫存（不即套用）")
+	t.eq(JSON.stringify(scene._last_net_snapshot), before, "F：暫存期間場景快照未變")
+
+	# 手動推進排程器越過 delay → finished → 套用暫存快照。
+	scene._scheduler._advance(0.2)
+	t.ok(not scene._busy, "F：排程器播畢→解除忙碌")
+	t.eq(_canon(scene._last_net_snapshot), _canon(mid_snap),
+		"F：忙碌窗結束後套用暫存快照（行動結果不無聲遺失，D20）")
+	# mid_snap 為 end_turn 後（player2 回合）→ 我方（player1）輸入應被 gating。
+	t.ok(not scene._net_input_allowed(), "F：套用換手快照後→非我回合，輸入 gating")
+
+	# 防呆：_busy 為真但排程器未在播（stale）→ 新快照到達應解旗標並即套用（不再無限暫存）。
+	scene._busy = true
+	scene._net_has_pending_snapshot = false
+	sess.apply_action("player2", GameAction.new("end_turn", "player2"))
+	var recover_snap := sess.snapshot()
+	scene._on_net_snapshot(recover_snap)
+	t.ok(not scene._busy, "F：stale busy 遇新快照→解除忙碌（防呆）")
+	t.ok(not scene._net_has_pending_snapshot, "F：stale busy→即套用而非暫存")
+	t.eq(_canon(scene._last_net_snapshot), _canon(recover_snap), "F：stale busy 恢復後快照已套用")
+
+	scene.free()
+	server.free()
+	host.free()
+	p2.free()
+
+
+# 排程器早結束（Change 1）：純資料批（SPAWN/RESOURCE 於排程器不進佇列）於非瞬時模式也立即
+# finished，不為了一個無動畫批空等一個 _process 幀（消除「出牌後 busy 卡一幀」）。
+func _test_scheduler_early_finish(t: Object) -> void:
+	var sc := CombatScheduler.new()
+	sc.instant = false
+	sc.setup(func(_p): return null, null)
+	var fired := [false]
+	sc.finished.connect(func() -> void: fired[0] = true)
+	sc.play_events([GameEvent.spawn(Vector2i(0, 0), "TANKW", "player1")])   # 出牌批＝無排程動畫
+	t.ok(fired[0], "早結束：非瞬時純 SPAWN 批 play_events 後即 finished")
+	t.ok(not sc.is_busy(), "早結束：純資料批後不忙碌")
+	# 對照：有排程動畫（攻擊）者不誤判早結束——維持忙碌直到 _advance 播完。
+	fired[0] = false
+	sc.play_events([GameEvent.attack(Vector2i(9, 9), Vector2i(9, 9), 0.1)])
+	t.ok(sc.is_busy(), "早結束：有排程動畫者仍忙碌（不誤早結束）")
+	t.ok(not fired[0], "早結束：動畫批未立即 finished")
+	sc._advance(0.2)
+	t.ok(fired[0], "早結束：_advance 播完後 finished")
+	sc.free()

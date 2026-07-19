@@ -359,13 +359,15 @@ func _do_game_action(sender_id: int, payload: Dictionary) -> void:
 
 
 # 廣播一次 apply_action/tick 的結果：事件流恆送；終局→game_over（含終局快照）；
-# 否則回合交接→送校正快照（§4：關鍵點下發單一公開快照）。
+# 否則**每次成功行動**即送校正快照（D20，2026-07-19）——不再只在回合交接下發，讓雙方玩家
+# 與旁觀者的手牌/資源/盤面即時同步（不必等回合交接才一次校正）。單一公開快照（D19）不變、
+# 不含 seed/牌庫序；快照為公開狀態、體積小，每動作一份的頻寬成本可忽略。客端於動畫播畢套用。
 func _broadcast_room_result(room_id: String, session: NetGameSession, res: Dictionary) -> void:
 	_broadcast_to_room(room_id, NetMessage.T_GAME_EVENTS,
 		{"events": NetCodec.encode_events(res["events"])})
 	if bool(res["over"]):
 		_finish_battle(room_id, session)
-	elif bool(res["turn_changed"]):
+	else:
 		_broadcast_to_room(room_id, NetMessage.T_SNAPSHOT, {"snapshot": session.snapshot()})
 
 
