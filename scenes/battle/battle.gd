@@ -30,6 +30,8 @@ const COL_MOVING := Color(0.4, 0.9, 1.0, 0.22)
 const COL_AI_FOCUS := Color(1.0, 0.85, 0.2, 0.95)   # P10-5：單人對戰 AI 目標圈（黃）
 const P1_COL := Color(0.95, 0.4, 0.4)
 const P2_COL := Color(0.45, 0.6, 1.0)
+# P12-22：所有權外框向格心內縮的像素數。相鄰格共邊，不內縮時兩格外框會互相覆蓋而無法分辨。
+const OWNER_OUTLINE_INSET := 6.0
 
 const MAGIC_CARDS := ["HEAL", "MOVE", "MOVEO", "CUBES"]
 
@@ -1041,8 +1043,9 @@ func _persist_draw() -> void:
 		elif piece.is_moving():
 			_fill_cell(_persist_layer, piece.pos(), COL_MOVING)
 		# 擁有者標示：棋子所在格的地格外框上色（先手紅／後手藍）——取代舊的棋子本體外框環。
+		# P12-22：畫在向格心內縮一圈的框上，相鄰格各自完整可辨（不再共邊互相覆蓋）。
 		var oc: Color = P1_COL if piece.owner == "player1" else P2_COL
-		_outline_cell(_persist_layer, piece.pos(), oc, 3.5)
+		_outline_cell(_persist_layer, piece.pos(), oc, 3.5, OWNER_OUTLINE_INSET)
 	# P10-5：單人對戰時，AI 決策鎖定的格畫黃色目標圈。
 	if _ai != null and _ai.has_focus and _in_board(_ai.focus_position):
 		_outline_cell(_persist_layer, _ai.focus_position, COL_AI_FOCUS, 3.0)
@@ -1053,8 +1056,12 @@ func _fill_cell(layer: BattleDrawLayer, cell: Vector2i, color: Color) -> void:
 	layer.draw_colored_polygon(_view.cell_polygon(cell), color)
 
 
-func _outline_cell(layer: BattleDrawLayer, cell: Vector2i, color: Color, width: float) -> void:
-	var poly: PackedVector2Array = _view.cell_polygon(cell)
+# inset>0 時畫「向格心內縮」的框（P12-22：所有權外框用，避免相鄰格共邊互相覆蓋）；
+# inset=0 沿原格邊（懸停格、AI 目標圈——單格暫態，維持原樣且與內縮的所有權框自然分層）。
+func _outline_cell(layer: BattleDrawLayer, cell: Vector2i, color: Color, width: float,
+		inset: float = 0.0) -> void:
+	var poly: PackedVector2Array = _view.cell_polygon_inset(cell, inset) if inset > 0.0 \
+		else _view.cell_polygon(cell)
 	poly.append(poly[0])   # 閉合
 	layer.draw_polyline(poly, color, width)
 

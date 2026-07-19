@@ -58,6 +58,23 @@ func cell_polygon(cell: Vector2i) -> PackedVector2Array:
 	])
 
 
+# P12-22：格多邊形「向格心內縮」版本——每頂點朝格心移動 inset 像素。
+# 所有權外框（先手紅/後手藍）畫在這上面：相鄰格原本共邊，兩格皆有棋子時外框會互相覆蓋、
+# 無法分辨；內縮一圈後各自完整可辨。正交（方形）與等距（菱形）皆適用。
+# inset 夾在「頂點到格心距離的一半」以內，避免過大時多邊形翻面/退化。
+func cell_polygon_inset(cell: Vector2i, inset: float) -> PackedVector2Array:
+	var c: Vector2 = cell_center(cell)
+	var out := PackedVector2Array()
+	for v in cell_polygon(cell):
+		var d: Vector2 = c - v
+		var dist: float = d.length()
+		if dist <= 0.001:
+			out.append(v)
+			continue
+		out.append(v + d / dist * minf(inset, dist * 0.5))
+	return out
+
+
 # 螢幕像素 → 連續格座標（反矩陣）。整數部即所在格。
 func pixel_to_grid(p: Vector2) -> Vector2:
 	if mode == Mode.ISO:
