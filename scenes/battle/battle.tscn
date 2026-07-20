@@ -15,6 +15,15 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.09, 0.1, 0.13, 1)
 
+[node name="BackgroundImage" type="TextureRect" parent="." unique_id=1020023489]
+unique_name_in_owner = true
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
 [node name="BoardAnchorOrtho" type="Node2D" parent="." unique_id=311204871]
 unique_name_in_owner = true
 position = Vector2(276, 150)
@@ -22,6 +31,19 @@ position = Vector2(276, 150)
 [node name="BoardAnchorIso" type="Node2D" parent="." unique_id=311204872]
 unique_name_in_owner = true
 position = Vector2(512, 160)
+
+[node name="BoardSkinLayer" type="Node2D" parent="." unique_id=311204873]
+unique_name_in_owner = true
+
+[node name="BoardSkinOrtho" type="Sprite2D" parent="BoardSkinLayer" unique_id=311204874]
+unique_name_in_owner = true
+visible = false
+centered = false
+
+[node name="BoardSkinIso" type="Sprite2D" parent="BoardSkinLayer" unique_id=311204875]
+unique_name_in_owner = true
+visible = false
+centered = false
 
 [node name="GridLayer" type="Node2D" parent="." unique_id=74254080]
 unique_name_in_owner = true

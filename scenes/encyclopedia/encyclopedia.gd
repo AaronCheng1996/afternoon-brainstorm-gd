@@ -90,6 +90,9 @@ func _bind_nodes() -> void:
 	if _ui_built:
 		return
 	_ui_built = true
+	# P14-5：有 img/UI/bg/encyclopedia.png 才蓋圖，否則維持 .tscn 的純色 Background（現況）。
+	ArtSlots.apply_background(get_node_or_null("%BackgroundImage") as TextureRect, "encyclopedia")
+
 	_color_tabs = %ColorTabs
 	_job_tabs = %JobTabs
 	_card_grid = %CardGrid

@@ -979,6 +979,37 @@ func _configure_board_view() -> void:
 	_view.configure(board_cell_size, ortho_origin, board_ortho_stride,
 		iso_origin, board_iso_half_width, board_iso_half_height)
 
+
+# P14-5 場景背景圖插槽：有 `res://img/UI/bg/battle.png` 就蓋在純色 Background 之上，
+# 沒有則維持隱藏（＝現況純色）。美術丟檔即生效，不改程式。
+func _apply_background() -> void:
+	ArtSlots.apply_background(get_node_or_null("%BackgroundImage") as TextureRect, "battle")
+
+
+# P14-5 棋盤底圖插槽：兩視角各一張（`img/board/skin_ortho.png`／`skin_iso.png`），
+# 只顯示當前視角那張；無圖則兩張都隱藏（＝現況只有格線）。
+# 定位規則（美術須知，見 11_美術指南.md）：**俯視圖的左上角**對齊 `%BoardAnchorOrtho`、
+# **45 度圖的上頂點**對齊 `%BoardAnchorIso`（菱形以原點為上角向左右展開，故水平置中）。
+# 兩張圖都隨 BoardAnchor 拖曳而移動，與格線/棋子同一組幾何。
+func _apply_board_skin() -> void:
+	var ortho := get_node_or_null("%BoardSkinOrtho") as Sprite2D
+	var iso := get_node_or_null("%BoardSkinIso") as Sprite2D
+	if ortho == null or iso == null:
+		return
+	var is_ortho: bool = _view.mode == BoardView.Mode.ORTHO
+	var tex_o := ArtSlots.texture_at(ArtSlots.BOARD_SKIN_ORTHO)
+	if tex_o != null:
+		ortho.texture = tex_o
+		ortho.position = _view.ortho_origin
+	ortho.visible = tex_o != null and is_ortho
+
+	var tex_i := ArtSlots.texture_at(ArtSlots.BOARD_SKIN_ISO)
+	if tex_i != null:
+		iso.texture = tex_i
+		iso.position = _view.iso_origin - Vector2(tex_i.get_width() * 0.5, 0.0)
+	iso.visible = tex_i != null and not is_ortho
+
+
 func _cell_topleft(cell: Vector2i) -> Vector2:
 	return _view.cell_topleft(cell)
 
@@ -1021,6 +1052,7 @@ func _layout_grid() -> void:
 func _toggle_board_mode() -> void:
 	_view.mode = BoardView.Mode.ORTHO if _view.mode == BoardView.Mode.ISO else BoardView.Mode.ISO
 	_layout_grid()
+	_apply_board_skin()   # P14-5：底圖跟著切到對應視角那張
 	if _core != null:
 		_rebuild_board()
 	_persist_layer.queue_redraw()
@@ -1203,6 +1235,8 @@ func _bind_nodes() -> void:
 
 	# 世界層（Node2D）。
 	_configure_board_view()   # P14-2：先把場景的棋盤幾何灌進 _view，格線/棋子才排在對的位置
+	_apply_background()       # P14-5：有 img/UI/bg/battle.png 才蓋圖，否則維持純色 Background
+	_apply_board_skin()       # P14-5：有 img/board/skin_*.png 才顯示棋盤底圖
 	_grid_layer = %GridLayer
 	_layout_grid()   # 依 _view 模式把格線排成方格/菱形（P9-1）
 	_persist_layer = %PersistLayer

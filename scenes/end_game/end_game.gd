@@ -124,6 +124,9 @@ func _bind_nodes() -> void:
 	if _bound:
 		return
 	_bound = true
+	# P14-5：有 img/UI/bg/end_game.png 才蓋圖，否則維持 .tscn 的純色 Background（現況）。
+	ArtSlots.apply_background(get_node_or_null("%BackgroundImage") as TextureRect, "end_game")
+
 	_hud = %HUD
 	_chart_frame = %ChartFrame
 	_chart_layer = %ChartLayer

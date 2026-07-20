@@ -354,6 +354,9 @@ func _bind_nodes() -> void:
 		return
 	_ui_built = true
 
+	# P14-5：有 img/UI/bg/draft.png 才蓋圖，否則維持 .tscn 的純色 Background（現況）。
+	ArtSlots.apply_background(get_node_or_null("%BackgroundImage") as TextureRect, "draft")
+
 	_hud = %HUD
 	_phase_label = %PhaseLabel
 	_msg_label = %MsgLabel

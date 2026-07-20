@@ -145,7 +145,9 @@ func _mk_battle(dbs: Array, p1: Array, p2: Array, seed_v: int) -> Node:
 func _test_node_tree(t: Object, dbs: Array) -> void:
 	var b: Node = BattleScene.instantiate()
 	# 世界層與 HUD 骨架皆宣告於 .tscn，instantiate 後即可解析。
-	for name in ["Background", "BoardAnchorOrtho", "BoardAnchorIso", "GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
+	for name in ["Background", "BackgroundImage", "BoardAnchorOrtho", "BoardAnchorIso",
+			"BoardSkinLayer", "BoardSkinOrtho", "BoardSkinIso",
+			"GridLayer", "PersistLayer", "PreviewLayer", "BoardLayer",
 			"FxLayer", "HUD", "Scoreboard", "ResLabel", "CountsLabel", "HintLabel",
 			"AttackBtn", "MoveBtn", "HealBtn", "CubeBtn", "UpgradeBtn", "HintToggle", "AnimToggle",
 			"ViewToggle", "EndTurnBtn", "LeftHandTitle", "LeftHandBox", "RightHandTitle", "RightHandBox",

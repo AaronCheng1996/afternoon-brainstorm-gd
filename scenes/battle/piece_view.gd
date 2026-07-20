@@ -1,8 +1,9 @@
 # P2-1 棋子視圖（佔位美術）。規格見 04_架構設計.md §7.1、08_場景編輯器化.md §3。
 # P7-3：節點樹宣告於 piece_view.tscn（編輯器可視可編輯，美術可接手）；本腳本只用場景唯一名稱
 # （`%NodeName`）綁定既有節點，不再程序建構。呼叫端一律 instantiate 場景。
-# 動畫插槽（VisualRoot / SpriteSlot）已在 .tscn 備好，實際動畫由 combat_scheduler 驅動——換圖不改程式：
-# 美術到位時填 SpriteSlot 並隱藏 PlaceholderShape 即可。
+# 動畫插槽（VisualRoot / SpriteSlot）已在 .tscn 備好，實際動畫由 combat_scheduler 驅動——換圖不改程式。
+# P14-5：`configure()` 會自動查 `res://img/piece/card/<card_id>.png`（見 ArtSlots），有圖即啟用
+# SpriteSlot、隱藏幾何佔位形；目錄空著時行為與放圖前完全相同。美術只要丟檔案，不需碰程式。
 class_name PieceView
 extends Node2D
 
@@ -22,6 +23,17 @@ const CELL_SIZE := 96.0
 ## LUCKYBLOCK 幸運方塊的填色。
 @export var luckyblock_fill: Color = Color(1.0, 0.84, 0.16)
 @export_group("")
+
+# P14-5 美術素材插槽：`configure()` 會查 `<sprite_dir>/<card_id>.png`——**有圖就用圖**
+# （SpriteSlot 顯示、幾何佔位形與外框環隱藏），**無圖維持現行幾何佔位**（行為與放圖前完全相同）。
+# 美術只要把檔案丟進目錄即生效，不用改程式（路徑慣例見 ArtSlots／11_美術指南.md）。
+@export_group("美術素材")
+## 棋子貼圖目錄；檔名＝card_id（如 `ADCW.png`）。留空＝用 ArtSlots 預設慣例目錄。
+@export_dir var sprite_dir: String = ArtSlots.PIECE_DIR
+## 勾選時把貼圖等比縮放到剛好塞滿一格（CELL_SIZE）；取消則照貼圖原尺寸顯示。
+@export var sprite_fit_cell: bool = true
+@export_group("")
+
 const OUTLINE_SCALE := 1.16                    # 外框比本體略大，形成描邊環
 const SHADOW_ALPHA := 0.45
 
@@ -93,6 +105,10 @@ func configure(a_card_id: String, a_owner: int, db: Object = null, shadow: bool 
 		oc.a = SHADOW_ALPHA
 	outline_shape.color = oc
 
+	# P14-5：查美術貼圖——有圖則啟用 SpriteSlot 並隱藏幾何佔位形，無圖維持佔位（現況）。
+	# 查的是「本體的 card_id」；鏡像（SHADOW）沿用本體職業的形狀慣例，貼圖亦查 shape_key。
+	apply_sprite(ArtSlots.piece_texture(shape_key if shadow else card_id, sprite_dir))
+
 	# 中央職業碼 / 特殊符號。
 	job_label.text = _center_glyph(job, shape_key)
 	job_label.modulate = _readable_on(fill)
@@ -114,6 +130,36 @@ func configure(a_card_id: String, a_owner: int, db: Object = null, shadow: bool 
 	# 狀態圖示預設全關。
 	for id in STATUS_ORDER:
 		set_status(id, false)
+
+
+# P14-5 套用（或取消）美術貼圖。tex 非 null＝顯示 SpriteSlot 並隱藏幾何佔位形與外框環；
+# null＝還原幾何佔位（fallback）。configure() 會自動查檔呼叫本方法，外部亦可直接指定貼圖。
+# 幾何佔位形雖被隱藏，polygon/color 仍保留——死亡碎片與殘影（_spawn_death_particles/
+# _spawn_afterimage）以它為色/形來源，隱藏不影響特效。鏡像（SHADOW）半透明規則沿用 SHADOW_ALPHA。
+func apply_sprite(tex: Texture2D) -> void:
+	_bind_nodes()
+	sprite_slot.texture = tex
+	sprite_slot.visible = tex != null
+	placeholder_shape.visible = tex == null
+	outline_shape.visible = tex == null
+	if tex == null:
+		return
+	# 貼圖以格中心對齊（Sprite2D 預設 centered），本視圖原點＝格左上角。
+	sprite_slot.position = center_offset()
+	sprite_slot.modulate.a = SHADOW_ALPHA if is_shadow else 1.0
+	if sprite_fit_cell:
+		var src: Vector2 = tex.get_size()
+		var longest: float = maxf(src.x, src.y)
+		var k: float = (CELL_SIZE / longest) if longest > 0.0 else 1.0
+		sprite_slot.scale = Vector2(k, k)
+	else:
+		sprite_slot.scale = Vector2.ONE
+
+
+# 是否正在用美術貼圖（而非幾何佔位形）。供 piece_gallery 統計與測試判定。
+func has_sprite() -> bool:
+	_bind_nodes()
+	return sprite_slot.texture != null and sprite_slot.visible
 
 
 # 更新數值標籤（供對戰時即時刷新）。armor/extra 為 0 時隱藏。

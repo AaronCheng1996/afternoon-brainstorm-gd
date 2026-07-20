@@ -4,3 +4,33 @@
 
 [node name="PieceGallery" type="Node2D"]
 script = ExtResource("1_g")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+mouse_filter = 2
+color = Color(0.1, 0.11, 0.13, 1)
+
+[node name="TitleLabel" type="Label" parent="."]
+unique_name_in_owner = true
+offset_left = -8.0
+offset_top = 8.0
+offset_right = 700.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 24
+text = "午後激盪 — 棋子美術一覽"
+
+[node name="CaptionLabel" type="Label" parent="."]
+unique_name_in_owner = true
+modulate = Color(0.75, 0.78, 0.82, 1)
+offset_left = -8.0
+offset_top = 40.0
+offset_right = 980.0
+offset_bottom = 62.0
+theme_override_font_sizes/font_size = 13
+text = "caption"
+
+[node name="GridRoot" type="Node2D" parent="."]
+unique_name_in_owner = true
+
+[node name="Camera2D" type="Camera2D" parent="."]
+unique_name_in_owner = true

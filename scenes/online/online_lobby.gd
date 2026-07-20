@@ -85,6 +85,9 @@ func _bind_nodes() -> void:
 		return
 	_bound = true
 
+	# P14-5：有 img/UI/bg/online_lobby.png 才蓋圖，否則維持 .tscn 的純色 Background（現況）。
+	ArtSlots.apply_background(get_node_or_null("%BackgroundImage") as TextureRect, "online_lobby")
+
 	_msg_label = %MsgLabel
 	_connect_panel = %ConnectPanel
 	_lobby_panel = %LobbyPanel
