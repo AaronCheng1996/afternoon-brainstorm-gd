@@ -2,10 +2,12 @@
 # 三層，各自忠實（沿用 P12-5/6「同程序匯流排」；@rpc-over-ENet 整合待運行樹 P12-7/11）：
 #   (A) NetCodec.decode_draft_action：白名單／不可信輸入拒收；player 由呼叫端（server）指派。
 #   (B) NetDraftSession：三階段推進／回合閘／完成／server 權威計時逾時 auto_fill_and_advance。
-#   (C) NetGameServer 同程序 _Bus：兩 client 走完整 BP——雙方牌組兩端一致、完成後 server 建
+#   (C) NetGameServer 同程序 NetTestBus：兩 client 走完整 BP——雙方牌組兩端一致、完成後 server 建
 #       GameCore 發首份快照；非編輯方與旁觀者的選秀行動被拒。
 # 純 RefCounted／Node free 乾淨 → 維持零新洩漏。
 extends RefCounted
+
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 
 # BP 測試用固定牌組（單位 ≤2、每階段達最低張數）。
 const P1_FIRST6 := ["ADCW", "ADCW", "APW", "APW", "TANKW", "TANKW"]
@@ -111,24 +113,15 @@ func _test_session_timeout(t: Object) -> void:
 
 # ---------------- (C) 同程序匯流排：完整連線選秀 ----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_draft: Dictionary = {}
@@ -147,7 +140,7 @@ class _WiredClient extends NetClient:
 		snapshot_received.connect(func(s): last_snapshot = s)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -158,7 +151,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 
 
 # 建 server＋兩玩家（＋可選旁觀者），跑到「房間 drafting、選秀開始」。回傳字典。
-func _boot_draft(bus: _Bus, with_spectator: bool = false) -> Dictionary:
+func _boot_draft(bus: NetTestBus, with_spectator: bool = false) -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 12321)   # 決定性房碼
@@ -190,7 +183,7 @@ func _add_cards(client: _WiredClient, cards: Array) -> void:
 
 
 func _test_full_draft(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_draft(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -239,7 +232,7 @@ func _test_full_draft(t: Object) -> void:
 
 # 非編輯方的選秀行動被 server 拒（not_your_turn）；權威狀態不受影響。
 func _test_turn_reject(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_draft(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -262,7 +255,7 @@ func _test_turn_reject(t: Object) -> void:
 
 # 旁觀者的選秀行動一律被 server 拒（唯讀由 server 保證）。
 func _test_spectator_reject(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_draft(bus, true)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]

@@ -9,6 +9,7 @@
 # 場景與 net 物件皆 .free() → 維持零新洩漏。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 const BattleScene := preload("res://scenes/battle/battle.tscn")
 const EndGameScene := preload("res://scenes/end_game/end_game.tscn")
 
@@ -25,24 +26,15 @@ func _norm(v: Variant) -> String:
 
 # ---------------- 同程序匯流排（沿用 test_net_battle_scene）----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var opening_snapshot: Dictionary = {}
@@ -58,7 +50,7 @@ class _WiredClient extends NetClient:
 				opening_snapshot = s)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -92,7 +84,7 @@ func _capture_finish(b: Node) -> Dictionary:
 
 func _test_endgame_and_rematch(t: Object) -> void:
 	var seed1 := 20260718
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 24680)   # 決定性房碼
@@ -205,7 +197,7 @@ func _test_forfeit_reason(t: Object) -> void:
 	# 以一顆真 session 取得合法開局快照，建一個 net battle 場景（player1 視角）。
 	var sess := NetGameSession.new()
 	sess.start(NetGameSession.DEV_P1_DECK, NetGameSession.DEV_P2_DECK, 424242, null)
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var client := _mk_client(bus, 200, "solo")
 	bus.add(client.my_id, client)
 	client._on_connected()

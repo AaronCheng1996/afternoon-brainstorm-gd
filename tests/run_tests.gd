@@ -38,6 +38,7 @@ func _initialize() -> void:
 	var ctx := TestContext.new()
 	var files := _discover_tests()
 	files.sort()
+	var timings: Array = []   # P15-5 慢測清點：[毫秒, 檔名]
 	for path in files:
 		var script: GDScript = load(path)
 		if script == null:
@@ -49,8 +50,10 @@ func _initialize() -> void:
 		if not inst.has_method("run"):
 			push_warning("略過（無 run 方法）: " + path)
 			continue
+		var t0 := Time.get_ticks_msec()
 		inst.run(ctx)
-	_report(ctx)
+		timings.append([Time.get_ticks_msec() - t0, path.get_file()])
+	_report(ctx, timings)
 	quit(1 if ctx.failed > 0 else 0)
 
 
@@ -71,10 +74,28 @@ func _discover_tests() -> Array[String]:
 	return result
 
 
-func _report(ctx: TestContext) -> void:
+# P15-5 慢測門檻（毫秒）：只列出超過此值的檔案，平時輸出維持乾淨。
+const SLOW_MS := 3000
+
+
+func _report(ctx: TestContext, timings: Array = []) -> void:
 	print("")
 	for f in ctx.failures:
 		print("  FAIL  ", f)
+	# 慢測清點（P15-5）：讓「哪幾支拖時間」一眼可見，不必另外量測。
+	var total: int = 0
+	var slow: Array = []
+	for row: Array in timings:
+		total += int(row[0])
+		if int(row[0]) >= SLOW_MS:
+			slow.append(row)
+	if not slow.is_empty():
+		slow.sort_custom(func(a: Array, b: Array) -> bool: return int(a[0]) > int(b[0]))
+		print("  ── 慢測（≥%d ms）──" % SLOW_MS)
+		for row: Array in slow:
+			print("  %6d ms  %s" % [int(row[0]), row[1]])
+	if total > 0:
+		print("測試總耗時 %.1f 秒（%d 檔）" % [total / 1000.0, timings.size()])
 	if ctx.failed == 0:
 		print("%d passed" % ctx.passed)
 	else:

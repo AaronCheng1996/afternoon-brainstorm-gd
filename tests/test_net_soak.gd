@@ -9,6 +9,7 @@
 # 純 RefCounted／全部 free → 維持零新洩漏基準（39/78）。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 const SOAK_ROUNDS := 3          # 連續局數（churn）
 const SPECTATOR_CYCLES := 4     # 旁觀加入/退出次數
 const MAX_TURNS := 200          # 單局回合上限（AI 白對白多半更早分勝負）
@@ -22,24 +23,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排（沿用 test_net_battle）----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_snapshot: Dictionary = {}
@@ -58,7 +50,7 @@ class _WiredClient extends NetClient:
 		action_rejected.connect(func(reason, _m): last_reject = reason)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -68,7 +60,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 	return c
 
 
-func _boot_battle(bus: _Bus, seed_value: int) -> Dictionary:
+func _boot_battle(bus: NetTestBus, seed_value: int) -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 33333)
@@ -110,7 +102,7 @@ func _drive(sess: NetGameSession, host: _WiredClient, get_p2: Callable, until_tu
 
 func _test_reconnect_soak(t: Object) -> void:
 	for r in SOAK_ROUNDS:
-		var bus := _Bus.new()
+		var bus := NetTestBus.new()
 		var b := _boot_battle(bus, 4242 + r * 17)
 		var server: _WiredServer = b["server"]
 		var host: _WiredClient = b["host"]
@@ -156,7 +148,7 @@ func _test_reconnect_soak(t: Object) -> void:
 # ---------------- (B) 旁觀者反覆加入/退出 ----------------
 
 func _test_spectator_soak(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, 909)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -201,7 +193,7 @@ func _test_spectator_soak(t: Object) -> void:
 # ---------------- (C) server 端 ReplayLog 決定性 ----------------
 
 func _test_server_replay_determinism(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, 24242)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]

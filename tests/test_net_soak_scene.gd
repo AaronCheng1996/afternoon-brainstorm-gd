@@ -6,6 +6,7 @@
 # 全部場景/net 物件 .free() → 維持零新洩漏。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 const BattleScene := preload("res://scenes/battle/battle.tscn")
 const ROUNDS := 3
 
@@ -16,24 +17,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排 ----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var opening_snapshot: Dictionary = {}
@@ -48,7 +40,7 @@ class _WiredClient extends NetClient:
 				opening_snapshot = s)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -78,7 +70,7 @@ func _canon(snap: Dictionary) -> String:
 
 
 func _test_scene_soak(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 24680)

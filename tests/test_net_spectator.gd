@@ -9,6 +9,8 @@
 # 純 RefCounted／Node free 乾淨 → 維持零新洩漏。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
+
 # BP 測試用固定牌組（沿用 test_net_draft）。
 const P1_FIRST6 := ["ADCW", "ADCW", "APW", "APW", "TANKW", "TANKW"]
 const P2_PICK12 := ["ADCW", "ADCW", "APW", "APW", "TANKW", "TANKW",
@@ -24,24 +26,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排（沿用 test_net_battle/draft）----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_error: String = ""
@@ -66,7 +59,7 @@ class _WiredClient extends NetClient:
 		draft_rejected.connect(func(reason, _m): last_reject = reason)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -77,7 +70,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 
 
 # 建 server＋兩玩家並開一間房（尚未開始 BP／對戰）。回傳字典。
-func _boot_room(bus: _Bus, allow_spectators: bool = true, locked: bool = false,
+func _boot_room(bus: NetTestBus, allow_spectators: bool = true, locked: bool = false,
 		password: String = "") -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
@@ -97,7 +90,7 @@ func _boot_room(bus: _Bus, allow_spectators: bool = true, locked: bool = false,
 
 
 # 讓一個新旁觀者連上並加入既有房（模擬對局中途加入）。
-func _join_spectator(bus: _Bus, id: int, rid: String, password: String = "") -> _WiredClient:
+func _join_spectator(bus: NetTestBus, id: int, rid: String, password: String = "") -> _WiredClient:
 	var spec := _mk_client(bus, id, "看客", true)
 	bus.add(id, spec)
 	spec._on_connected()
@@ -108,7 +101,7 @@ func _join_spectator(bus: _Bus, id: int, rid: String, password: String = "") -> 
 # ---------------- (A) 中途加入對戰中的房 ----------------
 
 func _test_spectate_midbattle(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -151,7 +144,7 @@ func _test_spectate_midbattle(t: Object) -> void:
 # ---------------- (B) 中途加入選秀中的房 ----------------
 
 func _test_spectate_middraft(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -187,7 +180,7 @@ func _test_spectate_middraft(t: Object) -> void:
 # ---------------- (C) 中途加入終局的房 ----------------
 
 func _test_spectate_ended(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -214,7 +207,7 @@ func _test_spectate_ended(t: Object) -> void:
 
 func _test_spectate_password_and_toggle(t: Object) -> void:
 	# 上鎖房：旁觀者同樣需正確密碼（§7）。
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus, true, true, "s3cret")
 	var server: _WiredServer = b["server"]
 	var rid: String = b["rid"]
@@ -230,7 +223,7 @@ func _test_spectate_password_and_toggle(t: Object) -> void:
 	b["host"].free(); b["p2"].free(); bad.free(); good.free()
 
 	# 關閉觀戰的房：旁觀請求被拒（受觀戰開關控制，§7）。
-	var bus2 := _Bus.new()
+	var bus2 := NetTestBus.new()
 	var b2 := _boot_room(bus2, false)   # allow_spectators = false
 	var server2: _WiredServer = b2["server"]
 	var rid2: String = b2["rid"]

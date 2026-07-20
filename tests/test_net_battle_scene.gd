@@ -9,6 +9,7 @@
 # 場景與 net 物件皆 .free() → 維持零新洩漏（39/78 基準）。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 const BattleScene := preload("res://scenes/battle/battle.tscn")
 
 
@@ -21,24 +22,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排（沿用 test_net_battle）----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var opening_snapshot: Dictionary = {}
@@ -60,7 +52,7 @@ class _WiredClient extends NetClient:
 				opening_snapshot = s)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -95,7 +87,7 @@ func _canon(snap: Dictionary) -> String:
 
 func _test_scene_battle(t: Object) -> void:
 	var seed_value := 20260718
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 24680)   # 決定性房碼
@@ -206,7 +198,7 @@ func _test_scene_battle(t: Object) -> void:
 
 # 共用啟動：server＋兩玩家＋房間 battling（開發旗標跳過 BP），回傳 {bus,server,host,p2,rid}。
 func _boot_battle_scenes(seed_value: int, room_code_seed: int, base_id: int) -> Dictionary:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, room_code_seed)

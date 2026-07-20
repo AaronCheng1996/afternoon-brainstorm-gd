@@ -2,11 +2,13 @@
 # 見 docs/rebuild/10_連線版本.md §5。分三層，各自忠實：
 #   (A) RoomManager 純邏輯：建房/列表(上鎖標記)/密碼錯拒/兩人入座就緒/滿房第三人退旁觀或拒/離開解散
 #       ＋生命週期轉換＋房碼格式（決定性 seed）。
-#   (B) NetGameServer 大廳訊息（同程序 _Bus，覆寫 _transmit）：認證後的 create/list/join/ready/leave
+#   (B) NetGameServer 大廳訊息（同程序 NetTestBus，覆寫 _transmit）：認證後的 create/list/join/ready/leave
 #       廣播與 lobby_error；斷線自動離房。
 #   (C) server_main.parse_config：預設→JSON→命令列覆蓋、型別強制。
 # 純 RefCounted／Node free 乾淨 → 維持零新洩漏。@rpc-over-ENet 整合待運行樹（P12-6+）。
 extends RefCounted
+
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 
 
 func run(t: Object) -> void:
@@ -149,25 +151,16 @@ func _test_room_code_format(t: Object) -> void:
 
 # ---------------- (B) 同程序訊息匯流排：串接真正的 NetGameServer/NetClient ----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 # 記錄收到之大廳信號的用戶端。
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_list: Array = []
@@ -184,7 +177,7 @@ class _WiredClient extends NetClient:
 		room_closed.connect(func(rid, _reason): closed_room = rid)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -195,7 +188,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 
 
 func _test_server_bus_lobby(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 888)   # 決定性房碼
@@ -257,7 +250,7 @@ func _test_server_bus_lobby(t: Object) -> void:
 
 
 func _test_server_disconnect_leaves(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 999)

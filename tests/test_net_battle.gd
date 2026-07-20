@@ -2,11 +2,13 @@
 # 三層，各自忠實（沿用 P12-5「同程序匯流排」手法，@rpc-over-ENet 整合待運行樹 P12-7/11）：
 #   (A) NetCodec：GameAction 白名單／不可信輸入拒收；GameEvent 經 JSON 往返（Vector2i↔[x,y]）還原。
 #   (B) NetGameSession：開局／apply_action 換手／server 權威回合計時逾時 end_turn。
-#   (C) NetGameServer 同程序 _Bus：兩 client 走完整局（AI 驅動、參考 session 逐步鎖定）——
+#   (C) NetGameServer 同程序 NetTestBus：兩 client 走完整局（AI 驅動、參考 session 逐步鎖定）——
 #       server 權威核心／兩 client 快照與參考「逐位一致」；非當前玩家與旁觀者行動被拒；
 #       server tick 逾時廣播換手。
 # 純 RefCounted／Node free 乾淨 → 維持零新洩漏。
 extends RefCounted
+
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 
 
 func run(t: Object) -> void:
@@ -94,24 +96,15 @@ func _test_session(t: Object) -> void:
 
 # ---------------- (C) 同程序匯流排：完整連線對戰 ----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_error: String = ""
@@ -132,7 +125,7 @@ class _WiredClient extends NetClient:
 		action_rejected.connect(func(reason, _m): last_reject = reason)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -143,7 +136,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 
 
 # 建 server＋兩玩家（＋可選旁觀者），跑到「房間 battling、session 建立」。回傳字典。
-func _boot_battle(bus: _Bus, seed_value: int, with_spectator: bool = false) -> Dictionary:
+func _boot_battle(bus: NetTestBus, seed_value: int, with_spectator: bool = false) -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 12321)   # 決定性房碼
@@ -171,7 +164,7 @@ func _boot_battle(bus: _Bus, seed_value: int, with_spectator: bool = false) -> D
 
 func _test_full_game(t: Object) -> void:
 	var seed_value := 4242
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, seed_value)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -236,7 +229,7 @@ func _test_full_game(t: Object) -> void:
 
 # 非當前玩家的行動被 server 拒（not_your_turn）；權威核心不受影響。
 func _test_turn_reject(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, 555)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -262,7 +255,7 @@ func _test_turn_reject(t: Object) -> void:
 
 # 旁觀者的行動一律被 server 拒（唯讀由 server 保證，不只 UI）。
 func _test_spectator_reject(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, 777, true)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -282,7 +275,7 @@ func _test_spectator_reject(t: Object) -> void:
 
 # server tick 逾時：權威 end_turn 並廣播事件＋校正快照給全房。
 func _test_server_timeout(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_battle(bus, 888)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]

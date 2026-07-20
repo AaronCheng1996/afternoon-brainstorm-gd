@@ -7,6 +7,8 @@
 # 純 RefCounted／全部 free → 維持零新洩漏。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
+
 
 func run(t: Object) -> void:
 	_test_download_after_over(t)
@@ -15,24 +17,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排 ----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var got_replay: String = ""
@@ -47,7 +40,7 @@ class _WiredClient extends NetClient:
 		lobby_error.connect(func(e): last_lobby_error = e)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -57,7 +50,7 @@ func _mk_client(bus: _Bus, id: int, nick: String) -> _WiredClient:
 	return c
 
 
-func _boot(bus: _Bus, seed_value: int) -> Dictionary:
+func _boot(bus: NetTestBus, seed_value: int) -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 24680)
@@ -95,7 +88,7 @@ func _drive(sess: NetGameSession, host: _WiredClient, p2: _WiredClient, until_tu
 # ---------------- (A) 終局後可下載並可決定性重播 ----------------
 
 func _test_download_after_over(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot(bus, 24242)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -134,7 +127,7 @@ func _test_download_after_over(t: Object) -> void:
 # ---------------- (B) 對局進行中拒收（seed 仍隱藏）----------------
 
 func _test_refused_during_battle(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot(bus, 555)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]

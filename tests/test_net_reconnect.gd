@@ -9,6 +9,8 @@
 # 純 RefCounted／Node free 乾淨 → 維持零新洩漏。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
+
 
 func run(t: Object) -> void:
 	_test_token_issuance(t)
@@ -20,24 +22,15 @@ func run(t: Object) -> void:
 
 # ---------------- 同程序匯流排（沿用 test_net_spectator）----------------
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetGameServer:
-	var bus: _Bus
+	var bus: NetTestBus
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var last_room: Dictionary = {}
 	var last_error: String = ""
@@ -63,7 +56,7 @@ class _WiredClient extends NetClient:
 		action_rejected.connect(func(reason, _m): last_reject = reason)
 
 
-func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClient:
+func _mk_client(bus: NetTestBus, id: int, nick: String, spectate: bool) -> _WiredClient:
 	var c := _WiredClient.new()
 	c.bus = bus
 	c.my_id = id
@@ -74,7 +67,7 @@ func _mk_client(bus: _Bus, id: int, nick: String, spectate: bool) -> _WiredClien
 
 
 # 建 server＋兩玩家並開一間房（尚未開始 BP／對戰）。
-func _boot_room(bus: _Bus) -> Dictionary:
+func _boot_room(bus: NetTestBus) -> Dictionary:
 	var server := _WiredServer.new()
 	server.bus = bus
 	server.rooms = RoomManager.new(16, 24680)   # 決定性房碼／token
@@ -95,7 +88,7 @@ func _boot_room(bus: _Bus) -> Dictionary:
 # ---------------- (A) 入座即發席位 token ----------------
 
 func _test_token_issuance(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var host: _WiredClient = b["host"]
 	var p2: _WiredClient = b["p2"]
@@ -114,7 +107,7 @@ func _test_token_issuance(t: Object) -> void:
 # ---------------- (B) 斷線→held→重連收復席位（含計時暫停/恢復）----------------
 
 func _test_reconnect_roundtrip(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -175,7 +168,7 @@ func _test_reconnect_roundtrip(t: Object) -> void:
 # ---------------- (C) 錯 token 重連被拒、held 不受影響 ----------------
 
 func _test_bad_token(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var p2: _WiredClient = b["p2"]
@@ -201,7 +194,7 @@ func _test_bad_token(t: Object) -> void:
 # ---------------- (D) 逾時未回 → 對手判勝 ----------------
 
 func _test_timeout_forfeit(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var host: _WiredClient = b["host"]
@@ -228,7 +221,7 @@ func _test_timeout_forfeit(t: Object) -> void:
 # ---------------- (E) 旁觀者斷線直接移除（無重連）----------------
 
 func _test_spectator_no_hold(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var b := _boot_room(bus)
 	var server: _WiredServer = b["server"]
 	var rid: String = b["rid"]

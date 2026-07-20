@@ -10,32 +10,22 @@
 # 兩層合起來涵蓋 P12-3 全部驗收點；@rpc-over-ENet 的整合會在場景於運行樹中跑時（P12-6+）驗。
 extends RefCounted
 
+const NetTestBus := preload("res://tests/net_test_bus.gd")
 const HOST := "127.0.0.1"
 
 
 # --- 同程序訊息匯流排：把 _transmit 導向對端 _ingest（取代 @rpc）---
 
-class _Bus extends RefCounted:
-	var nodes: Dictionary = {}   # peer_id -> NetPeerBase
-
-	func add(id: int, node: Object) -> void:
-		nodes[id] = node
-
-	func route(from_id: int, to_id: int, text: String) -> void:
-		var target: Object = nodes.get(to_id, null)
-		if target != null:
-			target._ingest(from_id, text)
-
 
 class _WiredServer extends NetServer:
-	var bus: _Bus
+	var bus: NetTestBus
 
 	func _transmit(peer_id: int, text: String) -> void:
 		bus.route(SERVER_ID, peer_id, text)
 
 
 class _WiredClient extends NetClient:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 100
 
 	func _transmit(peer_id: int, text: String) -> void:
@@ -44,7 +34,7 @@ class _WiredClient extends NetClient:
 
 # 純接收端（旁觀/擷取用）：收到的訊息記進 got。
 class _Capture extends NetPeerBase:
-	var bus: _Bus
+	var bus: NetTestBus
 	var my_id: int = 0
 	var got: Array = []
 
@@ -132,7 +122,7 @@ func _test_real_enet_loopback(t: Object) -> void:
 # --- (C) 協定邏輯：握手成功＋app 層 RTT ---
 
 func _test_handshake_and_rtt(t: Object) -> void:
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	var client := _WiredClient.new()
@@ -170,7 +160,7 @@ func _test_handshake_and_rtt(t: Object) -> void:
 
 func _test_version_and_data_gate(t: Object) -> void:
 	# 遊戲版本不符（走真正的 client._on_connected，宣告錯版本）。
-	var bus := _Bus.new()
+	var bus := NetTestBus.new()
 	var server := _WiredServer.new()
 	server.bus = bus
 	var client := _WiredClient.new()
