@@ -50,8 +50,14 @@ cp deploy/server_config.json \
 > 目錄名以 `project.godot` 的 `config/name` 為準；不確定可先跑一次伺服器看 log 的 `user://` 路徑。
 > 命令列 `key=value`（在 `--` 之後）會再覆蓋設定檔——見 `server_main.parse_config`。
 
-設定鍵：`port`、`max_rooms`、`max_clients`、`spectator_limit`、`seat_hold_seconds`
+設定鍵：`port`、`max_rooms`、`max_clients`、`seat_hold_seconds`
 （斷線重連保留秒數，P12-10）、`save_replays`（對局結束存 `user://replays/*.jsonl`，P11-2 格式）。
+
+> ⚠ **`spectator_limit` 目前無效**（P15-3 review 發現，2026-07-20）：這個鍵可以填、啟動橫幅也會
+> 把它印出來，但 `server_main` 並未把它套用到房間管理——**每房觀戰上限實際由建房者的用戶端決定**
+> （未指定時為 `RoomManager.DEFAULT_SPECTATOR_LIMIT`，伺服器端 clamp 到 0–64）。
+> 修法有兩種語意（伺服器強制上限 vs 僅作預設值），待裁定後修正；
+> 登記於 `docs/rebuild/06_任務清單.md` 的行為疑義登記表。
 
 ## 4. 手動啟動（驗證用）
 
