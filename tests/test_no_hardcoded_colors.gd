@@ -8,19 +8,16 @@
 # 因此「宣告處」（`@export var x: Color = Color(...)`）是合法的——那正是參數的容身處；
 # 被禁的是**邏輯中途**憑空冒出的字面量。
 #
-# 例外＝下表 `WHITELIST`：特效暫態色（受擊白閃、火花、投射物、命中閃光、施法環/殘影）
-# 仍歸 **P14-6 特效與動畫參數編輯器化**，本輪刻意不動。以「檔案→允許筆數」記錄，
-# 新增裸字面量會使筆數對不上而測試轉紅（不是只憑檔名放行）。
+# 例外＝下表 `WHITELIST`（「檔案→允許筆數」；新增裸字面量會讓筆數對不上而轉紅，不是憑檔名放行）。
+# **P14-6 完成後白名單已清空**：原先三個檔的特效暫態色（受擊白閃、火花、投射物、命中閃光、
+# 施法環/殘影）皆已改為 @export 宣告，不再有邏輯中途的裸字面量。表保留為機制，日後真有
+# 無法避免的例外再填；空表時本檔即「scenes/ 全面零硬編色」的守門員。
 extends RefCounted
 
 const SCAN_DIRS := ["res://scenes"]
 
-# 檔案 → 允許的裸 Color( 筆數（＋原因）。P14-6 完成後這張表應該清空。
-const WHITELIST := {
-	"res://scenes/battle/piece_view.gd": 5,     # 受擊白閃×2／火花／施法環／殘影 → P14-6
-	"res://scenes/battle/impact_flash.gd": 1,   # 命中閃光 FILL → P14-6
-	"res://scenes/battle/projectile.gd": 1,     # 投射物 FILL → P14-6
-}
+# 檔案 → 允許的裸 Color( 筆數（＋原因）。目前為空＝零例外。
+const WHITELIST := {}
 
 
 func run(t: Object) -> void:

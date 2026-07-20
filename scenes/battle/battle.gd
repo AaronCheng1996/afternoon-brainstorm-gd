@@ -67,6 +67,31 @@ const MAGIC_CARDS := ["HEAL", "MOVE", "MOVEO", "CUBES"]
 @export var board_iso_half_height: float = BoardView.ISO_HH
 @export_group("")
 
+# --- P14-6 特效參數（美術/企劃可在編輯器調手感；**預設值＝改版前的常數**，畫面不變）---
+# 棋子自身的演出參數在 `piece_view.tscn`（受擊/死亡/施法/粒子），傷害飄字在 `CombatScheduler`；
+# 這裡只放「對戰場景層級」的兩項：擊殺鏡頭震動與資源獲得飄字。
+# **不變性**：`_camera_shake` 的 `if _instant: return` 提前返回＝瞬時模式零特效，不得繞過。
+@export_group("特效：鏡頭震動")
+## 震動幅度（像素）；每次擊殺呼叫，逐步衰減。
+@export var shake_strength: float = 6.0
+## 震動步數與每步時間（秒）。
+@export var shake_steps: int = 5
+@export var shake_step_time: float = 0.03
+## 震完歸位的時間（秒）。
+@export var shake_return_time: float = 0.04
+@export_group("")
+
+@export_group("特效：資源飄字")
+## 字級。
+@export var res_float_font_size: int = 16
+## 相對資源列的起始偏移（像素）與同時多筆時的每筆下移量。
+@export var res_float_offset: Vector2 = Vector2(150, 4)
+@export var res_float_slot_step: float = 22.0
+## 上飄距離（像素，負值＝往上）與淡出時間（秒）。
+@export var res_float_rise: float = -26.0
+@export var res_float_duration: float = 0.9
+@export_group("")
+
 
 # --- 設定 / 狀態 ---
 var _p1_deck: Array = []
@@ -1021,16 +1046,18 @@ func _cell_center(cell: Vector2i) -> Vector2:
 # P9-2 擊殺鏡頭震動：對世界根（Node2D）做衰減隨機位移，震完歸位。
 # HUD 為 CanvasLayer，不受父 Node2D 變換影響，故不跟著晃。瞬時模式（動畫關）不震。
 # 用全域 randf（純表現），不動 RngService，不影響對局決定性。
-func _camera_shake(strength: float = 6.0) -> void:
+func _camera_shake(strength: float = -1.0) -> void:
 	if _instant:
 		return
+	# 未指定幅度（＝排程器 on_kill 的無參呼叫）時用 @export 的 shake_strength。
+	var amp: float = strength if strength >= 0.0 else shake_strength
 	var tw := create_tween()
-	var steps := 5
+	var steps: int = maxi(1, shake_steps)
 	for i in steps:
-		var damp := strength * (1.0 - float(i) / float(steps))
+		var damp := amp * (1.0 - float(i) / float(steps))
 		var off := Vector2(randf_range(-damp, damp), randf_range(-damp, damp))
-		tw.tween_property(self, "position", _world_base + off, 0.03)
-	tw.tween_property(self, "position", _world_base, 0.04)
+		tw.tween_property(self, "position", _world_base + off, shake_step_time)
+	tw.tween_property(self, "position", _world_base, shake_return_time)
 
 
 func _cell_from_global(p: Vector2) -> Vector2i:
@@ -1377,16 +1404,17 @@ func _float_resource(kind: String, owner: String, delta: int, slot: int) -> void
 	var who := "P1" if owner == "player1" else "P2"
 	var l := Label.new()
 	l.text = "%s +%d %s" % [who, delta, String(info.get("label", kind))]
-	l.add_theme_font_size_override("font_size", 16)
+	l.add_theme_font_size_override("font_size", res_float_font_size)
 	l.add_theme_color_override("font_color", col)
 	l.z_index = 50
 	_hud.add_child(l)
-	var base: Vector2 = _res_label.global_position + Vector2(150, 4 + slot * 22)
+	var base: Vector2 = _res_label.global_position + res_float_offset \
+		+ Vector2(0, float(slot) * res_float_slot_step)
 	l.global_position = base
 	var tw := l.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(l, "global_position", base + Vector2(0, -26), 0.9)
-	tw.tween_property(l, "modulate:a", 0.0, 0.9)
+	tw.tween_property(l, "global_position", base + Vector2(0, res_float_rise), res_float_duration)
+	tw.tween_property(l, "modulate:a", 0.0, res_float_duration)
 	tw.chain().tween_callback(l.queue_free)
 
 

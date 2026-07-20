@@ -1,13 +1,20 @@
 # P2-2 投射物（佔位）：三角形箭矢，從槍口飛向目標，命中時回呼 on_hit。見 04 §7.2/7.3。
 # 之後換美術：替換 _build 的幾何或改用 AnimatedSprite2D，飛行/命中介面不變。
+# P14-6：外觀參數改 @export（**預設值＝改版前的常數**，畫面不變）——美術可直接開
+# `scenes/battle/projectile.tscn` 調色與箭矢形狀，不必讀程式。
 class_name Projectile
 extends Node2D
 
-const FILL := Color(1.0, 0.85, 0.3)
+@export_group("外觀")
+## 箭矢填色。實際飛行時通常被 `set_color`（派別色，P9-3）覆寫；這是未指定時的底色。
+@export var fill_color: Color = Color(1.0, 0.85, 0.3)
+## 箭矢形狀（指向 +x；launch 時以 look_at 對準目標）。
+@export var arrow_polygon: PackedVector2Array = PackedVector2Array([
+	Vector2(13, 0), Vector2(-7, -6), Vector2(-2, 0), Vector2(-7, 6)])
+@export_group("")
 
 var _built := false
 var _body: Polygon2D = null
-var tint: Color = FILL          # P9-3：派別色（set_color 於發射前設定）
 
 
 func _ready() -> void:
@@ -20,16 +27,14 @@ func _build() -> void:
 	_built = true
 	_body = Polygon2D.new()
 	_body.name = "Body"
-	# 指向 +x 的箭矢（launch 時以 look_at 對準目標）。
-	_body.polygon = PackedVector2Array([
-		Vector2(13, 0), Vector2(-7, -6), Vector2(-2, 0), Vector2(-7, 6)])
-	_body.color = tint
+	_body.polygon = arrow_polygon
+	_body.color = fill_color
 	add_child(_body)
 
 
 # P9-3：設定投射物顏色（派別色）。發射前呼叫。
 func set_color(c: Color) -> void:
-	tint = c
+	fill_color = c
 	if _body != null:
 		_body.color = c
 

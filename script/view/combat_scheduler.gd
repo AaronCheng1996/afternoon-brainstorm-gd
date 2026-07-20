@@ -7,6 +7,22 @@ extends Node
 
 signal finished
 
+# P14-6：傷害飄字的表現參數改 @export（**預設值＝改版前的常數**，畫面不變）。
+# 註：本節點由 battle/anim_demo 於執行期 `.new()` 建立（非 .tscn 宣告），故編輯器 Inspector
+# 看不到這幾項；要調手感就改這裡的預設值，或由呼叫端於 `setup()` 後指定。
+# 之所以仍用 @export 而非 const：它們是「參數」不是「常數」，形式與其他表現層參數一致，
+# 且日後若把排程器宣告進場景即可直接在編輯器調（見 11_美術指南.md）。
+@export_group("傷害飄字")
+## 字級與顏色。
+@export var damage_font_size: int = 18
+@export var damage_color: Color = Color(1.0, 0.5, 0.4)
+## 相對命中格中心的起始偏移（像素）。
+@export var damage_offset: Vector2 = Vector2(-8, -20)
+## 上飄距離（像素，負值＝往上）與淡出時間（秒）。
+@export var damage_rise: float = -28.0
+@export var damage_duration: float = 0.6
+@export_group("")
+
 var instant: bool = false
 
 # P9-2：擊殺回呼（鏡頭震動等）。DEATH 動畫起始時呼叫；瞬時模式（動畫關）不呼叫，維持結果不變。
@@ -171,15 +187,15 @@ func _spawn_float(at: Vector2i, amount: int) -> void:
 		return
 	var l := Label.new()
 	l.text = "-%d" % amount
-	l.add_theme_font_size_override("font_size", 18)
-	l.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	l.add_theme_constant_override("outline_size", 4)
+	l.add_theme_font_size_override("font_size", damage_font_size)
+	l.add_theme_color_override("font_color", damage_color)
+	# 黑描邊沿用全域 theme 的 `Label/` 預設（同 P14-4「逐節點 override 與 theme 預設相同即刪」的裁定）。
 	l.z_index = 100
 	_fx_layer.add_child(l)
-	l.global_position = _center_of(at) + Vector2(-8, -20)
+	l.global_position = _center_of(at) + damage_offset
 	var tw := l.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(l, "global_position", l.global_position + Vector2(0, -28), 0.6)
-	tw.tween_property(l, "modulate:a", 0.0, 0.6)
+	tw.tween_property(l, "global_position",
+		l.global_position + Vector2(0, damage_rise), damage_duration)
+	tw.tween_property(l, "modulate:a", 0.0, damage_duration)
 	tw.chain().tween_callback(l.queue_free)

@@ -15,6 +15,10 @@ const ImpactScene := preload("res://scenes/battle/impact_flash.tscn")
 const RANGED_TAGS := ["large_cross", "large_x", "farthest", "far"]
 
 # 特效預設色（無派別色的卡：CUBE/LUCKYBLOCK…）。
+# P14-6 裁定「保留為 const，不改 @export」：本類是**純靜態函式庫**（無實例、非 Node、不進場景樹），
+# @export 無處可掛、Inspector 也顯示不出來。真正給美術調的入口是**每張卡的**
+# `PieceAnimationSet.fx_color`（已是 @export 的 Resource 欄位）；這裡只是「該卡查不到派別色」
+# 時的最後退路，要改預設就改這一行。
 const DEFAULT_FX := Color(0.95, 0.92, 0.7)
 
 

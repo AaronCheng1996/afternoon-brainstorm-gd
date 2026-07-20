@@ -14,7 +14,7 @@ const CELL_SIZE := 96.0
 # 擁有者（先手紅／後手藍）改由「棋子所在格的地格外框」呈現（見 battle._persist_draw）。
 # P14-4：佔位美術的三個色改 @export（美術可在編輯器調；預設值＝P14-4 前的常數）。
 # 派別色不在這裡——一律走 Balance.color_rgb 資料驅動（鐵則，見 08 §5.0）。
-# 特效暫態色（受擊白閃/火花/施法環/殘影）屬 P14-6，本輪不動。
+# 特效暫態色（受擊白閃/火花/施法環/殘影）＝下方「特效參數」群組（P14-6）。
 @export_group("佔位美術配色")
 ## 中立深色描邊（貼近棋盤底色，讓形狀有清晰邊界）。
 @export var edge_color: Color = Color(0.09, 0.10, 0.12)
@@ -32,6 +32,80 @@ const CELL_SIZE := 96.0
 @export_dir var sprite_dir: String = ArtSlots.PIECE_DIR
 ## 勾選時把貼圖等比縮放到剛好塞滿一格（CELL_SIZE）；取消則照貼圖原尺寸顯示。
 @export var sprite_fit_cell: bool = true
+@export_group("")
+
+# P14-6 特效與動畫參數：P9-2/P9-3 的演出常數全數改 @export（**預設值＝改版前的常數**，
+# 畫面不變）。美術/企劃可在 piece_view.tscn 直接調手感，不必讀程式；效果預覽場景＝
+# `scenes/battle/anim_demo.tscn`（編輯器 F6）。
+# **不變性**：`play_attack`/`play_hurt`/`play_death`/`play_cast` 的 `if instant: return`
+# 提前返回＝瞬時模式零特效，任何參數都不得繞過它（既有斷言守護）。
+@export_group("特效：受擊")
+## 受擊白閃的亮度色（>1 為過曝）。
+@export var hurt_flash_color: Color = Color(1.8, 1.8, 1.8, 1.0)
+## 白閃亮起／回復的時間（秒）。
+@export var hurt_flash_in: float = 0.05
+@export var hurt_flash_out: float = 0.13
+## 受擊抖動的水平位移（像素）與去/回時間（秒）。
+@export var hurt_shake_offset: float = 4.0
+@export var hurt_shake_out: float = 0.04
+@export var hurt_shake_back: float = 0.09
+## 命中頓幀：壓扁比例、壓扁時間、定格時間、回彈時間（秒）。
+@export var hurt_squash: Vector2 = Vector2(1.18, 0.84)
+@export var hurt_squash_time: float = 0.03
+@export var hurt_hold_time: float = 0.045
+@export var hurt_recover_time: float = 0.12
+@export_group("")
+
+@export_group("特效：粒子")
+## 受擊小火花：顆數、存活秒數、初速下/上限、顆粒大小、顏色。
+@export var hit_particles: int = 8
+@export var hit_particle_life: float = 0.35
+@export var hit_particle_speed_min: float = 60.0
+@export var hit_particle_speed_max: float = 150.0
+@export var hit_particle_size: float = 2.5
+@export var hit_particle_color: Color = Color(1.0, 0.92, 0.62)
+## 死亡碎片：顆數、存活秒數、初速下/上限、顆粒大小（顏色＝棋子本體填色，故無參數）。
+@export var death_particles: int = 16
+@export var death_particle_life: float = 0.5
+@export var death_particle_speed_min: float = 90.0
+@export var death_particle_speed_max: float = 220.0
+@export var death_particle_size: float = 3.5
+@export_group("")
+
+@export_group("特效：死亡與殘影")
+## 死亡淡出：時間（秒）、縮到的比例、旋轉弧度。
+@export var death_fade_time: float = 0.28
+@export var death_shrink_scale: Vector2 = Vector2(0.4, 0.4)
+@export var death_spin: float = 0.6
+## 殘影：初始不透明度、放大倍率、淡出時間（秒）。
+@export var afterimage_alpha: float = 0.5
+@export var afterimage_scale: float = 1.4
+@export var afterimage_time: float = 0.32
+@export_group("")
+
+@export_group("特效：施法環")
+## 本體脈動：放大比例、放大／回復時間（秒）。
+@export var cast_pulse_scale: Vector2 = Vector2(1.15, 1.15)
+@export var cast_pulse_up: float = 0.09
+@export var cast_pulse_down: float = 0.12
+## 能量環：邊數、半徑（像素）、不透明度、起始／結束縮放、擴散時間（秒）。
+@export var cast_ring_segments: int = 20
+@export var cast_ring_radius: float = 30.0
+@export var cast_ring_alpha: float = 0.7
+@export var cast_ring_scale_from: float = 0.3
+@export var cast_ring_scale_to: float = 1.5
+@export var cast_ring_time: float = 0.3
+@export_group("")
+
+@export_group("特效：攻擊位移")
+## 遠程拉弓的後拉距離（像素）與去/回佔 `lunge_step` 的比例。
+@export var draw_back_distance: float = 5.0
+@export var draw_back_out_ratio: float = 0.3
+@export var draw_back_in_ratio: float = 0.4
+## 近戰撲擊的衝刺距離（像素）；去/回各佔 `lunge_step` 的一半（命中判在撲到位時）。
+@export var lunge_distance: float = 18.0
+## 移動到新格的滑行時間（秒）。
+@export var move_time: float = 0.2
 @export_group("")
 
 const OUTLINE_SCALE := 1.16                    # 外框比本體略大，形成描邊環
@@ -215,16 +289,18 @@ func play_hurt() -> void:
 	if instant:
 		return
 	var tw := create_tween()
-	tw.tween_property(visual_root, "modulate", Color(1.8, 1.8, 1.8, 1.0), 0.05)
-	tw.tween_property(visual_root, "modulate", Color(1, 1, 1, 1), 0.13)
+	tw.tween_property(visual_root, "modulate", hurt_flash_color, hurt_flash_in)
+	# 回復＝取消染色（恆等值，非可調參數，故用 Color.WHITE 而非 @export）。
+	tw.tween_property(visual_root, "modulate", Color.WHITE, hurt_flash_out)
 	var shake := create_tween()
-	shake.tween_property(visual_root, "position", _base_visual_pos + Vector2(4, 0), 0.04)
-	shake.tween_property(visual_root, "position", _base_visual_pos, 0.09)
+	shake.tween_property(visual_root, "position",
+		_base_visual_pos + Vector2(hurt_shake_offset, 0), hurt_shake_out)
+	shake.tween_property(visual_root, "position", _base_visual_pos, hurt_shake_back)
 	# 局部命中頓幀：壓扁 → 短暫定格 → 回彈（TRANS_BACK 收尾帶輕微過衝）。
 	var punch := create_tween()
-	punch.tween_property(visual_root, "scale", Vector2(1.18, 0.84), 0.03)
-	punch.tween_interval(0.045)
-	punch.tween_property(visual_root, "scale", Vector2(1, 1), 0.12) \
+	punch.tween_property(visual_root, "scale", hurt_squash, hurt_squash_time)
+	punch.tween_interval(hurt_hold_time)
+	punch.tween_property(visual_root, "scale", Vector2(1, 1), hurt_recover_time) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_spawn_hit_particles()
 
@@ -241,9 +317,9 @@ func play_death(on_done: Callable) -> void:
 	_spawn_death_particles()
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(visual_root, "modulate:a", 0.0, 0.28)
-	tw.tween_property(visual_root, "scale", Vector2(0.4, 0.4), 0.28)
-	tw.tween_property(visual_root, "rotation", 0.6, 0.28)
+	tw.tween_property(visual_root, "modulate:a", 0.0, death_fade_time)
+	tw.tween_property(visual_root, "scale", death_shrink_scale, death_fade_time)
+	tw.tween_property(visual_root, "rotation", death_spin, death_fade_time)
 	tw.chain().tween_callback(func() -> void:
 		if on_done.is_valid():
 			on_done.call())
@@ -255,7 +331,7 @@ func play_move(to_global: Vector2) -> void:
 		global_position = to_global
 		return
 	var tw := create_tween()
-	tw.tween_property(self, "global_position", to_global, 0.2)
+	tw.tween_property(self, "global_position", to_global, move_time)
 
 
 # 施法/能力觸發演出（P9-3 強化）：本體脈動 ＋ 一圈派別色向外擴散的能量環（程序生成）。
@@ -265,8 +341,8 @@ func play_cast() -> void:
 	if instant:
 		return
 	var tw := create_tween()
-	tw.tween_property(visual_root, "scale", Vector2(1.15, 1.15), 0.09)
-	tw.tween_property(visual_root, "scale", Vector2(1, 1), 0.12)
+	tw.tween_property(visual_root, "scale", cast_pulse_scale, cast_pulse_up)
+	tw.tween_property(visual_root, "scale", Vector2(1, 1), cast_pulse_down)
 	_spawn_cast_ring()
 
 
@@ -302,8 +378,10 @@ func _fire_projectile(target_global: Vector2, layer: Node, aset: PieceAnimationS
 		# 拉弓小後拉。
 		var dir := (target_global - center_global()).normalized()
 		var tw := create_tween()
-		tw.tween_property(visual_root, "position", _base_visual_pos - dir * 5.0, aset.lunge_step * 0.3)
-		tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.4)
+		tw.tween_property(visual_root, "position", _base_visual_pos - dir * draw_back_distance,
+			aset.lunge_step * draw_back_out_ratio)
+		tw.tween_property(visual_root, "position", _base_visual_pos,
+			aset.lunge_step * draw_back_in_ratio)
 
 
 # 近戰撲擊（P9-3）：向目標衝刺後回位，命中瞬間（撲到位時）在目標點濺出派別色命中特效。
@@ -312,7 +390,8 @@ func _melee_lunge(target_global: Vector2, aset: PieceAnimationSet) -> void:
 		return
 	var dir := (to_local(target_global) - center_offset()).normalized()
 	var tw := create_tween()
-	tw.tween_property(visual_root, "position", _base_visual_pos + dir * 18.0, aset.lunge_step * 0.5)
+	tw.tween_property(visual_root, "position", _base_visual_pos + dir * lunge_distance,
+		aset.lunge_step * 0.5)
 	tw.tween_property(visual_root, "position", _base_visual_pos, aset.lunge_step * 0.5)
 	# 撲到位時（lunge_step*0.5）於目標點播派別色命中特效（獨立時間軸，避免與撲擊 tween 交纏）。
 	# fx 容器先取為區域變數，回呼不參考 self（撲擊 tween 綁定本節點，本視圖釋放時自動終止，此為雙保險）。
@@ -350,7 +429,8 @@ func _fx_parent() -> Node:
 
 # 受擊小火花：向上噴濺、受重力回落，隨命中閃光色系。
 func _spawn_hit_particles() -> void:
-	var p := _make_burst(8, 0.35, 60.0, 150.0, Color(1.0, 0.92, 0.62), 2.5)
+	var p := _make_burst(hit_particles, hit_particle_life, hit_particle_speed_min,
+		hit_particle_speed_max, hit_particle_color, hit_particle_size)
 	p.global_position = center_global()
 	p.emitting = true
 
@@ -359,7 +439,8 @@ func _spawn_hit_particles() -> void:
 func _spawn_death_particles() -> void:
 	var fill := placeholder_shape.color
 	fill.a = 1.0
-	var p := _make_burst(16, 0.5, 90.0, 220.0, fill, 3.5)
+	var p := _make_burst(death_particles, death_particle_life, death_particle_speed_min,
+		death_particle_speed_max, fill, death_particle_size)
 	p.global_position = center_global()
 	p.emitting = true
 
@@ -367,22 +448,23 @@ func _spawn_death_particles() -> void:
 # 施法能量環（P9-3）：一圈派別色圓環於本體中心向外擴散並淡出，標示「能力觸發」。
 func _spawn_cast_ring() -> void:
 	var ring := Polygon2D.new()
-	var seg := 20
+	var seg: int = maxi(3, cast_ring_segments)
 	var pts := PackedVector2Array()
 	for i in range(seg):
 		var a := TAU * float(i) / float(seg)
-		pts.append(Vector2(cos(a), sin(a)) * 30.0)
+		pts.append(Vector2(cos(a), sin(a)) * cast_ring_radius)
 	ring.polygon = pts
 	var c := placeholder_shape.color
-	ring.color = Color(c.r, c.g, c.b, 0.7)
+	c.a = cast_ring_alpha
+	ring.color = c
 	ring.z_index = z_index + 1
 	_fx_parent().add_child(ring)
 	ring.global_position = center_global()
-	ring.scale = Vector2(0.3, 0.3)
+	ring.scale = Vector2(cast_ring_scale_from, cast_ring_scale_from)
 	var tw := ring.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(ring, "scale", Vector2(1.5, 1.5), 0.3)
-	tw.tween_property(ring, "modulate:a", 0.0, 0.3)
+	tw.tween_property(ring, "scale", Vector2(cast_ring_scale_to, cast_ring_scale_to), cast_ring_time)
+	tw.tween_property(ring, "modulate:a", 0.0, cast_ring_time)
 	tw.chain().tween_callback(ring.queue_free)
 
 
@@ -391,15 +473,16 @@ func _spawn_afterimage() -> void:
 	var ghost := Polygon2D.new()
 	ghost.polygon = placeholder_shape.polygon
 	var c := placeholder_shape.color
-	ghost.color = Color(c.r, c.g, c.b, 0.5)
+	c.a = afterimage_alpha
+	ghost.color = c
 	ghost.z_index = z_index
 	_fx_parent().add_child(ghost)
 	ghost.global_position = placeholder_shape.global_position
 	ghost.scale = placeholder_shape.global_scale
 	var tw := ghost.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(ghost, "scale", ghost.scale * 1.4, 0.32)
-	tw.tween_property(ghost, "modulate:a", 0.0, 0.32)
+	tw.tween_property(ghost, "scale", ghost.scale * afterimage_scale, afterimage_time)
+	tw.tween_property(ghost, "modulate:a", 0.0, afterimage_time)
 	tw.chain().tween_callback(ghost.queue_free)
 
 
