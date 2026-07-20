@@ -53,11 +53,6 @@ static func scaled(shape_key: String, size: float, extra_scale: float = 1.0) -> 
 	return out
 
 
-# 是否為已知形狀鍵。
-static func has_shape(shape_key: String) -> bool:
-	return shape_key == "AP" or JOB_POINTS.has(shape_key) or SPECIAL_POINTS.has(shape_key)
-
-
 static func _to_packed(points: Array) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	for p in points:

@@ -231,7 +231,7 @@ func _heal_piece(piece: PieceState, value: int) -> bool:
 		piece.health += value
 	else:
 		piece.health += value
-		piece.armor += (piece.health - piece.max_health) / 2
+		piece.armor += (piece.health - piece.max_health) / GameConfig.OVERHEAL_ARMOR_DIVISOR
 		piece.health = piece.max_health
 	return true
 

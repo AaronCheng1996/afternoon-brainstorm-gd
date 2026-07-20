@@ -11,7 +11,6 @@ enum Kind {
 	SPAWN,     # {at:Vector2i, card_id:String, owner:String}
 	CAST,      # {at:Vector2i, kind:String}
 	STATUS,    # {at:Vector2i, status_id:String, on:bool}
-	RESOURCE,  # {owner:String, kind:String, value:int}
 }
 
 var kind: int
@@ -49,7 +48,3 @@ static func spawn(at: Vector2i, card_id: String, owner: String) -> GameEvent:
 
 static func status(at: Vector2i, status_id: String, on: bool) -> GameEvent:
 	return GameEvent.new(Kind.STATUS, {"at": at, "status_id": status_id, "on": on})
-
-
-static func resource(owner: String, kind_str: String, value: int) -> GameEvent:
-	return GameEvent.new(Kind.RESOURCE, {"owner": owner, "kind": kind_str, "value": value})

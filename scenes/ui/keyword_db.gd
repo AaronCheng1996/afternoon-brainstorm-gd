@@ -119,13 +119,3 @@ static func explain(key: String) -> Dictionary:
 		"color": String(e.get("color", "#ffffff")),
 		"text": String(e.get("text", "")),
 	}
-
-
-static func has_keyword(key: String) -> bool:
-	_ensure()
-	return _entries.has(key)
-
-
-static func all_keys() -> Array:
-	_ensure()
-	return _entries.keys()

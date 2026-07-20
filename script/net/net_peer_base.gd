@@ -109,10 +109,6 @@ func _on_bad_message(_sender_id: int, _error: String) -> void:
 
 # --- 生命週期 ---
 
-func is_started() -> bool:
-	return _started
-
-
 # 關閉連線並釋放 peer（子類 stop 前置）。
 func stop() -> void:
 	if _peer != null:
