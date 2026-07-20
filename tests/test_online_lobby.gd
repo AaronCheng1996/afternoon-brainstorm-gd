@@ -18,6 +18,21 @@ func run(t: Object) -> void:
 	_test_reason_text(t)
 	_test_settings_roundtrip(t)
 	_test_display_name(t)   # P12-21 暱稱顯示
+	_test_rtt_quality(t)    # P15-2 連線品質文字（三份副本收斂後的單一定義）
+
+
+# ---------------- 9. RTT → 連線品質（P15-2）----------------
+# 這組門檻原本在 battle/draft/online_lobby 各有一份相同實作卻**三處都沒有測試**，
+# 收斂成 NetHud.quality_text 後在此釘住邊界值，日後誰改門檻都會被擋下。
+func _test_rtt_quality(t: Object) -> void:
+	t.eq(NetHud.quality_text(0), "良好", "RTT 0ms＝良好")
+	t.eq(NetHud.quality_text(79), "良好", "RTT 79ms＝良好（上界內）")
+	t.eq(NetHud.quality_text(80), "普通", "RTT 80ms＝普通（邊界）")
+	t.eq(NetHud.quality_text(159), "普通", "RTT 159ms＝普通（上界內）")
+	t.eq(NetHud.quality_text(160), "偏高", "RTT 160ms＝偏高（邊界）")
+	t.eq(NetHud.quality_text(299), "偏高", "RTT 299ms＝偏高（上界內）")
+	t.eq(NetHud.quality_text(300), "不穩", "RTT 300ms＝不穩（邊界）")
+	t.eq(NetHud.quality_text(9999), "不穩", "RTT 極大＝不穩")
 
 
 # ---------------- 0. 節點樹存在（instantiate 後 `%` 名稱解析）----------------

@@ -429,23 +429,12 @@ func _on_lobby_error(reason: String) -> void:
 
 
 func _on_rtt_measured(_peer_id: int, rtt_ms: int) -> void:
-	(%LatencyLabel as Label).text = "延遲：%d ms（%s）" % [rtt_ms, _quality_text(rtt_ms)]
+	(%LatencyLabel as Label).text = "延遲：%d ms（%s）" % [rtt_ms, NetHud.quality_text(rtt_ms)]
 	# P12-17：對戰/選秀進行中→把 RTT/連線品質轉入子場景 HUD 顯示。
 	if _battle_scene != null:
 		_battle_scene.set_rtt(rtt_ms)
 	elif _draft_scene != null:
 		_draft_scene.set_rtt(rtt_ms)
-
-
-# P12-17：RTT → 連線品質文字（純函式，供子場景 HUD 與大廳共用）。
-static func _quality_text(rtt_ms: int) -> String:
-	if rtt_ms < 80:
-		return "良好"
-	if rtt_ms < 160:
-		return "普通"
-	if rtt_ms < 300:
-		return "偏高"
-	return "不穩"
 
 
 # P12-13 選秀狀態：首份選秀 view＝進場信號。尚未在選秀/對戰畫面 → 嵌入 draft 子場景並交棒；

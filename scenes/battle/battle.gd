@@ -118,6 +118,7 @@ var _ai_focus_key: String = ""      # AI 目標圈狀態指紋（變動才重繪
 # P11-1：對戰回合計時（可選）。逾時自動結束當前（人類）玩家回合；AI 回合不計時、動畫忙碌時暫停。
 var _turn_timer := CountdownTimer.new()
 var _turn_for_timer: int = -1       # 已為哪個 turn_number 啟動過計時（偵測換手重啟）
+var _turn_secs_shown: int = -1      # P15-2：計數塊上已顯示的剩餘秒（僅變動時才重建整塊文字）
 
 # P11-2：對戰紀錄與回放。
 var _recorder: ReplayLog = null     # 對局中：記錄 seed＋牌組＋action 流（回放模式為 null＝不錄）
@@ -424,7 +425,13 @@ func _tick_turn_timer(delta: float) -> void:
 	if _turn_timer.advance(delta):
 		_do("end_turn", -1, -1)
 	elif _counts_label != null:
-		_counts_label.text = _counts_text(_core.current_player())   # 每幀更新剩餘秒
+		# P15-2：整塊計數文字裡只有「剩餘秒」會隨時間變，而它每秒才變一次；
+		# 原本逐幀重建 6～8 條字串再 join，等於用 60 次/秒去呈現 1 次/秒的變化。
+		# 其餘欄位（次數/牌庫/放置中）變動時本就會走 _refresh_hud，不靠這條路徑。
+		var secs: int = _turn_timer.remaining_seconds()
+		if secs != _turn_secs_shown:
+			_turn_secs_shown = secs
+			_counts_label.text = _counts_text(_core.current_player())
 
 
 # AI 目標圈（focus_position）狀態變動時重繪 persist 層（黃圈畫在 _persist_draw）。
@@ -734,19 +741,8 @@ func set_opponent_name(name: String) -> void:
 # P12-17：連線延遲/品質更新（lobby 週期心跳 rtt_measured 轉入）。
 func set_rtt(rtt_ms: int) -> void:
 	_net_rtt = rtt_ms
-	_net_quality = net_quality_text(rtt_ms) if rtt_ms >= 0 else ""
+	_net_quality = NetHud.quality_text(rtt_ms) if rtt_ms >= 0 else ""
 	_refresh_net_status()
-
-
-# RTT → 連線品質文字（純函式，與 draft/大廳一致的門檻）。
-static func net_quality_text(rtt_ms: int) -> String:
-	if rtt_ms < 80:
-		return "良好"
-	if rtt_ms < 160:
-		return "普通"
-	if rtt_ms < 300:
-		return "偏高"
-	return "不穩"
 
 
 func _refresh_net_status() -> void:
@@ -757,8 +753,7 @@ func _refresh_net_status() -> void:
 # P12-14：房內觀戰人數更新（lobby 於房態轉入時呼叫）。只輕量更新狀態列。
 func set_spectator_count(n: int) -> void:
 	_net_spectator_count = n
-	if _is_net and _ui_built and _counts_label != null:
-		_counts_label.text = _net_status_text()
+	_refresh_net_status()
 
 
 # 為 SPAWN 事件先建立視圖（動畫連續性：deploy 引發的傷害可解析到新棋子/既有棋子）。
@@ -868,8 +863,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if cell.x >= 0:
 			_board_click(cell)
 	elif event is InputEventMouseMotion:
-		_hover_cell = _cell_from_global(event.position)
-		_update_preview()
+		# P15-2：只有「懸停到的格真的換了」才重繪。滑鼠移動每秒觸發數十次，但預覽層與提示列
+		# 的內容只由 _hover_cell 決定——同格內的移動（以及在盤外持續移動）重畫的是同一張畫面。
+		# _update_hint_text 會查卡牌文案並讓 KeywordLabel 重解析 BBCode，逐像素做並不便宜。
+		# 其餘會影響預覽的狀態變更（切模式、切提示、切視角）各自另有 _update_preview 呼叫，不受影響。
+		var cell: Vector2i = _cell_from_global(event.position)
+		if cell != _hover_cell:
+			_hover_cell = cell
+			_update_preview()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		_handle_key(event.keycode)
 
