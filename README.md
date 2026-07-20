@@ -99,16 +99,26 @@ docs/rebuild/       重構規劃與規格（00 總覽起）
 **鐵律**：`script/core` 不得 `extends Node` / `get_tree()` / `load("res://scenes...")`。
 核心只吃 `GameAction`、吐 `GameEvent` 陣列 + 可查詢狀態；場景層訂閱事件播動畫，靠事件是否清空判斷是否可再操作。
 
-## 換美術（不改程式）
+## 美術協作（換美術不改程式）
 
-佔位視覺集中在 `scenes/battle/piece_view.gd`（`PieceView`）：
+**完整上手指南＝[`docs/rebuild/11_美術指南.md`](docs/rebuild/11_美術指南.md)**（Phase 14 產出）。三十秒版：
 
-- 每棋子有 `VisualRoot/SpriteSlot`（`Sprite2D`）動畫插槽，目前隱藏、以 `PlaceholderShape`（Polygon2D）＋文字佔位。
-- 到位美術：填 `SpriteSlot` 並隱藏 `PlaceholderShape` 即可；每張卡可在 `PieceAnimationSet` 指定待機/攻擊/投射物/命中/受擊/死亡/施法，沒指定的自動用 fallback。
-- 換圖不動規則核心與場景輸入流程。
+- **丟檔案即生效**：棋子圖 `img/piece/card/<card_id>.png`、棋盤底圖 `img/board/skin_ortho.png`／
+  `skin_iso.png`、場景背景 `img/UI/bg/<場景名>.png`。**沒放檔案就維持現行的幾何佔位/純色背景**，
+  可以一次換一張、中途畫面不會壞。各目錄內有 `README.md` 就近說明。
+- **全域樣式**：`theme/main_theme.tres`（色盤、字級、按鈕樣式）＋三個具名色
+  （先手紅/後手藍/頁籤選中黃），改一處全案生效；細節見 `theme/色盤說明.md`。
+- **元件長相**：手牌鈕、卡片列、房間列等抽成 `scenes/**/[名稱].tscn` **item 模板場景**（無腳本）。
+- **棋盤位置/格距**：拖 `battle.tscn` 的 `BoardAnchorOrtho`／`BoardAnchorIso`，格線/棋子/高亮整組隨動。
+- **特效手感**：`piece_view.tscn`／`projectile.tscn`／`impact_flash.tscn`／`battle.tscn` 的
+  「特效：*」@export 群組。
+- **預覽**：`scenes/battle/piece_gallery.tscn`（全棋子一覽，S 切貼圖/佔位）與
+  `scenes/battle/anim_demo.tscn`（攻擊演出，空白鍵重播、I 切瞬時），編輯器按 **F6** 執行。
+- **禁區**：`%` 場景唯一名稱不可改名/刪除、容器結構不可重組、`script/core` 不可動、
+  派別色不可硬編（一律 `Balance.color_rgb`）。詳見指南 §7。
 
 ---
 
 ## 文件
 
-`docs/rebuild/`：`00_總覽`（目標/鐵則/重大決策）、`01_遊戲規則規格`、`02_卡牌能力總表`、`03_CPU_AI規格`、`04_架構設計`、`05_JSON平衡同步`、`06_任務清單`（主執行清單）、`07_爬塔模式與新功能`、`08_場景編輯器化`、**`09_程式碼導覽`（每個檔案的職責說明，review 入口）**、**`10_連線版本`（Phase 12 規格定稿）**、`歸檔_已完成任務`、`進度日誌`。（`驗收_*.md` 為 Phase 2 時期的歷史檢查表；現行人工驗收清單在 `06`「人工協作待辦」。）
+`docs/rebuild/`：`00_總覽`（目標/鐵則/重大決策）、`01_遊戲規則規格`、`02_卡牌能力總表`、`03_CPU_AI規格`、`04_架構設計`、`05_JSON平衡同步`、`06_任務清單`（主執行清單）、`07_爬塔模式與新功能`、`08_場景編輯器化`、**`09_程式碼導覽`（每個檔案的職責說明，review 入口）**、**`10_連線版本`（Phase 12 規格定稿）**、**`11_美術指南`（美術接手入口，Phase 14 產出）**、`歸檔_已完成任務`、`進度日誌`。（`驗收_*.md` 為 Phase 2 時期的歷史檢查表；現行人工驗收清單在 `06`「人工協作待辦」。）
