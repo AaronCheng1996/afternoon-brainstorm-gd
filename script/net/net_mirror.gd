@@ -8,8 +8,14 @@
 # rng 留 null、draw_pile 只還原「張數」（以佔位空字串填滿，僅供 `.size()` 讀取）。
 #
 # 純資料（RefCounted、零 Node）；還原用的棋子經 PieceState.make() 取得能力元件（顯示無害、
-# 永不觸發，因為不 dispatch），再以快照公開欄位覆寫。統計不逐位還原（score_history 快照未帶，
-# 記分板趨勢在鏡像上留空；分數/回合/資源等 HUD 讀取面皆忠實）。
+# 永不觸發，因為不 dispatch），再以快照公開欄位覆寫。分數/回合/資源等 HUD 讀取面皆忠實。
+#
+# **統計（core.stats）刻意不還原**：鏡像的 `stats` 是一顆空的 Statistics。
+# 注意快照**自 P12-15 起有帶 `score_history`**（供終局折線）——原本此處註記「快照未帶」已過時
+# （P15-3 更正）。終局折線並不經鏡像：battle 的 `_finish_net_game` 直接從快照取 score_history
+# 交給 end_game。因此鏡像上「記分板趨勢留空」是現況而非必然；若日後要讓連線對戰的記分板
+# 也顯示趨勢，把 `snap["score_history"]` 灌回 `core.stats.score_history` 即可（屬行為變更，
+# 需另開任務，不在 review 範圍）。
 class_name NetMirror
 extends RefCounted
 
